@@ -2,8 +2,10 @@
 *.log
 
 project/target/
+project/project/
 target/
 
 .idea/
 
 .bsp/
+
