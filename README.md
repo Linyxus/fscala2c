@@ -1,2 +1,2 @@
-# scala2c
- A Scala-to-C compiler.
+# fs2c
+ A Featherweight Scala to C compiler.
