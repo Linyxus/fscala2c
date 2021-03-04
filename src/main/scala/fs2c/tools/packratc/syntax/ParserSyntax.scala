@@ -29,6 +29,18 @@ trait ParserSyntax {
      */
     def >>[Y](q: => Parser[T, Y]): Parser[T, Y] = (p ~ q) <| (_._2)
 
+    /** `p << q === (p ~ q) <| (_._1)`
+     */
+    def <<[Y](q: => Parser[T, Y]): Parser[T, X] = (p ~ q) <| (_._1)
+
+    /** `p & q == p << q.lookAhead`
+     */
+    def &[Y](q: => Parser[T, Y]): Parser[T, X] = p << q.lookAhead
+    
+    /** `p &! q == p << q.not`
+     */
+    def &![Y](q: => Parser[T, Y]): Parser[T, X] = p << q.not
+
     /** `p ?? what === p is what`
      */
     def ??(what: String): Parser[T, X] = p is what
