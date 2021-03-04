@@ -1,5 +1,5 @@
 package fs2c.tools.packratc
-import fs2c.tools.packratc.Parser.{ParserError, Result}
+import fs2c.tools.packratc.Parser.{ParseError, Result}
 
 import scala.collection.mutable
 
@@ -44,10 +44,9 @@ abstract class Parser[T, X] {
   /** Return the same parser as `this` except for a different description string.
    *  The `_parse` logic and the packrat `cache` will be copied.
    */
-  def is(what: String): Parser[T, X] = {
+  def is(whatStr: String): Parser[T, X] = {
     def oldParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] = _parse(xs)
     val oldCache = cache
-    val whatStr = what
     new Parser[T, X] {
       override protected val cache: mutable.HashMap[LazyList[_], Result[T, X]] = oldCache
       override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = oldParse(xs)
@@ -187,11 +186,13 @@ abstract class Parser[T, X] {
 
   /** A parser that succeeds iff `this` fails.
    */
-  def not(errorMsg: String = s"unexpected ${this.what}"): Parser[T, Unit] = {
+  def not: Parser[T, Unit] = {
+    val errorMsg: String = s"unexpected ${this.what}"
+    
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, Unit] = {
       parse(xs) match {
         case Left(e) => Right((), xs)
-        case Right(value, rem) => Left(ParserError(None, errorMsg))
+        case Right(value, rem) => Left(ParseError(None, errorMsg, what))
       }
     }
 
@@ -208,12 +209,14 @@ object Parser extends ParserFunctions {
    * @param msg Error message.
    * @tparam T Input token type of the related parser (for storing the related token).
    */
-  case class ParserError[T](token: Option[T], msg: String)
+  case class ParseError[T](token: Option[T], msg: String, what: String) {
+    override def toString: String = s"error when parsing $what: $msg"
+  }
 
   /** Result of parsing.
    *
    *  - `Left(e)` means the parser fails with error e`.
    *  - `Right(x, s)` means the parser succeeds with result value x` and remaining token stream `s`.
    */
-  type Result[T, X] = Either[ParserError[T], (X, LazyList[T])]
+  type Result[T, X] = Either[ParseError[T], (X, LazyList[T])]
 }

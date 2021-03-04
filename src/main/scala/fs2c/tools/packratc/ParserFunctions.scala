@@ -1,6 +1,6 @@
 package fs2c.tools.packratc
 
-import fs2c.tools.packratc.Parser.{ParserError, Result}
+import fs2c.tools.packratc.Parser.{ParseError, Result}
 
 trait ParserFunctions {
   /** Simply returns the `value`. No parsing.
@@ -14,8 +14,8 @@ trait ParserFunctions {
   def satisfy[T](predicate: T => Boolean) = new Parser[T, T] {
     override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
       case x #:: xs if predicate(x) => Right(x, xs)
-      case x #:: _ => Left(ParserError(Some(x), s"do not satisfy the predicate"))
-      case _ => Left(ParserError(None, s"expect more token, but find end of stream"))
+      case x #:: _ => Left(ParseError(Some(x), s"do not satisfy the predicate", this.what))
+      case _ => Left(ParseError(None, s"expect more token, but find end of stream", this.what))
     }
   }
   
@@ -24,8 +24,8 @@ trait ParserFunctions {
   def token[T](expected: T) = new Parser[T, T] {
     override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
       case x #:: xs if x == expected => Right(expected, xs)
-      case x #:: _ => Left(ParserError(Some(x), s"expected: $expected"))
-      case _ => Left(ParserError(None, s"expected: $expected, but find end of stream"))
+      case x #:: _ => Left(ParseError(Some(x), s"expected: $expected", this.what))
+      case _ => Left(ParseError(None, s"expected: $expected, but find end of stream", this.what))
     }
   } is s"$expected"
 
