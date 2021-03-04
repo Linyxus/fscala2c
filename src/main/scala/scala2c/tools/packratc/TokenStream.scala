@@ -7,7 +7,7 @@ package scala2c.tools.packratc
 trait TokenStream[T] {
   /** The lazy list for all tokens.
    */
-  val allTokens: List[T]
+  val allTokens: LazyList[T]
 
   /** Push current position into the block indent stack.
    *
