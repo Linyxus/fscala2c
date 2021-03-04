@@ -5,6 +5,9 @@ import scala2c.tools.fp.syntax._
 import ScalaTokenType._
 
 class Tokenizer(val source: Source) extends OptionSyntax {
+  
+  case class TokenizerError(msg: String) extends Exception
+  
   var start: Int = 0
   var current: Int = 0
   var newLineProduced: Boolean = true
@@ -28,7 +31,9 @@ class Tokenizer(val source: Source) extends OptionSyntax {
     indentLevels = start :: indentLevels
 
   def endBlock(): Unit = indentLevels = indentLevels match {
-    case Nil => Nil
+    case Nil => 
+      throw TokenizerError("indent stack is empty; this must be a bug in the implementation; please open an issue")
+    case _ :: Nil => throw TokenizerError("can not pop the root indent level")
     case _ :: xs => xs
   }
 
@@ -89,7 +94,7 @@ class Tokenizer(val source: Source) extends OptionSyntax {
    */
   def skipSpace: Boolean =
     !eof && (
-      ({ Set(' ', '\n', '\t', '\r') contains peek } && 
+      ({ Set(' ', '\n', '\t', '\r') contains peek } &&
         { if Set('\n', '\r') contains forward then crossLineEnd = true; true }) || {
         peek == '/' && lookAhead('*') && {
           @annotation.tailrec def go(state: Int): Unit =
@@ -201,6 +206,6 @@ class Tokenizer(val source: Source) extends OptionSyntax {
 }
 
 object Tokenizer {
-  def tokenize(source: Source): List[ScalaToken] = 
+  def tokenize(source: Source): List[ScalaToken] =
     new Tokenizer(source).allTokens
 }
