@@ -9,13 +9,13 @@ class Tokenizer(val source: Source) extends OptionSyntax {
   var current: Int = 0
   var newLineProduced: Boolean = true
   var indentLevels: List[Int] = List(0)
-  
+
   def content: String = source.content
-  
+
   def blockIdentLevel: Int = indentLevels.head
-  
+
   def currentIdentLevel: Int = {
-    var i = current
+    var i = current - 1
     var x = 0
     while i >= 0 && content(i) != '\n' do {
       i -= 1
@@ -23,30 +23,29 @@ class Tokenizer(val source: Source) extends OptionSyntax {
     }
     x
   }
-  
-  def startBlock(): Unit = 
+
+  def startBlock(): Unit =
     indentLevels = start :: indentLevels
-  
+
   def endBlock(): Unit = indentLevels = indentLevels match {
     case Nil => Nil
     case _ :: xs => xs
   }
-  
+
   def makeToken(tokenType: ScalaTokenType): ScalaToken =
     ScalaToken(SourcePos(source, start), current - start, tokenType)
-  
+
   def maybeProduceNewLine: Option[ScalaToken] =
-    if !newLineProduced && currentIdentLevel <= blockIdentLevel then {
+    if !newLineProduced && crossLineEnd && currentIdentLevel <= blockIdentLevel then {
       newLineProduced = true
-      endBlock()
       Some(makeToken(NewLine))
     } else {
       newLineProduced = false
       None
     }
-  
+
   def eof: Boolean = current == content.length
-  
+
   def peek: Char = {
     assert(!eof, s"can not peek at end of file")
     content(current)
@@ -85,15 +84,17 @@ class Tokenizer(val source: Source) extends OptionSyntax {
   def look(chars: Char*): Boolean =
     (chars contains peek) && { forward; true }
 
+  var crossLineEnd = false
   /** Skip one space character, or a section of comment.
    */
   def skipSpace: Boolean =
     !eof && (
-      ({ Set(' ', '\n', '\t', '\r') contains peek } && { forward; true }) || { 
+      ({ Set(' ', '\n', '\t', '\r') contains peek } && 
+        { if Set('\n', '\r') contains forward then crossLineEnd = true; true }) || {
         peek == '/' && lookAhead('*') && {
           @annotation.tailrec def go(state: Int): Unit =
             forward match {
-              case '*' => 
+              case '*' =>
                 go(1)
               case '/' if state == 1 =>
                 ()
@@ -108,12 +109,15 @@ class Tokenizer(val source: Source) extends OptionSyntax {
 
   /** Skip spaces until eof or the next character is neither space nor comment.
    */
-  def skipSpaces(): Unit = while skipSpace do ()
+  def skipSpaces(): Unit = {
+    crossLineEnd = false
+    while skipSpace do ()
+  }
 
   /** Parse a symbol starting with a letter and consists of letters and digits.
    */
   def symbol: String = {
-    while peek.isLetterOrDigit do 
+    while !eof && peek.isLetterOrDigit do
       forward
     content.substring(start, current)
   }
@@ -132,7 +136,7 @@ class Tokenizer(val source: Source) extends OptionSyntax {
     case "extends" => Some(KeywordExtends)
     case _ => None
   }
-  
+
   def identifier(str: String): ScalaTokenType = Identifier(str)
 
   /** Skip spaces and get next token.
@@ -189,9 +193,14 @@ class Tokenizer(val source: Source) extends OptionSyntax {
       }
     }
   }
-  
-  def allTokens: LazyList[ScalaToken] = nextToken match {
-    case ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList.empty
-    case t => t #:: allTokens
+
+  def allTokens: List[ScalaToken] = nextToken match {
+    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
+    case t => t :: allTokens
   }
+}
+
+object Tokenizer {
+  def tokenize(source: Source): List[ScalaToken] = 
+    new Tokenizer(source).allTokens
 }

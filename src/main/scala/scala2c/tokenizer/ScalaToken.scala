@@ -50,4 +50,12 @@ enum ScalaTokenType {
   case Error(msg: String)
 }
 
-case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenType)
+case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenType) {
+  def showInSource: String = {
+    val (lineNum, linePos, lineStr) = sourcePos.extractLine
+    val header = s" $lineNum | "
+    val signSpace = " ".repeat(header.length + linePos)
+    val sign = "^".repeat(if length <= 0 then 1 else length)
+    s"$header$lineStr\n$signSpace$sign"
+  }
+}
