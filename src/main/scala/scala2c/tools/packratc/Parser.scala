@@ -3,7 +3,7 @@ import scala2c.tools.packratc.Parser.{ParserError, Result}
 
 import scala.collection.mutable
 
-/** A Packrat parser, parsing a stream of tokens of type T and producing a value of type X.
+/** A Packrat parser for PEG, parsing a stream of tokens of type T and producing a value of type X.
  *  ```
  *  LazyList[Token] --- Parser[Token, Value] --> Value
  *  ```
