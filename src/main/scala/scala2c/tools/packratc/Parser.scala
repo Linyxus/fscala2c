@@ -12,16 +12,16 @@ import scala.collection.mutable
  */
 abstract class Parser[T, X] {
   protected val cache: mutable.HashMap[LazyList[_], Parser.Result[T, X]] = mutable.HashMap.empty
-  
+
   /** Run the parser on the given input with a context. The results are memoized.
-   * 
+   *
    *  @param xs The input token stream.
    *  @param ctx The parsing context.
    *  @return The result of parsing.
    */
   def parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] =
     cache.get(xs) match {
-      case Some(value) => 
+      case Some(value) =>
         value
       case None =>
         val result = _parse(xs)
@@ -30,13 +30,13 @@ abstract class Parser[T, X] {
     }
 
   /** The actual parsing logic. Do not take care of memoization.
-   * 
+   *
    *  @param xs
    *  @param ctx
    *  @return
    */
   protected  def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X]
-  
+
   /** Returns `what` stuff `this` parser combinator parses.
    */
   def what: String = "<unspecified>"
@@ -61,7 +61,7 @@ abstract class Parser[T, X] {
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, Y] = {
       parse(xs) map { case (x, s) => (func(x), s) }
     }
-    
+
     new Parser[T, Y] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Y] = newParse(xs)
     }
@@ -71,26 +71,26 @@ abstract class Parser[T, X] {
    */
   def flatMap[Y](mfunc: X => Parser[T, Y]) = {
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, Y] = {
-      parse(xs) flatMap { case (x, s) => 
+      parse(xs) flatMap { case (x, s) =>
         val other = mfunc(x)
         other.parse(s)
       }
     }
-    
+
     new Parser[T, Y] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Y] = newParse(xs)
     }
   }
 
   /** Producing a new parser parsing two parsers `this` and `other` in sequence.
-   * 
+   *
    *  `p1 seq p2` succeeds only if `p1` succeeds and `p2` also succeeds on the remaining part of the input.
-   * 
+   *
    *  @param other Parser to run after `this`.
    *  @tparam Y Result value type of `other`.
    *  @return A new parser constructed.
    */
-  def seq[Y](other: Parser[T, Y]): Parser[T, (X, Y)] = {
+  def seq[Y](other: => Parser[T, Y]): Parser[T, (X, Y)] = {
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, (X, Y)] = {
       parse(xs) match {
         case Left(e) => Left(e)
@@ -101,7 +101,7 @@ abstract class Parser[T, X] {
           }
       }
     }
-    
+
     new Parser[T, (X, Y)] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, (X, Y)] = newParse(xs)
     }
@@ -115,14 +115,14 @@ abstract class Parser[T, X] {
    *  @tparam Y Result value type of `other`.
    *  @return A new parser constructed.
    */
-  def or[Y](other: Parser[T, Y]): Parser[T, X | Y] = {
+  def or[Y](other: => Parser[T, Y]): Parser[T, X | Y] = {
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X | Y] = {
       parse(xs) match {
         case Right(x, rem) => Right(x, rem)
         case Left(_) => other.parse(xs)
       }
     }
-    
+
     new Parser[T, X | Y] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X | Y] = newParse(xs)
     }
@@ -147,15 +147,15 @@ abstract class Parser[T, X] {
    */
   def many: Parser[T, List[X]] = {
     val whatStr = s"zero or more $what"
-      
+
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, List[X]] = {
       @annotation.tailrec def recur(xs: LazyList[T], acc: List[X]): (List[X], LazyList[T]) =
         parse(xs) match {
           case Left(_) => (acc, xs)
           case Right(value, rem) => recur(rem, value :: acc)
         }
-      
-      Right(recur(xs, Nil))
+
+      Right(recur(xs, Nil) match { case (xs, rem) => (xs.reverse, rem) })
     }
 
     new Parser[T, List[X]] {
@@ -179,7 +179,7 @@ abstract class Parser[T, X] {
         case Right(value, rem) => Right(value, xs)
       }
     }
-    
+
     new Parser[T, X] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = newParse(xs)
     }
@@ -201,9 +201,9 @@ abstract class Parser[T, X] {
   }
 }
 
-object Parser {
+object Parser extends ParserFunctions {
   /** Records the error throwed by a parser.
-   * 
+   *
    * @param token Token where the error is generated. Optional.
    * @param msg Error message.
    * @tparam T Input token type of the related parser (for storing the related token).
@@ -211,33 +211,9 @@ object Parser {
   case class ParserError[T](token: Option[T], msg: String)
 
   /** Result of parsing.
-   * 
+   *
    *  - `Left(e)` means the parser fails with error e`.
    *  - `Right(x, s)` means the parser succeeds with result value x` and remaining token stream `s`.
    */
   type Result[T, X] = Either[ParserError[T], (X, LazyList[T])]
-
-  /** Make a parser that matches the token `expected`.
-   */
-  def token[T](expected: T) = new Parser[T, T] {
-    override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
-      case x #:: xs if x == expected => Right(expected, xs)
-      case x #:: _ => Left(ParserError(Some(x), s"expected: $expected"))
-      case _ => Left(ParserError(None, s"expected: $expected, but find end of stream"))
-    }
-  } is s"$expected"
-
-  /** Parse nothing, simply masking the start of a block and pushing the current indent level into the stack.
-   */
-  def blockStart[T] = new Parser[T, Unit] {
-    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
-      Right(ctx.stream.startBlock, xs)
-  }
-
-  /** Parse nothing. Pop the indent level from the stack.
-   */
-  def blockEnd[T] = new Parser[T, Unit] {
-    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
-      Right(ctx.stream.endBlock, xs)
-  }
 }
