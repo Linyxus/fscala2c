@@ -208,6 +208,11 @@ class Tokenizer(val source: Source) extends OptionSyntax {
     case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
     case t => t :: allTokens
   }
+  
+  def allTokensLazy: LazyList[ScalaToken] = nextToken match {
+    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
+    case t => t #:: allTokensLazy
+  }
 }
 
 object Tokenizer {
