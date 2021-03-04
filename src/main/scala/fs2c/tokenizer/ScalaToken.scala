@@ -58,4 +58,6 @@ case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenTy
     val sign = "^".repeat(if length <= 0 then 1 else length)
     s"$header$lineStr\n$signSpace$sign"
   }
+
+  override def toString: String = s"\n$showInSource\n$tokenType\n"
 }
