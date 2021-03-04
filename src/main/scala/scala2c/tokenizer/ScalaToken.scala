@@ -15,6 +15,7 @@ enum ScalaTokenType {
   case Equal
   case Colon
   case Comma
+  case Dot
   case BigRightArrow
   case KeywordNew
   case KeywordClass
@@ -46,6 +47,7 @@ enum ScalaTokenType {
   case Bang
   case NewLine
   case EndOfSource
+  case Error(msg: String)
 }
 
 case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenType)
