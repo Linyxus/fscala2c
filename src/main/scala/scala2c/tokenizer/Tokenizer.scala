@@ -12,6 +12,7 @@ class Tokenizer(val source: Source) extends OptionSyntax {
   var current: Int = 0
   var newLineProduced: Boolean = true
   var indentLevels: List[Int] = List(0)
+  var blockStarting: Boolean = false
 
   def content: String = source.content
 
@@ -29,6 +30,9 @@ class Tokenizer(val source: Source) extends OptionSyntax {
 
   def startBlock(): Unit =
     indentLevels = start :: indentLevels
+  
+  def prepareStartBlock(): Unit =
+    blockStarting = true
 
   def endBlock(): Unit = indentLevels = indentLevels match {
     case Nil => 
@@ -158,6 +162,7 @@ class Tokenizer(val source: Source) extends OptionSyntax {
   def nextToken: ScalaToken = {
     skipSpaces()
     start = current
+    if blockStarting then startBlock()
     if eof then
       makeToken(EndOfSource)
     else maybeProduceNewLine match {
