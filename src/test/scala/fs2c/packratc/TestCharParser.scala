@@ -1,9 +1,9 @@
-package scala2c.packratc
+package fs2c.packratc
 
 import org.junit.Test
 import org.junit.Assert._
 
-import scala2c.tools.packratc.char._
+import fs2c.tools.packratc.char._
 import CharParser._
 
 class TestCharParser {

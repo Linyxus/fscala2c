@@ -1,6 +1,6 @@
-package scala2c.io
+package fs2c.io
 
-case class SourcePos(source: Source, pos: Int) {
+case class SourcePos(source: ScalaSource, pos: Int) {
   def extractLine: (Int, Int, String) = {
     if pos > source.content.length then
       (-1, -1, "")

@@ -1,4 +1,4 @@
-package scala2c.tools.packratc
+package fs2c.tools.packratc
 
 /** Interface for a token stream, as an input to the packrat parser.
  *

@@ -1,4 +1,4 @@
-package scala2c.tools.data
+package fs2c.tools.data
 
 trait LazyListTools {
   def fromList[X](xs: List[X]): LazyList[X] = {

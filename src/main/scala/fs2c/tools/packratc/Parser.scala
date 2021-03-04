@@ -1,5 +1,5 @@
-package scala2c.tools.packratc
-import scala2c.tools.packratc.Parser.{ParserError, Result}
+package fs2c.tools.packratc
+import fs2c.tools.packratc.Parser.{ParserError, Result}
 
 import scala.collection.mutable
 

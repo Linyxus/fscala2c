@@ -1,6 +1,6 @@
-package scala2c.tools.packratc.syntax
+package fs2c.tools.packratc.syntax
 
-import scala2c.tools.packratc.Parser
+import fs2c.tools.packratc.Parser
 import Parser._
 
 trait ParserSyntax {

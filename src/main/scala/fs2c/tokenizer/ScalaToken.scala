@@ -1,6 +1,6 @@
-package scala2c.tokenizer
+package fs2c.tokenizer
 
-import scala2c.io.SourcePos
+import fs2c.io.SourcePos
 
 enum ScalaTokenType {
   case LeftBrace

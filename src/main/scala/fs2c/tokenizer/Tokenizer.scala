@@ -1,10 +1,10 @@
-package scala2c.tokenizer
+package fs2c.tokenizer
 
-import scala2c.io.{Source, SourcePos}
-import scala2c.tools.fp.syntax._
+import fs2c.io.{ScalaSource, SourcePos}
+import fs2c.tools.fp.syntax._
 import ScalaTokenType._
 
-class Tokenizer(val source: Source) extends OptionSyntax {
+class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   
   case class TokenizerError(msg: String) extends Exception
   
@@ -216,6 +216,6 @@ class Tokenizer(val source: Source) extends OptionSyntax {
 }
 
 object Tokenizer {
-  def tokenize(source: Source): List[ScalaToken] =
+  def tokenize(source: ScalaSource): List[ScalaToken] =
     new Tokenizer(source).allTokens
 }

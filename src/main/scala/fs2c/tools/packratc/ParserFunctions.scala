@@ -1,6 +1,6 @@
-package scala2c.tools.packratc
+package fs2c.tools.packratc
 
-import scala2c.tools.packratc.Parser.{ParserError, Result}
+import fs2c.tools.packratc.Parser.{ParserError, Result}
 
 trait ParserFunctions {
   /** Simply returns the `value`. No parsing.

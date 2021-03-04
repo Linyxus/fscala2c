@@ -1,8 +1,8 @@
-package scala2c.tools.packratc.char
+package fs2c.tools.packratc.char
 
-import scala2c.tools.data._
+import fs2c.tools.data._
 
-import scala2c.tools.packratc.{ParserFunctions => general}
+import fs2c.tools.packratc.{ParserFunctions => general}
 import CharParser._
 import LazyListTools._
 

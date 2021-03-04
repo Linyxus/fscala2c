@@ -1,4 +1,4 @@
-package scala2c.tools.fp.syntax
+package fs2c.tools.fp.syntax
 
 trait OptionSyntax {
   extension[A] (ma: Option[A]) {

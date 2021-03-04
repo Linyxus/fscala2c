@@ -1,6 +1,6 @@
-package scala2c.tools.packratc.char
+package fs2c.tools.packratc.char
 
-import scala2c.tools.packratc
+import fs2c.tools.packratc
 
 trait CharParser {
   type Parser[X] = packratc.Parser[Char, X]
