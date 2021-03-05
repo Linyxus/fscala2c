@@ -210,7 +210,7 @@ object Parser extends ParserFunctions {
    * @tparam T Input token type of the related parser (for storing the related token).
    */
   case class ParseError[T](token: Option[T], msg: String, what: String) {
-    override def toString: String = s"error when parsing $what: $msg"
+    override def toString: String = s"error when parsing $what at $token: $msg"
   }
 
   /** Result of parsing.
