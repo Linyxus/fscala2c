@@ -35,6 +35,7 @@ trait ParserSyntax {
       case "while" => tokenOfType(ScalaTokenType.KeywordWhile)
       case "do" => tokenOfType(ScalaTokenType.KeywordDo)
       case "<EOF>" => tokenOfType(ScalaTokenType.EndOfSource)
+      case "<NL>" => tokenOfType(ScalaTokenType.NewLine)
       case s => tokenOfType(ScalaTokenType.Identifier(s))
     }
 }

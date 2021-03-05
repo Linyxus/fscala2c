@@ -42,4 +42,12 @@ trait ScalaTokenFunctions {
     case ScalaToken(_, _, tokenType) if tokenType == expected => true
     case _ => false
   } is s"token of type $expected"
+
+  /** Mark the start of a block; parse nothing.
+   */
+  def blockStart: Parser[Unit] = general.blockStart
+
+  /** Mark the end of a block; parse nothing.
+   */
+  def blockEnd: Parser[Unit] = general.blockEnd
 }
