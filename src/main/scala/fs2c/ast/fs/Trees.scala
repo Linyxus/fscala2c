@@ -25,7 +25,7 @@ trait Trees {
    *  ```
    *  would be converted to
    *  ```scala
-   *  ClassDef(Foo, Bar, List(...))
+   *  ClassDef(sym = Foo, parent = Some(Bar), List(...))
    *  ```
    */
   case class ClassDef[F[_]](sym: Symbol[ClassDef[F]], parent: Option[Symbol[ClassValue]], members: List[F[MemberDef[F]]]) extends ClassValue
