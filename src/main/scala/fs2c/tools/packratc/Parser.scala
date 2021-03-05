@@ -11,7 +11,7 @@ import scala.collection.mutable
  *  @tparam X The output value type.
  */
 abstract class Parser[T, X] {
-  protected val cache: mutable.HashMap[LazyList[_], Parser.Result[T, X]] = mutable.HashMap.empty
+  protected var cache: Map[LazyList[_], Parser.Result[T, X]] = Map.empty
 
   /** Run the parser on the given input with a context. The results are memoized.
    *
@@ -25,7 +25,7 @@ abstract class Parser[T, X] {
         value
       case None =>
         val result = _parse(xs)
-        cache.update(xs, result)
+        cache = cache.updated(xs, result)
         result
     }
 
@@ -39,7 +39,7 @@ abstract class Parser[T, X] {
 
   /** Returns `what` stuff `this` parser combinator parses.
    */
-  def what: String = "<unspecified>"
+  var what: String = "<unspecified>"
 
   /** Return the same parser as `this` except for a different description string.
    *  The `_parse` logic and the packrat `cache` will be copied.
@@ -48,9 +48,10 @@ abstract class Parser[T, X] {
     def oldParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] = _parse(xs)
     val oldCache = cache
     new Parser[T, X] {
-      override protected val cache: mutable.HashMap[LazyList[_], Result[T, X]] = oldCache
       override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = oldParse(xs)
-      override def what: String = whatStr
+      
+      cache = oldCache
+      what = whatStr
     }
   }
 
@@ -160,7 +161,7 @@ abstract class Parser[T, X] {
     new Parser[T, List[X]] {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, List[X]] = newParse(xs)
 
-      override def what: String = whatStr
+      what = whatStr
     }
   }
 
