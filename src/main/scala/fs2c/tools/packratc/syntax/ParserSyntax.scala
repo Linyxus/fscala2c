@@ -2,7 +2,6 @@ package fs2c.tools.packratc.syntax
 
 import fs2c.tools.packratc.Parser
 import Parser._
-import SeqSyntax._
 
 trait ParserSyntax {
   extension[T, X] (p: Parser[T, X]) {

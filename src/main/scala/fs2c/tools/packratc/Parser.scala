@@ -8,7 +8,7 @@ import fs2c.tools.packratc.Parser.{ParseError, Result}
  *  @tparam T The input token type.
  *  @tparam X The output value type.
  */
-abstract class Parser[T, X] {
+abstract class Parser[T, X](val desc: Option[String]) {
   import Parser.~
   
   protected var cache: Map[LazyList[_], Parser.Result[T, X]] = Map.empty
@@ -19,7 +19,7 @@ abstract class Parser[T, X] {
    *  @param ctx The parsing context.
    *  @return The result of parsing.
    */
-  def parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] =
+  def parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] = {
     cache.get(xs) match {
       case Some(value) =>
         value
@@ -28,6 +28,7 @@ abstract class Parser[T, X] {
         cache = cache.updated(xs, result)
         result
     }
+  }
 
   /** The actual parsing logic. Do not take care of memoization.
    *
@@ -36,22 +37,24 @@ abstract class Parser[T, X] {
    *  @return
    */
   protected  def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X]
-
-  /** Returns `what` stuff `this` parser combinator parses.
-   */
-  var what: String = "<unspecified>"
+  
+  private def headToken(xs: LazyList[T]): Option[T] = xs match {
+    case t #:: _ => Some(t)
+    case _ => None
+  }
 
   /** Return the same parser as `this` except for a different description string.
    *  The `_parse` logic and the packrat `cache` will be copied.
    */
   def is(whatStr: String): Parser[T, X] = {
-    def oldParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] = _parse(xs)
-    val oldCache = cache
-    new Parser[T, X] {
-      override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = oldParse(xs)
-      
-      cache = oldCache
-      what = whatStr
+    val that = this
+    new Parser[T, X](Some(whatStr)) {
+      override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = 
+        that._parse(xs) match {
+          case Left(ParseError(x :: rem, tk)) => Left(ParseError(whatStr :: rem, tk))
+          case x => x
+        }
+      cache = that.cache
     }
   }
 
@@ -62,7 +65,7 @@ abstract class Parser[T, X] {
       parse(xs) map { case (x, s) => (func(x), s) }
     }
 
-    new Parser[T, Y] {
+    new Parser[T, Y](desc) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Y] = newParse(xs)
     }
   }
@@ -77,7 +80,7 @@ abstract class Parser[T, X] {
       }
     }
 
-    new Parser[T, Y] {
+    new Parser[T, Y](desc) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Y] = newParse(xs)
     }
   }
@@ -91,19 +94,19 @@ abstract class Parser[T, X] {
    *  @return A new parser constructed.
    */
   def seq[Y](other: => Parser[T, Y]): Parser[T, X ~ Y] = {
-    def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X ~ Y] = {
-      parse(xs) match {
-        case Left(e) => Left(e)
-        case Right(x, rem) =>
-          other.parse(rem) match {
-            case Left(e) => Left(e)
-            case Right(y, rem) => Right(new ~(x, y), rem)
-          }
+    val that = this
+    
+    new Parser[T, X ~ Y](desc map { s => s"$s" }) {
+      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X ~ Y] = {
+        that.parse(xs) match {
+          case Left(ParseError(stack, _)) => fail(xs, stack)
+          case Right(x, rem) =>
+            other.parse(rem) match {
+              case Left(ParseError(stack, _)) => fail(rem, stack)
+              case Right(y, rem) => Right(new ~(x, y), rem)
+            }
+        }
       }
-    }
-
-    new Parser[T, X ~ Y] {
-      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X ~ Y] = newParse(xs)
     }
   }
 
@@ -116,15 +119,17 @@ abstract class Parser[T, X] {
    *  @return A new parser constructed.
    */
   def or[Y](other: => Parser[T, Y]): Parser[T, X | Y] = {
-    def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X | Y] = {
-      parse(xs) match {
-        case Right(x, rem) => Right(x, rem)
-        case Left(_) => other.parse(xs)
-      }
-    }
-
-    new Parser[T, X | Y] {
-      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X | Y] = newParse(xs)
+    val that = this
+    
+    new Parser[T, X | Y](desc map { s => s"$s" }) {
+      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X | Y] =
+        that.parse(xs) match {
+          case Right(x, rem) => Right(x, rem)
+          case Left(_) => other.parse(xs) match {
+            case Right(x, rem) => Right(x, rem)
+            case Left(ParseError(stack, _)) => fail(xs, stack)
+          }
+        }
     }
   }
 
@@ -138,7 +143,7 @@ abstract class Parser[T, X] {
       }
     }
 
-    new Parser[T, Option[X]] {
+    new Parser[T, Option[X]](desc) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Option[X]] = newParse(xs)
     }
   }
@@ -146,7 +151,7 @@ abstract class Parser[T, X] {
   /** Returns a new parser that parses `this` for zero or more times.
    */
   def many: Parser[T, List[X]] = {
-    val whatStr = s"zero or more $what"
+    val whatStr = desc map { s => s"zero or more $s" }
 
     def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, List[X]] = {
       @annotation.tailrec def recur(xs: LazyList[T], acc: List[X]): (List[X], LazyList[T]) =
@@ -158,17 +163,15 @@ abstract class Parser[T, X] {
       Right(recur(xs, Nil) match { case (xs, rem) => (xs.reverse, rem) })
     }
 
-    new Parser[T, List[X]] {
+    new Parser[T, List[X]](whatStr) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, List[X]] = newParse(xs)
-
-      what = whatStr
     }
   }
 
   /** Returns a new parser that parses `this` for one or more times.
    */
   def some: Parser[T, X ~ List[X]] =
-    (this seq many) is s"one or more $what"
+    this seq many
 
   /** Returns a parser the same as `this`, except that it will not consume input even if it succeeds.
    */
@@ -180,7 +183,7 @@ abstract class Parser[T, X] {
       }
     }
 
-    new Parser[T, X] {
+    new Parser[T, X](desc) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] = newParse(xs)
     }
   }
@@ -188,18 +191,26 @@ abstract class Parser[T, X] {
   /** A parser that succeeds iff `this` fails.
    */
   def not: Parser[T, Unit] = {
-    val errorMsg: String = s"unexpected ${this.what}"
+    val errorMsg = desc map {  s => s"something not $s" }
+    val that = this
     
-    def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, Unit] = {
-      parse(xs) match {
-        case Left(e) => Right((), xs)
-        case Right(value, rem) => Left(ParseError(None, errorMsg, what))
-      }
+    new Parser[T, Unit](errorMsg) {
+      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
+        that.parse(xs) match {
+          case Left(e) => Right((), xs)
+          case Right(value, rem) => fail(xs, Nil)
+        }
     }
-
-    new Parser[T, Unit] {
-      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] = newParse(xs)
-    }
+  }
+  
+  protected def fail[Y](input: LazyList[T], oldStack: List[String]): Result[T, Y] = Left {
+    ParseError(
+      parseStack = desc match {
+        case None => oldStack
+        case Some(s) => s :: oldStack
+      },
+      token = headToken(input)
+    ) 
   }
 }
 
@@ -210,8 +221,9 @@ object Parser extends ParserFunctions {
    * @param msg Error message.
    * @tparam T Input token type of the related parser (for storing the related token).
    */
-  case class ParseError[T](token: Option[T], msg: String, what: String) {
-    override def toString: String = s"error when parsing $what at $token: $msg"
+  case class ParseError[T](parseStack: List[String], token: Option[T]) {
+    override def toString: String = 
+      s"${token.getOrElse("<unknown location>")}parse error when parsing ${parseStack map {x => s"<$x>"} mkString " .. "}"
   }
 
   /** Result of parsing.

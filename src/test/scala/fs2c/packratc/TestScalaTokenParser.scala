@@ -15,9 +15,10 @@ class TestScalaTokenParser {
   def assertParseFailure[X](result: Result[X]): Unit = assertFalse(result.isRight)
   
   def assertParseSuccess[X](result: Result[X], value: X): Unit = {
-    assertTrue(result.isRight)
     result match {
       case Right(x, _) => assertEquals(value, x)
+      case _ =>
+        assertTrue(result.isRight)
     }
   }
   
@@ -47,9 +48,9 @@ class TestScalaTokenParser {
     }
   }
 
-  lazy val symb: Parser[Expr] = identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
+  lazy val symb: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
     ("(" ~ expr ~ ")") <| { case _ ~ e ~ _ => e }
-  }
+  }) is "symbol or (expr)"
   lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case x ~ xs =>
     val ys = xs map (_._2)
     foldTree((a, b) => Expr.Mult(a, b), x, ys)

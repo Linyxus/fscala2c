@@ -59,5 +59,5 @@ case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenTy
     s"$header$lineStr\n$signSpace$sign"
   }
 
-  override def toString: String = s"\n$showInSource\n$tokenType\n"
+  override def toString: String = s"\n$showInSource\n"
 }
