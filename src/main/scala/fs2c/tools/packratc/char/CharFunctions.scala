@@ -5,6 +5,7 @@ import fs2c.tools.data._
 import fs2c.tools.packratc.{ParserFunctions => general}
 import CharParser._
 import LazyListTools._
+import fs2c.tools.packratc.Parser.~
 
 /** Tool functions for char Parser.
  */
@@ -35,7 +36,7 @@ trait CharFunctions {
   def string(str: String): Parser[String] = {
     @annotation.tailrec def recur(xs: List[Char], acc: Parser[String]): Parser[String] = xs match {
       case Nil => acc
-      case x :: xs => recur(xs, { acc ~ char(x) } <| { case (str, c) => s"$str$c" })
+      case x :: xs => recur(xs, { acc ~ char(x) } <| { case str ~ c => s"$str$c" })
     }
     recur(str.toList, general.pure(""))
   }

@@ -1,8 +1,6 @@
 package fs2c.tools.packratc
 import fs2c.tools.packratc.Parser.{ParseError, Result}
 
-import scala.collection.mutable
-
 /** A Packrat parser for PEG, parsing a stream of tokens of type T and producing a value of type X.
  *  ```
  *  LazyList[Token] --- Parser[Token, Value] --> Value
@@ -11,6 +9,8 @@ import scala.collection.mutable
  *  @tparam X The output value type.
  */
 abstract class Parser[T, X] {
+  import Parser.~
+  
   protected var cache: Map[LazyList[_], Parser.Result[T, X]] = Map.empty
 
   /** Run the parser on the given input with a context. The results are memoized.
@@ -90,20 +90,20 @@ abstract class Parser[T, X] {
    *  @tparam Y Result value type of `other`.
    *  @return A new parser constructed.
    */
-  def seq[Y](other: => Parser[T, Y]): Parser[T, (X, Y)] = {
-    def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, (X, Y)] = {
+  def seq[Y](other: => Parser[T, Y]): Parser[T, X ~ Y] = {
+    def newParse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X ~ Y] = {
       parse(xs) match {
         case Left(e) => Left(e)
         case Right(x, rem) =>
           other.parse(rem) match {
             case Left(e) => Left(e)
-            case Right(y, rem) => Right((x, y), rem)
+            case Right(y, rem) => Right(new ~(x, y), rem)
           }
       }
     }
 
-    new Parser[T, (X, Y)] {
-      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, (X, Y)] = newParse(xs)
+    new Parser[T, X ~ Y] {
+      override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X ~ Y] = newParse(xs)
     }
   }
 
@@ -167,7 +167,7 @@ abstract class Parser[T, X] {
 
   /** Returns a new parser that parses `this` for one or more times.
    */
-  def some: Parser[T, (X, List[X])] =
+  def some: Parser[T, X ~ List[X]] =
     (this seq many) is s"one or more $what"
 
   /** Returns a parser the same as `this`, except that it will not consume input even if it succeeds.
@@ -220,4 +220,8 @@ object Parser extends ParserFunctions {
    *  - `Right(x, s)` means the parser succeeds with result value x` and remaining token stream `s`.
    */
   type Result[T, X] = Either[ParseError[T], (X, LazyList[T])]
+  
+  case class ~[+A, +B](_1: A, _2: B) {
+    override def toString: String = s"($_1 ~ $_2)"
+  }
 }

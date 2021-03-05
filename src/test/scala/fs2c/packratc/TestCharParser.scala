@@ -6,6 +6,8 @@ import org.junit.Assert._
 import fs2c.tools.packratc.char._
 import CharParser._
 
+import fs2c.tools.packratc.Parser.~
+
 class TestCharParser {
   def testEqual[X](p: Parser[X], str: String): Unit = {
     val res = parseString(p, str) match {
@@ -38,17 +40,17 @@ class TestCharParser {
   @Test def simpleExpr: Unit = {
     lazy val symb: Parser[Expr] = { char('a') <* Expr.Symb } | { 
       (char('(') ~ expr ~ char(')')) <| {
-        case ((_, e), _) => e
+        case _ ~ e ~ _ => e
       }
     }
     lazy val mult = char('*')
     lazy val term: Parser[Expr] = { symb ~ (mult ~ symb).many } <| {
-      case (x, xs) =>
+      case x ~ xs =>
         val ys = xs map (_._2)
         foldTree((a, b) => Expr.Mult(a, b), x, ys)
     }
     lazy val plus = char('+')
-    lazy val expr: Parser[Expr] = { term ~ (plus ~ term).many } <| { case (x, xs) =>
+    lazy val expr: Parser[Expr] = { term ~ (plus ~ term).many } <| { case x ~ xs =>
       val ys = xs map (_._2)
       foldTree((a, b) => Expr.Plus(a, b), x, ys)
     }

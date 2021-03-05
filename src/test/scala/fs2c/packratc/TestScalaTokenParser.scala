@@ -9,6 +9,7 @@ import fs2c.tools.packratc.scala_token.ScalaTokenParser.{given, *}
 import fs2c.tools.packratc.scala_token._
 import org.junit.Assert._
 import org.junit.Test
+import fs2c.tools.packratc.Parser.~
 
 class TestScalaTokenParser {
   def assertParseFailure[X](result: Result[X]): Unit = assertFalse(result.isRight)
@@ -47,13 +48,13 @@ class TestScalaTokenParser {
   }
 
   lazy val symb: Parser[Expr] = identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
-    ("(" ~ expr ~ ")") <| { case ((_, e), _) => e }
+    ("(" ~ expr ~ ")") <| { case _ ~ e ~ _ => e }
   }
-  lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case (x, xs) =>
+  lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case x ~ xs =>
     val ys = xs map (_._2)
     foldTree((a, b) => Expr.Mult(a, b), x, ys)
   }
-  lazy val expr: Parser[Expr] = { factor ~ ("+" ~ factor).many } <| { case (x, xs) =>
+  lazy val expr: Parser[Expr] = { factor ~ ("+" ~ factor).many } <| { case x ~ xs =>
     val ys = xs map (_._2)
     foldTree((a, b) => Expr.Plus(a, b), x, ys)
   }
@@ -85,11 +86,11 @@ class TestScalaTokenParser {
   
   @Test def indentBlock: Unit = {
     val term = identifier <| { case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name }
-    val line = (term.some <| { case (x, xs) => x :: xs }) << { "<NL>" | "<EOF>" }
+    val line = (term.some <| { case x ~ xs => x :: xs }) << { "<NL>" | "<EOF>" }
     case class Lines(lines: List[List[String]]) {
       override def toString: String = lines map { xs => s"(${xs mkString " "})" } mkString ""
     }
-    val block = "{" ~ blockStart ~ "<NL>" ~ line.many ~ "}" ~ blockEnd <| { case (((((_, _), _), lines), _), _) =>
+    val block = "{" ~ blockStart ~ "<NL>" ~ line.many ~ "}" ~ blockEnd <| { case _ ~ lines ~ _ ~ _ =>
       Lines(lines).toString
     }
     
