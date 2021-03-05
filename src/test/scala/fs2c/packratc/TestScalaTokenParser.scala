@@ -13,10 +13,10 @@ import org.junit.Test
 class TestScalaTokenParser {
   def assertParseFailure[X](result: Result[X]): Unit = assertFalse(result.isRight)
   
-  def assertParseSuccess[X](result: Result[X], value: X): Unit = assertTrue {
+  def assertParseSuccess[X](result: Result[X], value: X): Unit = {
+    assertTrue(result.isRight)
     result match {
-      case Right(res, _) if res == value => true
-      case _ => false
+      case Right(x, _) => assertEquals(value, x)
     }
   }
   
@@ -70,7 +70,7 @@ class TestScalaTokenParser {
       val res = parseOnStr(p, input)
       assertParseFailure(res)
     }
-    
+
     testSuccess("a", "a")
     testSuccess("a + b", "(+ a b)")
     testSuccess("(a + b) * (c + d)", "(* (+ a b) (+ c d))")
@@ -81,5 +81,25 @@ class TestScalaTokenParser {
     testFailure("+")
     testFailure("a * (b + c")
     testFailure("a * (b ++ c)")
+  }
+  
+  @Test def indentBlock: Unit = {
+    val term = identifier <| { case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name }
+    val line = (term.some <| { case (x, xs) => x :: xs }) << { "<NL>" | "<EOF>" }
+    case class Lines(lines: List[List[String]]) {
+      override def toString: String = lines map { xs => s"(${xs mkString " "})" } mkString ""
+    }
+    val block = "{" ~ blockStart ~ "<NL>" ~ line.many ~ "}" ~ blockEnd <| { case (((((_, _), _), lines), _), _) =>
+      Lines(lines).toString
+    }
+    
+    var res = parseOnStr(block, "{\n  a b\n  c d\n}")
+    assertParseSuccess(res, "(a b)(c d)")
+
+    res = parseOnStr(block, "{\n  a b\n  c d\n  hello\n    world\n}")
+    assertParseSuccess(res, "(a b)(c d)(hello world)")
+    
+    res = parseOnStr(block, "{\n  a b\n  c d\n  hello\n    world\n  hello\n  world\n}")
+    assertParseSuccess(res, "(a b)(c d)(hello world)(hello)(world)")
   }
 }
