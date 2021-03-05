@@ -16,9 +16,9 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
 
   def content: String = source.content
 
-  def blockIdentLevel: Int = indentLevels.head
+  def blockIndentLevel: Int = indentLevels.head
 
-  def currentIdentLevel: Int = {
+  def currentIndentLevel: Int = {
     var i = current - 1
     var x = 0
     while i >= 0 && content(i) != '\n' do {
@@ -28,8 +28,10 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
     x
   }
 
-  def startBlock(): Unit =
-    indentLevels = start :: indentLevels
+  def startBlock(): Unit = {
+    indentLevels = currentIndentLevel :: indentLevels
+    blockStarting = false
+  }
   
   def prepareStartBlock(): Unit =
     blockStarting = true
@@ -44,14 +46,15 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   def makeToken(tokenType: ScalaTokenType): ScalaToken =
     ScalaToken(SourcePos(source, start), current - start, tokenType)
 
-  def maybeProduceNewLine: Option[ScalaToken] =
-    if !newLineProduced && crossLineEnd && currentIdentLevel <= blockIdentLevel then {
+  def maybeProduceNewLine: Option[ScalaToken] = {
+    if !newLineProduced && crossLineEnd && currentIndentLevel <= blockIndentLevel then {
       newLineProduced = true
       Some(makeToken(NewLine))
     } else {
       newLineProduced = false
       None
     }
+  }
 
   def eof: Boolean = current == content.length
 
