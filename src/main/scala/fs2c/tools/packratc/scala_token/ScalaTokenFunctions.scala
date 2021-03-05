@@ -21,8 +21,8 @@ trait ScalaTokenFunctions {
 
   /** Parse a token satisfying the predicate.
    */
-  def satisfy(predicate: ScalaToken => Boolean): Parser[ScalaToken] =
-    general.satisfy(predicate)
+  def satisfy(predicate: ScalaToken => Boolean, desc: String = "<unknown>"): Parser[ScalaToken] =
+    general.satisfy(predicate, desc = desc)
 
   /** Parse some specific token.
    */
@@ -38,10 +38,13 @@ trait ScalaTokenFunctions {
 
   /** Parse a token of token type `expected`.
    */
-  def tokenOfType(expected: ScalaTokenType): Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, tokenType) if tokenType == expected => true
-    case _ => false
-  } is s"token of type $expected"
+  def tokenOfType(expected: ScalaTokenType): Parser[ScalaToken] = satisfy(
+    {
+      case ScalaToken(_, _, tokenType) if tokenType == expected => true
+      case _ => false
+    },
+    desc = s"token should be of type $expected"
+  ) is s"token of type $expected"
 
   /** Mark the start of a block; parse nothing.
    */

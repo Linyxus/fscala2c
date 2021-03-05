@@ -11,10 +11,10 @@ trait ParserFunctions {
   
   /** Parse a token that satisifes the predicate.
    */
-  def satisfy[T](predicate: T => Boolean) = new Parser[T, T] {
+  def satisfy[T](predicate: T => Boolean, desc: String = "<unknown>") = new Parser[T, T] {
     override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
       case x #:: xs if predicate(x) => Right(x, xs)
-      case x #:: _ => Left(ParseError(Some(x), s"do not satisfy the predicate", this.what))
+      case x #:: _ => Left(ParseError(Some(x), s"do not satisfy the predicate: $desc", this.what))
       case _ => Left(ParseError(None, s"expect more token, but find end of stream", this.what))
     }
   }
