@@ -17,9 +17,9 @@
 
  ## Roadmap
  
- - [ ] Tokenizer
+ - [X] Tokenizer
  
- - [ ] packratc: Packrat Parser Combinator library
+ - [X] packratc: Packrat Parser Combinator library
  
  - [ ] Parser: tokens --> Featherweight Scala raw AST
  
