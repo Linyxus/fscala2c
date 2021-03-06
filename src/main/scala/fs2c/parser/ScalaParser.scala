@@ -101,11 +101,15 @@ class ScalaParser {
     * Small (fixed) grammar for expression:
     *
     * ```python
+    * expr   -> logic
     * logic  -> rel ( ( '&&' | '||' ) rel )*
     * rel    -> item ( ( '>' | '<' | '>=' | '<=' | '==' ) item )*
     * item   -> factor ( ( '+' | '-' ) factor )*
     * factor -> exp ( ( '*' | '/' ) exp )*
-    * exp    -> term ( '^' term )*
+    * exp    -> unary ( '^' unary )*
+    * unary  -> [( '!' | '-' )] app
+    * app    -> term ( '(' [ expr, ( ',' expr )* ] ')' )*
+    * term   -> identifier | lambda | block | '(' expr ')'
     * ```
     *
     */
