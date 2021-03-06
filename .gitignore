@@ -9,3 +9,6 @@ target/
 
 .bsp/
 
+.dotty-ide-artifact
+.dotty-ide.json
+
