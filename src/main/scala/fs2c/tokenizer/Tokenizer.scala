@@ -4,20 +4,31 @@ import fs2c.io.{ScalaSource, SourcePos}
 import fs2c.tools.fp.syntax._
 import ScalaTokenType._
 
+/** Tokenizer for Featherweight Scala. 
+  * Supports logical NewLine tokens based on indention level.
+  *
+  * @param source The input source file.
+  */
 class Tokenizer(val source: ScalaSource) extends OptionSyntax {
-  
+
   case class TokenizerError(msg: String) extends Exception
-  
+
   var start: Int = 0
   var current: Int = 0
   var newLineProduced: Boolean = true
+  /** Indention level stack.
+    */
   var indentLevels: List[Int] = List(0)
+  /** Is about to start a new indention level.
+    */
   var blockStarting: Boolean = false
 
   def content: String = source.content
 
   def blockIndentLevel: Int = indentLevels.head
 
+  /** Returns the current indention level, i.e. number of characters from line start.
+    */
   def currentIndentLevel: Int = {
     var i = current - 1
     var x = 0
@@ -32,12 +43,12 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
     indentLevels = currentIndentLevel :: indentLevels
     blockStarting = false
   }
-  
+
   def prepareStartBlock(): Unit =
     blockStarting = true
 
   def endBlock(): Unit = indentLevels = indentLevels match {
-    case Nil => 
+    case Nil =>
       throw TokenizerError("indent stack is empty; this must be a bug in the implementation; please open an issue")
     case _ :: Nil => throw TokenizerError("can not pop the root indent level")
     case _ :: xs => xs
@@ -64,7 +75,7 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   }
 
   /** Step forward and return the current character.
-   */
+    */
   def forward: Char = {
     val ch = peek
     current += 1
@@ -72,7 +83,7 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   }
 
   /** Return the next character.
-   */
+    */
   def peekAhead: Char =
     if current + 1 < content.length then
       content(current + 1)
@@ -80,29 +91,38 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
       '\u0000'
 
   /** Look at the next character. If it matches any in the `chars`, then step forward _twice_,
-   *   return false else.
-   */
+    * return false else.
+    */
   def lookAhead(chars: Char*): Boolean =
     if chars contains peekAhead then {
-      forward; forward
+      forward;
+      forward
       true
     } else {
       false
     }
 
   /** Look at the current character. If it matches any in the `chars`, then step forward,
-   *   return false else.
-   */
+    * return false else.
+    */
   def look(chars: Char*): Boolean =
-    (chars contains peek) && { forward; true }
+    (chars contains peek) && {
+      forward;
+      true
+    }
 
   var crossLineEnd = false
+
   /** Skip one space character, or a section of comment.
-   */
+    */
   def skipSpace: Boolean =
     !eof && (
-      ({ Set(' ', '\n', '\t', '\r') contains peek } &&
-        { if Set('\n', '\r') contains forward then crossLineEnd = true; true }) || {
+      ({
+        Set(' ', '\n', '\t', '\r') contains peek
+      } && {
+        if Set('\n', '\r') contains forward then crossLineEnd = true;
+        true
+      }) || {
         peek == '/' && lookAhead('*') && {
           @annotation.tailrec def go(state: Int): Unit =
             forward match {
@@ -113,21 +133,22 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
               case _ =>
                 go(0)
             }
+
           go(0)
           true
         }
       }
-    )
+      )
 
   /** Skip spaces until eof or the next character is neither space nor comment.
-   */
+    */
   def skipSpaces(): Unit = {
     crossLineEnd = false
     while skipSpace do ()
   }
 
   /** Parse a symbol starting with a letter and consists of letters and digits.
-   */
+    */
   def symbol: String = {
     while !eof && peek.isLetterOrDigit do
       forward
@@ -135,7 +156,7 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   }
 
   /** Try to parse a keyword token from the given string.
-   */
+    */
   def keyword(str: String): Option[ScalaTokenType] = str match {
     case "if" => Some(KeywordIf)
     case "val" => Some(KeywordVal)
@@ -152,16 +173,16 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   def identifier(str: String): ScalaTokenType = Identifier(str)
 
   /** Skip spaces and get next token.
-   *  Will produce special token NewLine for a logical (indented) newline.
-   *  For example:
-   *  {
-   *    val x =
-   *      1
-   *      ^ Will not produce new line here
-   *    val y = 1
-   *    ^ but will produce new line here (before KeywordVal)
-   *  }
-   */
+    * Will produce special token NewLine for a logical (indented) newline.
+    * For example:
+    * {
+    * val x =
+    * 1
+    * ^ Will not produce new line here
+    * val y = 1
+    * ^ but will produce new line here (before KeywordVal)
+    * }
+    */
   def nextToken: ScalaToken = {
     skipSpaces()
     start = current
@@ -208,12 +229,12 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   }
 
   def allTokens: List[ScalaToken] = nextToken match {
-    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
+    case t@ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
     case t => t :: allTokens
   }
-  
+
   def allTokensLazy: LazyList[ScalaToken] = nextToken match {
-    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
+    case t@ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
     case t => t #:: allTokensLazy
   }
 }

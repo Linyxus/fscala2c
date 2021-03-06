@@ -37,7 +37,7 @@ trait ParserSyntax {
       case "<EOF>" => tokenOfType(ScalaTokenType.EndOfSource)
       case "<NL>" => tokenOfType(ScalaTokenType.NewLine)
       case s => tokenOfType(ScalaTokenType.Identifier(s))
-    }
+  }
 }
 
 object ParserSyntax extends ParserSyntax

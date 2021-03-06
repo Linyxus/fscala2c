@@ -8,7 +8,7 @@ trait OptionSyntax {
         case None => mb
       }
     }
-    
+
     def !![B](b: B): A | B = {
       ma match {
         case Some(v) => v

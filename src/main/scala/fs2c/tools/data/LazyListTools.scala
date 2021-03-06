@@ -6,7 +6,7 @@ trait LazyListTools {
       case Nil => acc
       case x :: xs => recur(xs, x #:: acc)
     }
-    
+
     recur(xs.reverse, LazyList())
   }
 }

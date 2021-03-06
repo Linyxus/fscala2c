@@ -11,7 +11,7 @@ trait ScalaTokenParser {
   type ParserContext = packratc.ParserContext[ScalaToken]
 }
 
-object ScalaTokenParser extends ScalaTokenParser 
-  with packratc.syntax.ParserSyntax 
-  with ScalaTokenFunctions 
+object ScalaTokenParser extends ScalaTokenParser
+  with packratc.syntax.ParserSyntax
+  with ScalaTokenFunctions
   with ParserSyntax 
