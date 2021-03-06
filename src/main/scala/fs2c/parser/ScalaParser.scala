@@ -99,10 +99,12 @@ class ScalaParser {
   /** Parser for expressions.
     */
   lazy val exprParser: Parser[untpd.Expr] = ???
+  
+  lazy val exprTerm: Parser[untpd.Expr] = lambdaExpr | blockExpr | exprParser.wrappedBy("(", ")") | identifierExpr
 
   /** Parser for lambda expressions.
     */
-  lazy val lambdaExpr: Parser[untpd.LambdaExpr] = {
+  lazy val lambdaExpr: Parser[untpd.Expr] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
     val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps =>
       // create a new scope for the lambda
@@ -115,6 +117,7 @@ class ScalaParser {
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(name, null), tpe)
             lambdaParam.sym.dealias = lambdaParam
+            addSymbol(lambdaParam.sym)
             lambdaParam.sym :: recur(ps)
           }
         case _ :: ps => recur(ps)
@@ -172,6 +175,7 @@ class ScalaParser {
         else {
           val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
           bind.tree.sym.dealias = bind
+          addSymbol(bind.tree.sym)
           bind
         }
     }
@@ -184,7 +188,7 @@ class ScalaParser {
 
   /** Parser for identifiers in the expression.
     */
-  lazy val identifierExprParser: Parser[untpd.IdentifierExpr] = identifier <| {
+  lazy val identifierExpr: Parser[untpd.IdentifierExpr] = identifier <| {
     case ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
       symCache get (symName) match {
         case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
