@@ -57,16 +57,22 @@ trait Trees {
   /** Local definitions in block expressions.
     */
   enum LocalDef[F[_]] {
-    case Val[F[_]](sym: Symbol[Val[F]], tpe: Option[Type], body: F[Expr[F]]) extends LocalDef[F]
-    case Var[F[_]](sym: Symbol[Val[F]], tpe: Option[Type], body: F[Expr[F]]) extends LocalDef[F]
-    case Eval[F[_]](body: F[Expr[F]]) extends LocalDef[F]
+    /** Statement for local bindings.
+      * `val` will be parsed into a immutable bind, while `var` will become a mutable one.
+      */
+    case Bind[F[_]](sym: Symbol[F[Bind[F]]], mutable: Boolean, tpe: Option[Type], body: F[Expr[F]]) extends LocalDef[F]
+
+    /** Statement evaluating an expression in a block.
+      * Any expression in the block will be parsed as [[LocalDef.Eval]].
+      */
+    case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
   }
 
   /** Type projectors to embed extra information into the tree.
     * Currently placeholders.
     */
-  case class Untyped[X](tree: X)
-  type Typed =[X] =>> X
+  case class Untyped[+X](tree: X)
+  type Typed = [X] =>> X
 
   /** Transform tree type to Untyped tree type. For more information, see [[Untyped]].
     */
@@ -85,6 +91,8 @@ trait Trees {
     
     type BlockExpr = UntypedTree[Trees.BlockExpr]
     type LocalDef = UntypedTree[Trees.LocalDef]
+    type LocalDefBind = UntypedTree[Trees.LocalDef.Bind]
+    type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
     
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
