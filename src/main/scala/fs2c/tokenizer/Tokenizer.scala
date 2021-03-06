@@ -2,20 +2,24 @@ package fs2c.tokenizer
 
 import fs2c.io.{ScalaSource, SourcePos}
 import fs2c.tools.fp.syntax._
+import OptionSyntax._
 import ScalaTokenType._
 
-/** Tokenizer for Featherweight Scala. 
+/** Tokenizer for Featherweight Scala.
   * Supports logical NewLine tokens based on indention level.
   *
   * @param source The input source file.
   */
-class Tokenizer(val source: ScalaSource) extends OptionSyntax {
+class Tokenizer(val source: ScalaSource) {
 
+  /** Tokenizer error with message `msg`.
+    */
   case class TokenizerError(msg: String) extends Exception
 
   var start: Int = 0
   var current: Int = 0
   var newLineProduced: Boolean = true
+  
   /** Indention level stack.
     */
   var indentLevels: List[Int] = List(0)
@@ -175,13 +179,15 @@ class Tokenizer(val source: ScalaSource) extends OptionSyntax {
   /** Skip spaces and get next token.
     * Will produce special token NewLine for a logical (indented) newline.
     * For example:
+    * ``` scala
     * {
-    * val x =
-    * 1
-    * ^ Will not produce new line here
-    * val y = 1
-    * ^ but will produce new line here (before KeywordVal)
+    *     val x =
+    *         1
+    *      // | Will not produce new line here
+    *     val y = 1
+    *  // | but will produce new line here (before KeywordVal)
     * }
+    * ```
     */
   def nextToken: ScalaToken = {
     skipSpaces()
