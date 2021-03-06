@@ -13,13 +13,13 @@ import fs2c.typer.Types
 import Types.*
 
 /** Parser for Featherweight Scala token stream.
-  * 
+  *
   * It will not only parse source tokens into ASTs, but also resolve symbol references, and
   * produce untyped trees. All symbols will be resolved in an untyped tree, and unknown references
   * will result in a [[SyntaxError]].
   */
 class ScalaParser {
-  
+
   /** Records syntax error while parsing.
     *
     * @param token The token where this error is found.
@@ -54,14 +54,14 @@ class ScalaParser {
   }
 
   /** Find symbol in the given scope. Will not search deeper into its parent scope.
-    * 
+    *
     * @param scope Scope to search in.
     * @param symName Symbol name to look for.
     */
   def findSymIn(scope: ParseScope, symName: String): Option[Symbol[_]] = scope.syms get symName
 
   /** Find symbol from all nested scopes.
-    * 
+    *
     * @param symName Symbol name to look for.
     */
   def findSym(symName: String): Option[Symbol[_]] = {
@@ -72,7 +72,7 @@ class ScalaParser {
         case None => recur(scope.parent)
       }
     }
-    
+
     recur(currentScope)
   }
 
@@ -82,16 +82,16 @@ class ScalaParser {
 
   /** Add a symbol into the current scope.
     */
-  def addSymbol(sym: Symbol[_]): Unit = 
+  def addSymbol(sym: Symbol[_]): Unit =
     currentScope.syms = currentScope.syms.updated(sym.name, sym)
-  
-  /** A cache for symbol names. 
+
+  /** A cache for symbol names.
     * Always store the _closest_ symbol (in the newest scope) for each name.
     */
   def symCache: Map[String, Symbol[_]] = symCacheStack.head
 
   /** A stack for symbol name cache.
-    * The stack grows when the parser enters a new scope, 
+    * The stack grows when the parser enters a new scope,
     * and will trackback to previous state when the parser exits a scope.
     */
   var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
@@ -104,7 +104,7 @@ class ScalaParser {
     */
   lazy val lambdaExpr: Parser[untpd.LambdaExpr] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
-    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps => 
+    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps =>
       // create a new scope for the lambda
       locateScope()
       def recur(ps: List[(ScalaToken, Type)]): List[Symbol[Trees.LambdaParam]] = ps match {
@@ -121,18 +121,66 @@ class ScalaParser {
       }
       recur(ps)
     }
-    val body: Parser[untpd.Expr] = blockExpr <| { x => 
+    val body: Parser[untpd.Expr] = blockExpr <| { x =>
       // exit the scope
       relocateScope()
-      Untyped(x.tree) 
+      Untyped(x.tree)
     }
-    
+
     (params ~ "=>" ~ body) <| { case params ~ _ ~ body => Untyped(Trees.LambdaExpr(params, None, body)) }
   }
 
   /** Parser for block expressions.
     */
-  lazy val blockExpr: Parser[untpd.BlockExpr] = ???
+  lazy val blockExpr: Parser[untpd.BlockExpr] = {
+    val line: Parser[untpd.LocalDef] = localDef << NL
+    val begin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => t }
+    val end: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => t }
+    val block: Parser[untpd.BlockExpr] = 
+      (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
+        ls match {
+          case Nil => throw SyntaxError(Some(endToken), s"Block expression should not be empty")
+          case ls : List[untpd.LocalDef] =>
+            val lastOne: Trees.LocalDef[Untyped] = ls.last.tree
+            lastOne match {
+              case eval: fs2c.ast.fs.Trees.LocalDef.Eval[Untyped] =>
+                Untyped(Trees.BlockExpr(ls.init, eval.expr))
+              case _: fs2c.ast.fs.Trees.LocalDef.Bind[Untyped] =>
+                throw SyntaxError(Some(endToken), s"Expecting a expression at the end of a block.")
+            }
+        }
+      }
+    
+    block
+  }
+
+  lazy val localDef: Parser[untpd.LocalDef] = localDefBind | localDefEval
+  
+  lazy val localDefBind: Parser[untpd.LocalDef] = {
+    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
+    val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
+    (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| { 
+      case bindKw ~ (t @ ScalaToken(_, _, ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
+        val mutable = bindKw match {
+          case ScalaTokenType.KeywordVal => false
+          case ScalaTokenType.KeywordVar => true
+          case _ => false
+        }
+        
+        if findSymHere(name).isDefined then
+          throw SyntaxError(Some(t), s"duplicated parameter name in local definition: $name")
+        else {
+          val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
+          bind.tree.sym.dealias = bind
+          bind
+        }
+    }
+  }
+  
+  lazy val localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
+    Untyped(Trees.LocalDef.Eval(expr))
+  }
+  
 
   /** Parser for identifiers in the expression.
     */
@@ -149,7 +197,7 @@ class ScalaParser {
   lazy val typeParser: Parser[Type] = lambdaType
 
   /** Parser for lambda types.
-    * 
+    *
     * For example:
     * ```scala
     * (Int, Int) => Int => Int
@@ -162,7 +210,7 @@ class ScalaParser {
   lazy val lambdaType: Parser[Type] = (typeTerm &! "=>") or {
     val l: Parser[List[Type]] = typeParser.sepBy(",").wrappedBy("(", ")")
     val t: Parser[List[Type]] = (typeTerm <| { x => x :: Nil }) | l
-    
+
     (t ~ "=>" ~ lambdaType) <| { case argTpe ~ _ ~ bodyTpe => LambdaType(argTpe, bodyTpe) }
   }
   lazy val typeTerm: Parser[Type] = groundType or { typeParser.wrappedBy("(", ")") }
