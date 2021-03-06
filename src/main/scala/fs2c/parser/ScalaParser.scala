@@ -12,7 +12,11 @@ import fs2c.ast.Symbol
 import fs2c.typer.Types
 import Types.*
 
-/** Parser for Featherweight Scala.
+/** Parser for Featherweight Scala token stream.
+  * 
+  * It will not only parse source tokens into ASTs, but also resolve symbol references, and
+  * produce untyped trees. All symbols will be resolved in an untyped tree, and unknown references
+  * will result in a [[SyntaxError]].
   */
 class ScalaParser {
   
