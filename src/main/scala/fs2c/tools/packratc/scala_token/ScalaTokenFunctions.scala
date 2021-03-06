@@ -3,6 +3,7 @@ package fs2c.tools.packratc.scala_token
 import fs2c.tools.packratc.{ParserFunctions => general}
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType, Tokenizer}
 import ScalaTokenParser._
+import fs2c.tools.packratc.Parser.~
 
 /** Tool functions for ScalaToken parser.
   */
@@ -20,6 +21,8 @@ trait ScalaTokenFunctions {
     val ctx = new ParserContext(stream)
     parser.parse(stream.allTokens)(using ctx)
   }
+  
+  def pure[X](value: X): Parser[X] = general.pure(value)
 
   /** Parse a token satisfying the predicate.
     */
@@ -37,6 +40,11 @@ trait ScalaTokenFunctions {
     case ScalaToken(_, _, _: ScalaTokenType.Identifier) => true
     case _ => false
   } ?? "identifier"
+  
+  def symbol(name: String): Parser[ScalaToken] = satisfy {
+    case ScalaToken(_, _, ScalaTokenType.Identifier(s)) if s == name => true
+    case _ => false
+  } ?? s"symbol($name)"
 
   /** Parse a token of token type `expected`.
     */
@@ -55,4 +63,26 @@ trait ScalaTokenFunctions {
   /** Mark the end of a block; parse nothing.
     */
   def blockEnd: Parser[Unit] = general.blockEnd
+
+  extension[X] (p: Parser[X]) {
+    /** Parse a list of `p` seperated by `sep`.
+      */
+    def sepBy[S](sep: Parser[S]): Parser[List[X]] =
+      sepBy1(sep).optional <| {
+        case None => Nil
+        case Some(xs) => xs
+      }
+
+    /** Parse at list one `p` seperated by `sep`.
+      */
+    def sepBy1[S](sep: Parser[S]): Parser[List[X]] = {
+      val q: Parser[X ~ List[S ~ X]] = p ~ (sep ~ p).many
+      q <| { case x ~ ys => 
+        val xs: List[X] = ys map { case _ ~ x => x }
+        x :: xs
+      }
+    }
+    
+    def wrappedBy[S](l: Parser[S], r: Parser[S]): Parser[X] = l >> p << r
+  }
 }
