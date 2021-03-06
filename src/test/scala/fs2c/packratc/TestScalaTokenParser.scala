@@ -62,13 +62,13 @@ class TestScalaTokenParser {
   
   @Test def simpleExpr: Unit = {
     def testSuccess(input: String, expect: String): Unit = {
-      val p = (expr << "<EOF>") <| (_.toString)
+      val p = (expr << EOF) <| (_.toString)
       val res = parseOnStr(p, input)
       assertParseSuccess(res, expect)
     }
     
     def testFailure(input: String): Unit = {
-      val p = (expr << "<EOF>") <| (_.toString)
+      val p = (expr << EOF) <| (_.toString)
       val res = parseOnStr(p, input)
       assertParseFailure(res)
     }
@@ -87,11 +87,11 @@ class TestScalaTokenParser {
   
   @Test def indentBlock: Unit = {
     val term = identifier <| { case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name }
-    val line = (term.some <| { case x ~ xs => x :: xs }) << { "<NL>" | "<EOF>" }
+    val line = (term.some <| { case x ~ xs => x :: xs }) << { NL | EOF }
     case class Lines(lines: List[List[String]]) {
       override def toString: String = lines map { xs => s"(${xs mkString " "})" } mkString ""
     }
-    val block = "{" ~ blockStart ~ "<NL>" ~ line.many ~ "}" ~ blockEnd <| { case _ ~ lines ~ _ ~ _ =>
+    val block = "{" ~ blockStart ~ NL ~ line.many ~ "}" ~ blockEnd <| { case _ ~ lines ~ _ ~ _ =>
       Lines(lines).toString
     }
     

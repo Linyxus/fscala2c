@@ -5,6 +5,8 @@ import fs2c.tools.packratc.scala_token._
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType}
 
 trait ParserSyntax {
+  case class StringToParserConversionError(msg: String) extends Exception(msg)
+  
   given Conversion[String, Parser[ScalaToken]] with
     def apply(str: String): Parser[ScalaToken] = str match {
       case "+" => tokenOfType(ScalaTokenType.Plus)
@@ -34,10 +36,11 @@ trait ParserSyntax {
       case "new" => tokenOfType(ScalaTokenType.KeywordNew)
       case "while" => tokenOfType(ScalaTokenType.KeywordWhile)
       case "do" => tokenOfType(ScalaTokenType.KeywordDo)
-      case "<EOF>" => tokenOfType(ScalaTokenType.EndOfSource)
-      case "<NL>" => tokenOfType(ScalaTokenType.NewLine)
-      case s => tokenOfType(ScalaTokenType.Identifier(s))
+      case s => throw StringToParserConversionError(s"Unknown string pattern: $s")
   }
+  
+  val EOF = tokenOfType(ScalaTokenType.EndOfSource)
+  val NL = tokenOfType(ScalaTokenType.NewLine)
 }
 
 object ParserSyntax extends ParserSyntax
