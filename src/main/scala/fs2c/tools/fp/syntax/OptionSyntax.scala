@@ -17,3 +17,5 @@ trait OptionSyntax {
     }
   }
 }
+
+object OptionSyntax extends OptionSyntax
