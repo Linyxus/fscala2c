@@ -97,9 +97,26 @@ class ScalaParser {
   var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
 
   /** Parser for expressions.
+    *
+    * Small (fixed) grammar for expression:
+    *
+    * ```python
+    * logic  -> rel ( ( '&&' | '||' ) rel )*
+    * rel    -> item ( ( '>' | '<' | '>=' | '<=' | '==' ) item )*
+    * item   -> factor ( ( '+' | '-' ) factor )*
+    * factor -> exp ( ( '*' | '/' ) exp )*
+    * exp    -> term ( '^' term )*
+    * ```
+    *
     */
   lazy val exprParser: Parser[untpd.Expr] = ???
-  
+
+  lazy val exprFactor: Parser[untpd.Expr] = ???
+
+  lazy val exprExp: Parser[untpd.Expr] = ???
+
+  lazy val exprUnary: Parser[untpd.Expr] = ???
+
   lazy val exprTerm: Parser[untpd.Expr] = lambdaExpr | blockExpr | exprParser.wrappedBy("(", ")") | identifierExpr
 
   /** Parser for lambda expressions.
@@ -153,12 +170,12 @@ class ScalaParser {
             }
         }
       }
-    
+
     block
   }
 
   lazy val localDef: Parser[untpd.LocalDef] = localDefBind | localDefEval
-  
+
   lazy val localDefBind: Parser[untpd.LocalDef] = {
     val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
     val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
@@ -169,7 +186,7 @@ class ScalaParser {
           case ScalaTokenType.KeywordVar => true
           case _ => false
         }
-        
+
         if findSymHere(name).isDefined then
           throw SyntaxError(Some(t), s"duplicated parameter name in local definition: $name")
         else {
@@ -180,11 +197,11 @@ class ScalaParser {
         }
     }
   }
-  
+
   lazy val localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
     Untyped(Trees.LocalDef.Eval(expr))
   }
-  
+
 
   /** Parser for identifiers in the expression.
     */
