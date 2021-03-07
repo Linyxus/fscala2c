@@ -25,6 +25,8 @@ trait ParserSyntax {
       case "]" => tokenOfType(ScalaTokenType.RightBracket)
       case "(" => tokenOfType(ScalaTokenType.LeftParen)
       case ")" => tokenOfType(ScalaTokenType.RightParen)
+      case "&&" => tokenOfType(ScalaTokenType.DoubleAmpersand)
+      case "||" => tokenOfType(ScalaTokenType.DoubleVerticalBar)
       case "def" => tokenOfType(ScalaTokenType.KeywordDef)
       case "val" => tokenOfType(ScalaTokenType.KeywordVal)
       case "var" => tokenOfType(ScalaTokenType.KeywordVar)
