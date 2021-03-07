@@ -142,6 +142,15 @@ class ScalaParser {
     ))
   ), applyAndSelectExpr)
 
+  /** Parses the following grammar corresponding to member selection and application in the language.
+    * ```
+    * applyOrSelect ::= applyOrSelect '.' identifier | applyOrSelect '(' param_list ')' | term
+    * ```
+    * It is a left-recursive grammar, and can be transformed into:
+    * ```
+    * applyOrSelect ::= term ( ( '.' identifier ) | ( '(' param_list ')' ) )*
+    * ```
+    */
   lazy val applyAndSelectExpr: Parser[untpd.Expr] = {
     val selP: Parser[untpd.Expr => untpd.Expr] = 
       { "." ~ identifier } <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(member)) =>
@@ -156,7 +165,9 @@ class ScalaParser {
       ts.foldLeft(e) { (expr, func) => func(expr) }
     }
   }
-  
+
+  /** Parses a term in the expression grammar.
+    */
   lazy val exprTerm: Parser[untpd.Expr] = identifierExpr | lambdaExpr | blockExpr | exprParser.wrappedBy("(", ")")
 
   /** Parser for lambda expressions.
