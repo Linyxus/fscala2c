@@ -39,13 +39,19 @@ class TestScalaTokenParser {
   enum Expr {
     case Symbol(name: String)
     case Plus(e1: Expr, e2: Expr)
+    case Minus(e1: Expr, e2: Expr)
     case Mult(e1: Expr, e2: Expr)
+    case Div(e1: Expr, e2: Expr)
+    case Exp(e1: Expr, e2: Expr)
     case Neg(e: Expr)
 
     override def toString: String = this match {
       case Symbol(name) => name
       case Plus(e1, e2) => s"(+ $e1 $e2)"
+      case Minus(e1, e2) => s"(- $e1 $e2)"
       case Mult(e1, e2) => s"(* $e1 $e2)"
+      case Div(e1, e2) => s"(/ $e1 $e2)"
+      case Exp(e1, e2) => s"(^ $e1 $e2)"
       case Neg(e) => s"(- $e)"
     }
   }
@@ -112,10 +118,21 @@ class TestScalaTokenParser {
     import OpAssoc._
     import Expr._
     
-    val table: OpTable[ScalaToken, ScalaToken, Expr] = List(
-      Binary(LeftAssoc, "+", (e1, e2) => Plus(e1, e2)),
-      Binary(LeftAssoc, "*", (e1, e2) => Mult(e1, e2)),
-      Unary("-", e => Neg(e))
+    val table: OpTable[ScalaToken, Expr] = List(
+      Binary(LeftAssoc, List(
+        "+" <* { (e1, e2) => Plus(e1, e2) },
+        "-" <* { (e1, e2) => Minus(e1, e2) },
+      )),
+      Binary(RightAssoc, List(
+        "*" <* { (e1, e2) => Mult(e1, e2) },
+        "/" <* { (e1, e2) => Div(e1, e2) },
+      )),
+      Binary(LeftAssoc, List(
+        "^" <* { (e1, e2) => Exp(e1, e2) },
+      )),
+      Unary(List(
+        "-" <* { e => Neg(e) }
+      ))
     )
     
     lazy val expr: Parser[Expr] = makeExprParser(table, term)
@@ -132,5 +149,11 @@ class TestScalaTokenParser {
     testSuccess("a", "a")
     testSuccess("-a", "(- a)")
     testSuccess("a * (-b + c)", "(* a (+ (- b) c))")
+    testSuccess("a + a + a", "(+ (+ a a) a)")
+    testSuccess("a + a - a", "(- (+ a a) a)")
+    testSuccess("a * a * a", "(* a (* a a))")
+    testSuccess("a * a / a", "(* a (/ a a))")
+    testSuccess("a * a ^ a", "(* a (^ a a))")
+    testSuccess("a * a ^ (a + a)", "(* a (^ a (+ a a)))")
   }
 }

@@ -44,6 +44,11 @@ trait ParserFunctions {
       Right(ctx.stream.endBlock, xs)
   }
 
+  def choice[T, X](parsers: List[Parser[T, X]]): Parser[T, X] = {
+    assert(parsers.nonEmpty, "can not make choice over an empty list of parsers")
+    parsers.tail.foldLeft(parsers.head) { (acc, x) => acc or x }
+  }
+
   object ExpressionParser {
 
     /** Associativity of operators.
@@ -56,50 +61,50 @@ trait ParserFunctions {
     /** Infomation of operator.
       * [[OpType.Unary]] means prefix operators; [[OpType.Binary]] means infix operators.
       */
-    enum OpInfo[T, A, X] {
-      case Unary(op: Parser[T, A], builder: X => X)
-      case Binary(assoc: OpAssoc, op: Parser[T, A], builder: (X, X) => X)
+    enum OpInfo[T, X] {
+      case Unary(ops: List[Parser[T, X => X]])
+      case Binary(assoc: OpAssoc, ops: List[Parser[T, (X, X) => X]])
     }
 
     /** Table of operators in the expression grammar.
-      * 
+      *
       * @tparam T Input token type.
-      * @tparam A Operator type.
       * @tparam X Expression type.
       */
-    type OpTable[T, A, X] = List[OpInfo[T, A, X]]
+    type OpTable[T, X] = List[OpInfo[T, X]]
 
     /** Generate a expression parser from the given operator table.
-      * 
+      *
       * @param table Operator table for the grammar.
       * @param term Parser for term in the grammar.
       */
-    def makeExprParser[T, A, X](table: OpTable[T, A, X], term: Parser[T, X]): Parser[T, X] = {
+    def makeExprParser[T, A, X](table: OpTable[T, X], term: Parser[T, X]): Parser[T, X] = {
       import OpInfo._
       import OpAssoc._
-      
-      def recur(rows: OpTable[T, A, X], p: Parser[T, X]): Parser[T, X] = rows match {
+
+      def recur(rows: OpTable[T, X], p: Parser[T, X]): Parser[T, X] = rows match {
         case Nil => p
-        case Unary(op, builder) :: rows =>
-          val q = (op.optional seq p) map {
+        case Unary(ops) :: rows =>
+          val q = (choice(ops).optional seq p) map {
             case None ~ r => r
-            case Some(x) ~ r => builder(r)
+            case Some(fun) ~ r =>  fun(r)
           }
           recur(rows, q)
-        case Binary(assoc, op, builder) :: rows =>
-          val q = (p seq (op seq p).many) map { case x ~ ys =>
-            val xs: List[X] = x :: ys.map { case _ ~ x => x }
-            
+        case Binary(assoc, ops) :: rows =>
+          val q = (p seq (choice(ops) seq p).many) map { case x ~ ys =>
+            val xs: List[((X, X) => X) ~ X] = ys
+
             assoc match {
               case LeftAssoc =>
-                xs.tail.foldLeft(xs.head)(builder)
+                xs.foldLeft(x) { case (acc, op ~ x) => op(acc, x) }
               case RightAssoc =>
-                xs.init.foldRight(xs.last)(builder)
+                val fun: X => X = xs.foldRight(identity[X]) { case (op ~ x, acc) => l => op(l, acc(x)) }
+                fun(x)
             }
           }
           recur(rows, q)
       }
-      
+
       recur(table.reverse, term)
     }
   }
