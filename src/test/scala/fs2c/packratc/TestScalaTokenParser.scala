@@ -40,27 +40,28 @@ class TestScalaTokenParser {
     case Symbol(name: String)
     case Plus(e1: Expr, e2: Expr)
     case Mult(e1: Expr, e2: Expr)
+    case Neg(e: Expr)
 
     override def toString: String = this match {
       case Symbol(name) => name
       case Plus(e1, e2) => s"(+ $e1 $e2)"
       case Mult(e1, e2) => s"(* $e1 $e2)"
+      case Neg(e) => s"(- $e)"
     }
   }
-
-  lazy val symb: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
-    ("(" ~ expr ~ ")") <| { case _ ~ e ~ _ => e }
-  }) is "symbol or (expr)"
-  lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case x ~ xs =>
-    val ys = xs map (_._2)
-    foldTree((a, b) => Expr.Mult(a, b), x, ys)
-  }
-  lazy val expr: Parser[Expr] = { factor ~ ("+" ~ factor).many } <| { case x ~ xs =>
-    val ys = xs map (_._2)
-    foldTree((a, b) => Expr.Plus(a, b), x, ys)
-  }
-  
   @Test def simpleExpr: Unit = {
+    lazy val symb: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
+      ("(" ~ expr ~ ")") <| { case _ ~ e ~ _ => e }
+    }) is "symbol or (expr)"
+    lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case x ~ xs =>
+      val ys = xs map (_._2)
+      foldTree((a, b) => Expr.Mult(a, b), x, ys)
+    }
+    lazy val expr: Parser[Expr] = { factor ~ ("+" ~ factor).many } <| { case x ~ xs =>
+      val ys = xs map (_._2)
+      foldTree((a, b) => Expr.Plus(a, b), x, ys)
+    }
+
     def testSuccess(input: String, expect: String): Unit = {
       val p = (expr << EOF) <| (_.toString)
       val res = parseOnStr(p, input)
@@ -103,5 +104,33 @@ class TestScalaTokenParser {
     
     res = parseOnStr(block, "{\n  a b\n  c d\n  hello\n    world\n  hello\n  world\n}")
     assertParseSuccess(res, "(a b)(c d)(hello world)(hello)(world)")
+  }
+  
+  @Test def exprParser: Unit = {
+    import fs2c.tools.packratc.ParserFunctions.ExpressionParser._
+    import OpInfo._
+    import OpAssoc._
+    import Expr._
+    
+    val table: OpTable[ScalaToken, ScalaToken, Expr] = List(
+      Binary(LeftAssoc, "+", (e1, e2) => Plus(e1, e2)),
+      Binary(LeftAssoc, "*", (e1, e2) => Mult(e1, e2)),
+      Unary("-", e => Neg(e))
+    )
+    
+    lazy val expr: Parser[Expr] = makeExprParser(table, term)
+    
+    lazy val term: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) }) or
+      expr.wrappedBy("(", ")")
+    
+    def testSuccess(input: String, expect: String): Unit = {
+      val p = (expr << EOF) <| (_.toString)
+      val res = parseOnStr(p, input)
+      assertParseSuccess(res, expect)
+    }
+
+    testSuccess("a", "a")
+    testSuccess("-a", "(- a)")
+    testSuccess("a * (-b + c)", "(* a (+ (- b) c))")
   }
 }
