@@ -49,6 +49,46 @@ trait ParserFunctions {
     parsers.tail.foldLeft(parsers.head) { (acc, x) => acc or x }
   }
 
+  /** Parser generator for expression grammar.
+    * 
+    * For example, for the following grammar:
+    * ```python
+    * expr   = factor ( '+' | '-' ) expr | factor
+    * factor = exp ( '*' | '/' ) exp | exp
+    * exp    = unary '^' unary | unary
+    * unary  = [ '-' ] term
+    * term   = identifier | '(' expr ')'
+    * ```
+    * We can generate a expression parser for this grammar by:
+    * ```scala
+    * val table: OpTable[ScalaToken, Expr] = List(
+    *   Binary(LeftAssoc, List(
+    *     "+" <* { (e1, e2) => Plus(e1, e2) },
+    *     "-" <* { (e1, e2) => Minus(e1, e2) },
+    *   )),
+    *   Binary(LeftAssoc, List(
+    *     "*" <* { (e1, e2) => Mult(e1, e2) },
+    *     "/" <* { (e1, e2) => Div(e1, e2) },
+    *   )), 
+    *   Binary(LeftAssoc, List(
+    *     "^" <* { (e1, e2) => Exp(e1, e2) },
+    *   )),
+    *   Unary(List(
+    *     "-" <* { e => Neg(e) }
+    *   ))
+    * )
+    * 
+    * lazy val expr: Parser[Expr] = makeExprParser(table, term)
+    * 
+    * lazy val term: Parser[Expr] = identifier or expr.wrappedBy("(", ")")
+    * ```
+    * 
+    * The generated parser `Expr` can then be used to parse expressions.
+    * ```scala
+    * expr.parse("a * (b + -c)")(using ctx)
+    * // => Mult(a, Plus(b, Neg(c)))
+    * ```
+    */
   object ExpressionParser {
 
     /** Associativity of operators.
