@@ -96,11 +96,16 @@ class ScalaParser {
     */
   var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
 
+  import fs2c.tools.packratc.ParserFunctions.ExpressionParser
+  import ExpressionParser._
+  import OpAssoc._
+  import OpInfo._
+  import Trees.{ ExprBinOpType => bop, ExprUnaryOpType => uop }
   /** Parser for expressions.
     *
     * Small (fixed) grammar for expression:
-    *
-    * ```python
+    * 
+    * ```
     * expr   -> logic
     * logic  -> rel ( ( '&&' | '||' ) rel )*
     * rel    -> item ( ( '>' | '<' | '>=' | '<=' | '==' ) item )*
@@ -113,15 +118,46 @@ class ScalaParser {
     * ```
     *
     */
-  lazy val exprParser: Parser[untpd.Expr] = ???
+  lazy val exprParser: Parser[untpd.Expr] = makeExprParser(List(
+    Binary(LeftAssoc, List(
+      "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
+      "||" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
+    )),
+    Binary(LeftAssoc, List(
+      ">" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>, e1, e2)) },
+      "<" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<, e1, e2)) },
+      ">=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>=, e1, e2)) },
+      "<=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<=, e1, e2)) },
+    )),
+    Binary(LeftAssoc, List(
+      "+" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.+, e1, e2)) },
+      "-" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.-, e1, e2)) },
+    )),
+    Binary(LeftAssoc, List(
+      "^" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.^, e1, e2)) },
+    )),
+    Unary(List(
+      "!" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.!, e)) },
+      "-" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.-, e)) },
+    ))
+  ), applyAndSelectExpr)
 
-  lazy val exprFactor: Parser[untpd.Expr] = ???
-
-  lazy val exprExp: Parser[untpd.Expr] = ???
-
-  lazy val exprUnary: Parser[untpd.Expr] = ???
-
-  lazy val exprTerm: Parser[untpd.Expr] = lambdaExpr | blockExpr | exprParser.wrappedBy("(", ")") | identifierExpr
+  lazy val applyAndSelectExpr: Parser[untpd.Expr] = {
+    val selP: Parser[untpd.Expr => untpd.Expr] = 
+      { "." ~ identifier } <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(member)) =>
+        e => Untyped(Trees.SelectExpr(e, Symbol.Ref.Unresolved(member)))
+      }
+    val applyP: Parser[untpd.Expr => untpd.Expr] =
+      exprParser.sepBy(",").wrappedBy("(", ")") <| { case es =>
+        e => Untyped(Trees.ApplyExpr(e, es))
+      }
+    
+    (exprTerm ~ (selP or applyP).many) <| { case e ~ ts =>
+      ts.foldLeft(e) { (expr, func) => func(expr) }
+    }
+  }
+  
+  lazy val exprTerm: Parser[untpd.Expr] = identifierExpr | lambdaExpr | blockExpr | exprParser.wrappedBy("(", ")")
 
   /** Parser for lambda expressions.
     */
@@ -205,7 +241,6 @@ class ScalaParser {
   lazy val localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
     Untyped(Trees.LocalDef.Eval(expr))
   }
-
 
   /** Parser for identifiers in the expression.
     */
