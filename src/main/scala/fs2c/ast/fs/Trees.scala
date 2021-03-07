@@ -54,6 +54,18 @@ trait Trees {
     */
   case class IdentifierExpr[F[_]](sym: Symbol.Ref) extends Expr[F]
 
+  /** Application.
+    */
+  case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F]
+
+  /** Selection.
+    */
+  case class SelectExpr[F[_]](expr: F[Expr[F]], member: Symbol.Ref) extends Expr[F]
+  
+  case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F]
+  
+  case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F]
+
   /** Local definitions in block expressions.
     */
   enum LocalDef[F[_]] {
@@ -66,6 +78,27 @@ trait Trees {
       * Any expression in the block will be parsed as [[LocalDef.Eval]].
       */
     case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
+  }
+  
+  enum ExprBinOpType {
+    case +
+    case -
+    case *
+    case /
+    case ^
+    case &&
+    case ||
+    case ==
+    case !=
+    case >=
+    case <=
+    case >
+    case <
+  }
+  
+  enum ExprUnaryOpType {
+    case !
+    case -
   }
 
   /** Type projectors to embed extra information into the tree.
