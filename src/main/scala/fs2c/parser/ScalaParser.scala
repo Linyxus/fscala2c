@@ -5,7 +5,7 @@ import fs2c.io.ScalaSource
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType, Tokenizer}
 import fs2c.tools.packratc.scala_token.ScalaTokenParser.{given, _}
 import fs2c.tools.packratc.scala_token.*
-import fs2c.tools.packratc.Parser.~
+import fs2c.tools.packratc.Parser.{~}
 import fs2c.ast.fs.Trees
 import Trees.{untpd, Untyped, Typed}
 import fs2c.ast.Symbol
@@ -293,4 +293,10 @@ class ScalaParser {
     (symbol("Array") seq "[" seq typeParser seq "]") <| {
       case _ ~ _ ~ tpe ~ _ => GroundType.ArrayType(tpe)
     }
+  
+  // *** debug ***
+  def parseString[X](p: Parser[X], str: String): Result[X] = {
+    val tokenizer = new Tokenizer(new ScalaSource("test", str))
+    parseWithTokenizer(p, tokenizer)
+  }
 }
