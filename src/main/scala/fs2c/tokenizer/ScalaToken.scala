@@ -72,7 +72,7 @@ enum ScalaTokenType {
 
   case DoubleAmpersand
 
-  case DoubleVertialBar
+  case DoubleVerticalBar
 
   case GreaterThan
 

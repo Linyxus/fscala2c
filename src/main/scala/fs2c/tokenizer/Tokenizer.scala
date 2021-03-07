@@ -218,7 +218,7 @@ class Tokenizer(val source: ScalaSource) {
           case '/' => Slash
           case '^' => Caret
           case '&' if look('&') => DoubleAmpersand
-          case '|' if look('|') => DoubleVertialBar
+          case '|' if look('|') => DoubleVerticalBar
           case '>' if look('=') => GreaterThanEqual
           case '>' => GreaterThan
           case '<' if look('=') => LessThanEqual
