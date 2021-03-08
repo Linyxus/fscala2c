@@ -82,13 +82,14 @@ class ScalaParser {
 
   /** Add a symbol into the current scope.
     */
-  def addSymbol(sym: Symbol[_]): Unit =
+  def addSymbol(sym: Symbol[_]): Unit = {
     currentScope.syms = currentScope.syms.updated(sym.name, sym)
+  }
 
   /** A cache for symbol names.
     * Always store the _closest_ symbol (in the newest scope) for each name.
     */
-  def symCache: Map[String, Symbol[_]] = symCacheStack.head
+//  def symCache: Map[String, Symbol[_]] = symCacheStack.head
 
   /** A stack for symbol name cache.
     * The stack grows when the parser enters a new scope,
