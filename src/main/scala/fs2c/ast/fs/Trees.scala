@@ -78,6 +78,8 @@ trait Trees {
       * Any expression in the block will be parsed as [[LocalDef.Eval]].
       */
     case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
+    
+    case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
   }
   
   enum ExprBinOpType {
