@@ -22,14 +22,15 @@ abstract class Parser[T, X](val desc: Option[String]) {
     * @return The result of parsing.
     */
   def parse(xs: LazyList[T])(using ctx: ParserContext[T]): Parser.Result[T, X] = {
-    cache.get(xs) match {
-      case Some(value) =>
-        value
-      case None =>
-        val result = _parse(xs)
-        cache = cache.updated(xs, result)
-        result
-    }
+//    cache.get(xs) match {
+//      case Some(value) =>
+//        value
+//      case None =>
+//        val result = _parse(xs)
+//        cache = cache.updated(xs, result)
+//        result
+//    }
+    _parse(xs)
   }
 
   /** The actual parsing logic. Do not take care of memoization.

@@ -118,11 +118,11 @@ trait ParserFunctions {
       * @param table Operator table for the grammar.
       * @param term Parser for term in the grammar.
       */
-    def makeExprParser[T, A, X](table: OpTable[T, X], term: Parser[T, X]): Parser[T, X] = {
+    def makeExprParser[T, A, X](table: OpTable[T, X], term: => Parser[T, X]): Parser[T, X] = {
       import OpInfo._
       import OpAssoc._
 
-      def recur(rows: OpTable[T, X], p: Parser[T, X]): Parser[T, X] = rows match {
+      def recur(rows: OpTable[T, X], p: => Parser[T, X]): Parser[T, X] = rows match {
         case Nil => p
         case Unary(ops) :: rows =>
           val q = (choice(ops).optional seq p) map {
