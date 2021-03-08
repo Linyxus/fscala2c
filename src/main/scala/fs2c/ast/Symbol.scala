@@ -6,7 +6,9 @@ package fs2c.ast
   * @param dealias Reference contained in the symbol.
   * @tparam T Referenced type.
   */
-case class Symbol[T](name: String, var dealias: T)
+case class Symbol[T](name: String, var dealias: T) {
+  override def toString: String = s"Symbol($name)"
+}
 
 object Symbol {
   enum Ref {
