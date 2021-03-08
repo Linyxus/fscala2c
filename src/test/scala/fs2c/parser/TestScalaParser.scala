@@ -18,15 +18,15 @@ class TestScalaParser {
     val res = ScalaParser.parseString(p, string)
     assertTrue(res.isRight)
   }
-  
+
   def assertParseFailure[X](parser: Parser[X], string: String): Unit = {
     val p = parser << EOF
     assertTrue(ScalaParser.parseString(p, string).isLeft)
   }
-  
+
   @Test def simpleExpr: Unit = {
     val scalaParser = new ScalaParser
-    
+
     val successStr = List(
       "a",
       "a + b",
@@ -37,17 +37,17 @@ class TestScalaParser {
       "a + b * (c + -d)",
       "a + b * (c + -d) ^ e",
     )
-    
+
     val failureStr = List(
       "a -",
       "a + (b - c",
       "(((a))"
     )
-    
+
     successStr foreach { s => assertParseSuccess(scalaParser.exprParser, s) }
     failureStr foreach { s => assertParseFailure(scalaParser.exprParser, s) }
   }
-  
+
   @Test def blockExpr: Unit = {
     assertParseSuccess((new ScalaParser).blockExpr,
       """{
@@ -57,7 +57,7 @@ class TestScalaParser {
         |  }
         |  x
         |}""".stripMargin)
-    
+
     assertParseSuccess((new ScalaParser).blockExpr,
       """{
         |  val x : Int => Int => Int = (y : Int) => {
@@ -70,7 +70,7 @@ class TestScalaParser {
         |  x + i
         |}""".stripMargin)
   }
-  
+
   @Test def lambda: Unit = {
     assertParseSuccess((new ScalaParser).lambdaExpr,
       """(x : Int) => {
@@ -83,5 +83,13 @@ class TestScalaParser {
     assertParseSuccess((new ScalaParser).lambdaExpr, "(x : Int) => x * x")
     assertParseSuccess((new ScalaParser).lambdaExpr, "(x : Int, y : Int) => x + y")
     assertParseSuccess((new ScalaParser).lambdaExpr, "(x : Int, y : Int) => (z : Int) => x + y * z")
+  }
+  
+  @Test def memberDef: Unit = {
+    assertParseSuccess((new ScalaParser).memberDef, "val x : Int = a")
+    assertParseSuccess((new ScalaParser).memberDef, "val x = a")
+    assertParseSuccess((new ScalaParser).memberDef, "var aLongName123 = a")
+    assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = a")
+    assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = (x : Int, y : Int) => x + y")
   }
 }

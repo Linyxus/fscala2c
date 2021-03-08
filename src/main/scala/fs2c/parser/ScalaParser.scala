@@ -96,6 +96,30 @@ class ScalaParser {
     * and will trackback to previous state when the parser exits a scope.
     */
   var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
+  
+  def classDefParser: Parser[untpd.ClassDef] = ???
+  
+  def memberDef: Parser[untpd.MemberDef] = {
+    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
+    val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
+    (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| {
+      case bindKw ~ (t @ ScalaToken(_, _, ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
+        val mutable = bindKw match {
+          case ScalaTokenType.KeywordVal => false
+          case ScalaTokenType.KeywordVar => true
+          case _ => false
+        }
+
+        if findSymHere(name).isDefined then
+          throw SyntaxError(Some(t), s"duplicated member name in class definition: $name")
+        else {
+          val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, mutable, tpe, body))
+          member.tree.sym.dealias = member
+          addSymbol(member.tree.sym)
+          member
+        }
+    }
+  }
 
   import fs2c.tools.packratc.ParserFunctions.ExpressionParser
   import ExpressionParser._

@@ -19,20 +19,20 @@ trait Trees {
   /** A class definition.
     *
     * ```scala
-    * class Foo extends Bar {
+    * class Foo(a : Int, b : Boolean) extends Bar {
     * // members
     * }
     * ```
     * would be converted to
     * ```scala
-    * ClassDef(sym = Foo, parent = Some(Bar), List(...))
+    * ClassDef(sym = Foo, params = List(a : Int, b : Boolean), parent = Some(Bar), List(...))
     * ```
     */
-  case class ClassDef[F[_]](sym: Symbol[F[ClassDef[F]]], parent: Option[Symbol[F[ClassDef[F]]]], members: List[F[MemberDef[F]]]) extends Type
+  case class ClassDef[F[_]](sym: Symbol[F[ClassDef[F]]], params: List[Symbol[LambdaParam]], parent: Option[Symbol[F[ClassDef[F]]]], members: List[F[MemberDef[F]]]) extends Type
 
   /** A member definition in the class body.
     */
-  case class MemberDef[F[_]](sym: Symbol[ClassDef[F]], mutable: Boolean, ascript: Option[Type], body: F[Expr[F]]) extends Term
+  case class MemberDef[F[_]](sym: Symbol[F[MemberDef[F]]], var classDef: Symbol[F[ClassDef[F]]], mutable: Boolean, tpe: Option[Type], body: F[Expr[F]]) extends Term
 
   /** Tree for expressions
     */
@@ -43,6 +43,8 @@ trait Trees {
   case class LambdaExpr[F[_]](params: List[Symbol[LambdaParam]], tpe: Option[Type], body: F[Expr[F]]) extends Expr[F]
 
   /** Parameter in the lambda expression.
+    * 
+    * It is also used to represent class constructor parameters.
     */
   case class LambdaParam(sym: Symbol[LambdaParam], tpe: Type)
 
@@ -120,6 +122,9 @@ trait Trees {
   /** Untyped trees.
     */
   object untpd {
+    type ClassDef = UntypedTree[Trees.ClassDef]
+    type MemberDef = UntypedTree[Trees.MemberDef]
+    
     type Expr = UntypedTree[Trees.Expr]
     
     type LambdaExpr = UntypedTree[Trees.LambdaExpr]
