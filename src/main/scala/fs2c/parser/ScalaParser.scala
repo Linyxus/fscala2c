@@ -25,7 +25,7 @@ class ScalaParser {
     * @param token The token where this error is found.
     * @param msg The error message.
     */
-  case class SyntaxError(token: Option[ScalaToken], msg: String) extends Exception
+  case class SyntaxError(token: Option[ScalaToken], msg: String) extends Exception(msg)
 
   /** Scope of parsing.
     *
