@@ -40,7 +40,10 @@ object Trees {
 
   /** Lambda expressions.
     */
-  case class LambdaExpr[F[_]](params: List[Symbol[LambdaParam]], tpe: Option[Type], body: F[Expr[F]]) extends Expr[F]
+  case class LambdaExpr[F[_]](params: List[Symbol[LambdaParam]], tpe: Option[Type], body: F[Expr[F]]) extends Expr[F] {
+    def assignType(tpe: Type, body: tpd.Expr): tpd.LambdaExpr =
+      Typed(tree = LambdaExpr(params, tpe = this.tpe, body = body), tpe = tpe)
+  }
 
   /** Parameter in the lambda expression.
     * 
@@ -54,7 +57,10 @@ object Trees {
 
   /** Identifier that refers to a symbol.
     */
-  case class IdentifierExpr[F[_]](sym: Symbol.Ref) extends Expr[F]
+  case class IdentifierExpr[F[_]](sym: Symbol.Ref) extends Expr[F] {
+    def assignType(tpe: Type, sym: Symbol[_]): tpd.IdentifierExpr =
+      Typed(Trees.IdentifierExpr(Symbol.Ref.Resolved(sym)), tpe = tpe)
+  }
   
   case class LiteralIntExpr[F[_]](value: Int) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralIntExpr =
@@ -157,7 +163,7 @@ object Trees {
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
 
     type BinOpExpr = UntypedTree[Trees.BinOpExpr]
-    
+
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
   
@@ -177,9 +183,9 @@ object Trees {
     type LocalDef = TypedTree[Trees.LocalDef]
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
-    
+
     type BinOpExpr = TypedTree[Trees.BinOpExpr]
-    
+
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
   }
 }
