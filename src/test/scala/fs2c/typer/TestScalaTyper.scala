@@ -82,4 +82,42 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
+  
+  @Test def applyExpr: Unit = {
+    val tests = List(
+      (
+        """{
+          |  val func = (x : Int) => (y : String) => y
+          |  func(1)
+          |}""".stripMargin,
+        LambdaType(List(StringType), StringType)
+      ),
+      (
+        """{
+          |  val add = (x : Int, y : Int) => x + y
+          |  val curry2 = (func: (Int, Int) => Int) => (x : Int) => (y : Int) => func(x, y)
+          |  val add10 = curry2(add)(10)
+          |  var x = 10
+          |  x = add10(x)
+          |  x
+          |}""".stripMargin,
+        IntType
+      ),
+      (
+        """{
+          |  var x = 0
+          |  val adder = (y : Int) => {
+          |    x = x + y
+          |    x
+          |  }
+          |  adder(x)
+          |  adder(x)
+          |  x > 10
+          |}""".stripMargin,
+        BooleanType
+      ),
+    )
+    
+    tests foreach { case (s, t) => assertTyped(s, t) }
+  }
 }

@@ -3,13 +3,13 @@ package fs2c.typer
 import fs2c.ast.Symbol
 import fs2c.ast.Scopes._
 import fs2c.ast.fs._
-import Trees.{tpd, untpd, Typed, Untyped, ExprBinOpType => bop}
+import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop}
 import Types._
 import GroundType._
 
 class Typer {
   case class TypeError(msg: String) extends Exception(msg)
-  
+
   val scopeCtx: ScopeContext = new ScopeContext
 
   /** Type expressions.
@@ -22,6 +22,7 @@ class Typer {
     case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
     case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
     case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
+    case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
     case _ => throw TypeError(s"can not type $expr : lacking implementation")
   }
 
@@ -29,10 +30,10 @@ class Typer {
     */
   def typedLambdaExpr(expr: untpd.LambdaExpr): tpd.LambdaExpr = {
     val lambda: Trees.LambdaExpr[Untyped] = expr.tree
-    
+
     // --- Open a new scope ---
     scopeCtx.locateScope()
-    
+
     // add lambda parameters into the scope
     lambda.params map { sym => scopeCtx.addSymbol(sym) }
     // typing the body
@@ -45,10 +46,10 @@ class Typer {
         else
           ()
     }
-    
+
     // --- Close the scope ---
     scopeCtx.relocateScope()
-    
+
     lambda.assignType(
       tpe = LambdaType(lambda.params map { sym => sym.dealias.tpe }, typedBody.tpe),
       body = typedBody
@@ -59,22 +60,22 @@ class Typer {
     */
   def typedBlockExpr(expr: untpd.BlockExpr): tpd.BlockExpr = {
     val block: Trees.BlockExpr[Untyped] = expr.tree
-    
+
     // --- Open a new scope ---
     scopeCtx.locateScope()
-    
+
     val defs: List[tpd.LocalDef] = block.defs map typedLocalDef
     val tpdExpr: tpd.Expr = typedExpr(block.expr)
-    
+
     // --- Close the scope ---
     scopeCtx.relocateScope()
-    
+
     block.assignType(tpdExpr.tpe, defs, tpdExpr)
   }
-  
+
   def typedLocalDef(expr: untpd.LocalDef): tpd.LocalDef = {
     val localDef: Trees.LocalDef[Untyped] = expr.tree
-    
+
     localDef match {
       case bind @ Trees.LocalDef.Bind(sym, mutable, tpe, body) =>
         val typedBody = typedExpr(body)
@@ -85,7 +86,7 @@ class Typer {
         }
         val typedBind: tpd.LocalDefBind = bind.assignTypeBind(typedBody)
         scopeCtx.addSymbol(typedBind.tree.sym)
-        
+
         typedBind
       case eval @ Trees.LocalDef.Eval(expr) =>
         eval.assignTypeEval(typedExpr(expr))
@@ -136,7 +137,7 @@ class Typer {
     case tped : Typed[_] => tped.tpe
     case param : Trees.LambdaParam => param.tpe
   }
-  
+
   def typedIdentifierExpr(expr: untpd.IdentifierExpr): tpd.IdentifierExpr =
     expr.tree.sym match {
       case Symbol.Ref.Unresolved(symName) =>
@@ -154,6 +155,31 @@ class Typer {
             expr.tree.assignType(typeOfSymbol(sym), sym)
         }
     }
+  
+  def typedApplyExpr(expr: untpd.ApplyExpr): tpd.ApplyExpr = {
+    def apply = expr.tree
+    val func: tpd.Expr = typedExpr(apply.func)
+    
+    func.tpe match {
+      case LambdaType(expectParamTypes, valueType) =>
+        val params: List[tpd.Expr] = apply.args map typedExpr
+        val paramTypes: List[Type] = params map (_.tpe)
+        @annotation.tailrec def go(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
+          case (Nil, Nil) => ()
+          case (Nil, _) | (_, Nil) =>
+            throw TypeError(s"parameter number mismatch.")
+          case (t1 :: ts1, t2 :: ts2) if t1 == t2 =>
+            go(ts1, ts2)
+          case (t1 :: ts1, t2 :: ts2) =>
+            throw TypeError(s"arugment type mismatch: $t1 and $t2")
+        }
+        // do arugment type checking
+        go(expectParamTypes, paramTypes)
+        apply.assignType(tpe = valueType, func, params)
+      case _ =>
+        throw TypeError(s"can not apply expr of type ${func.tpe} : is not a function")
+    }
+  }
 
   /** Type binary operator expressions.
     */
@@ -260,4 +286,47 @@ class Typer {
       }
     ),
   )
+}
+
+object Typer {
+  def showTypedExpr(expr: tpd.Expr, indentLevel: Int = 0): String = {
+    val tree: Trees.Expr[Typed] = expr.tree
+    val tpe: Type = expr.tpe
+    def showLambdaParam(param: Trees.LambdaParam): String =
+      s"${param.sym.name} : ${param.tpe}"
+    def showLocalDef(localDef: tpd.LocalDef): String = {
+      val tree: Trees.LocalDef[Typed] = localDef.tree
+      val tpe: Type = localDef.tpe
+      tree match {
+        case bind : Trees.LocalDef.Bind[Typed] =>
+          val kw = if bind.mutable then "var" else "val"
+          s"$kw ${bind.sym.name} : $tpe = ${showTypedExpr(bind.body, indentLevel)}"
+        case eval : Trees.LocalDef.Eval[Typed] =>
+          s"${showTypedExpr(eval.expr, indentLevel)}"
+        case assign : Trees.LocalDef.Assign[Typed] =>
+          s"${assign.ref} = ${showTypedExpr(assign.expr, indentLevel)}"
+      }
+    }
+    tree match {
+      case Trees.LambdaExpr(params, _, body) =>
+        s"((${params map { sym => showLambdaParam(sym.dealias) } mkString ", "}) => ${showTypedExpr(body, indentLevel)}) : $tpe"
+      case Trees.BlockExpr(defs, expr) =>
+        s"{ ${defs map showLocalDef mkString "; "}; ${showTypedExpr(expr)} } : $tpe"
+      case Trees.IdentifierExpr(sym) =>
+        sym.toString + s" : $tpe"
+      case Trees.LiteralIntExpr(value) =>
+        value.toString + s" : $tpe"
+      case Trees.LiteralFloatExpr(value) =>
+        value.toString + s" : $tpe"
+      case Trees.LiteralBooleanExpr(value) =>
+        value.toString + s" : $tpe"
+      case Trees.ApplyExpr(func, args) =>
+        s"${showTypedExpr(func)} : $tpe"
+      case Trees.SelectExpr(expr, member) =>
+        s"(${showTypedExpr(expr)}.$member : $tpe)"
+      case Trees.BinOpExpr(op, e1, e2) =>
+        s"($op ${showTypedExpr(e1)} ${showTypedExpr(e2)}) : $tpe"
+      case Trees.UnaryOpExpr(op, e) => ???
+    }
+  }
 }

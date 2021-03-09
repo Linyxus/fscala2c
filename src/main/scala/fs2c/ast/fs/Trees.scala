@@ -82,7 +82,10 @@ object Trees {
 
   /** Application.
     */
-  case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F]
+  case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F] {
+    def assignType(tpe: Type, func: tpd.Expr, args: List[tpd.Expr]): tpd.ApplyExpr =
+      Typed(tpe = tpe, tree = ApplyExpr(func = func, args = args))
+  }
 
   /** Selection.
     */
@@ -109,7 +112,7 @@ object Trees {
     case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
     
     case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
-    
+
     def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
       case b : Bind[_] =>
         val bind: tpd.LocalDefBind = Typed(tpe = body.tpe, tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body))
@@ -117,20 +120,20 @@ object Trees {
         bind
       case _ => assert(false, s"can not call assignTypeBind on $this")
     }
-    
+
     def assignTypeEval(expr: tpd.Expr): tpd.LocalDefEval = this match {
       case e : Eval[_] =>
         Typed(tpe = expr.tpe, tree = Eval(expr))
       case _ => assert(false, s"can not call assignTypeEval on $this")
     }
-    
+
     def assignTypeAssign(sym: Symbol[_], expr: tpd.Expr): tpd.LocalDefAssign = this match {
       case e : Assign[_] =>
         Typed(tpe = expr.tpe, tree = Assign(ref = Symbol.Ref.Resolved(sym), expr))
       case _ => assert(false, s"can not call assignTypeAssign on $this")
     }
   }
-  
+
   enum ExprBinOpType {
     case +
     case -
@@ -184,6 +187,9 @@ object Trees {
     type LocalDef = UntypedTree[Trees.LocalDef]
     type LocalDefBind = UntypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
+    
+    type ApplyExpr = UntypedTree[Trees.ApplyExpr]
+    type SelectExpr = UntypedTree[Trees.SelectExpr]
 
     type BinOpExpr = UntypedTree[Trees.BinOpExpr]
 
@@ -209,6 +215,9 @@ object Trees {
     type LocalDefAssign = TypedTree[Trees.LocalDef.Assign]
 
     type BinOpExpr = TypedTree[Trees.BinOpExpr]
+
+    type ApplyExpr = TypedTree[Trees.ApplyExpr]
+    type SelectExpr = TypedTree[Trees.SelectExpr]
 
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
   }
