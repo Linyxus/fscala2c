@@ -10,7 +10,7 @@ import fs2c.typer.Types._
   *   - A untyped tree can be expressed as `Untyped[SomeTree[Untyped]]`.
   *   - A typed tree can be expressed as `Typed[SomeTree[Typed]]`.
   */
-trait Trees {
+object Trees {
 
   /** The trait for all terms living in the value domain.
     */
@@ -56,11 +56,20 @@ trait Trees {
     */
   case class IdentifierExpr[F[_]](sym: Symbol.Ref) extends Expr[F]
   
-  case class LiteralIntExpr[F[_]](value: Int) extends Expr[F]
+  case class LiteralIntExpr[F[_]](value: Int) extends Expr[F] {
+    def assignType(tpe: Type): tpd.LiteralIntExpr =
+      Typed(tree = LiteralIntExpr(value), tpe = tpe)
+  }
   
-  case class LiteralFloatExpr[F[_]](value: Double) extends Expr[F]
+  case class LiteralFloatExpr[F[_]](value: Double) extends Expr[F] {
+    def assignType(tpe: Type): tpd.LiteralFloatExpr =
+      Typed(tree = LiteralFloatExpr(value), tpe = tpe)
+  }
   
-  case class LiteralBooleanExpr[F[_]](value: Boolean) extends Expr[F]
+  case class LiteralBooleanExpr[F[_]](value: Boolean) extends Expr[F] {
+    def assignType(tpe: Type): tpd.LiteralBooleanExpr =
+      Typed(tree = LiteralBooleanExpr(value), tpe = tpe)
+  }
 
   /** Application.
     */
@@ -70,7 +79,10 @@ trait Trees {
     */
   case class SelectExpr[F[_]](expr: F[Expr[F]], member: Symbol.Ref) extends Expr[F]
   
-  case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F]
+  case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F] {
+    def assignType(tpe: Type, e1: tpd.Expr, e2: tpd.Expr): tpd.BinOpExpr =
+      Typed(tree = BinOpExpr(op, e1, e2), tpe = tpe)
+  }
   
   case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F]
 
@@ -143,6 +155,8 @@ trait Trees {
     type LocalDef = UntypedTree[Trees.LocalDef]
     type LocalDefBind = UntypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
+
+    type BinOpExpr = UntypedTree[Trees.BinOpExpr]
     
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
@@ -164,8 +178,8 @@ trait Trees {
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
     
+    type BinOpExpr = TypedTree[Trees.BinOpExpr]
+    
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
   }
 }
-
-object Trees extends Trees
