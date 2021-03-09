@@ -55,6 +55,12 @@ trait Trees {
   /** Identifier that refers to a symbol.
     */
   case class IdentifierExpr[F[_]](sym: Symbol.Ref) extends Expr[F]
+  
+  case class LiteralIntExpr[F[_]](value: Int) extends Expr[F]
+  
+  case class LiteralFloatExpr[F[_]](value: Double) extends Expr[F]
+  
+  case class LiteralBooleanExpr[F[_]](value: Boolean) extends Expr[F]
 
   /** Application.
     */
@@ -109,7 +115,7 @@ trait Trees {
     * Currently placeholders.
     */
   case class Untyped[+X](tree: X)
-  type Typed = [X] =>> X
+  case class Typed[+X](tree: X, tpe: Type)
 
   /** Transform tree type to Untyped tree type. For more information, see [[Untyped]].
     */
@@ -127,6 +133,10 @@ trait Trees {
     
     type Expr = UntypedTree[Trees.Expr]
     
+    type LiteralIntExpr = UntypedTree[Trees.LiteralIntExpr]
+    type LiteralFloatExpr = UntypedTree[Trees.LiteralFloatExpr]
+    type LiteralBooleanExpr = UntypedTree[Trees.LiteralBooleanExpr]
+    
     type LambdaExpr = UntypedTree[Trees.LambdaExpr]
     
     type BlockExpr = UntypedTree[Trees.BlockExpr]
@@ -135,6 +145,26 @@ trait Trees {
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
     
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
+  }
+  
+  object tpd {
+    type ClassDef = TypedTree[Trees.ClassDef]
+    type MemberDef = TypedTree[Trees.MemberDef]
+    
+    type Expr = TypedTree[Trees.Expr]
+    
+    type LiteralIntExpr = TypedTree[Trees.LiteralIntExpr]
+    type LiteralFloatExpr = TypedTree[Trees.LiteralFloatExpr]
+    type LiteralBooleanExpr = TypedTree[Trees.LiteralBooleanExpr]
+    
+    type LambdaExpr = TypedTree[Trees.LambdaExpr]
+    
+    type BlockExpr = TypedTree[Trees.BlockExpr]
+    type LocalDef = TypedTree[Trees.LocalDef]
+    type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
+    type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
+    
+    type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
   }
 }
 

@@ -41,6 +41,21 @@ trait ScalaTokenFunctions {
     case _ => false
   } ?? "identifier"
   
+  def literalInt: Parser[ScalaToken] = satisfy {
+    case ScalaToken(_, _, _ : ScalaTokenType.LiteralInt) => true
+    case _ => false
+  } ?? "integer literal"
+  
+  def literalFloat: Parser[ScalaToken] = satisfy {
+    case ScalaToken(_, _, _ : ScalaTokenType.LiteralFloat) => true
+    case _ => false
+  } ?? "float literal"
+  
+  def literalBoolean: Parser[ScalaToken] = satisfy {
+    case ScalaToken(_, _, _ : ScalaTokenType.LiteralBoolean) => true
+    case _ => false
+  } ?? "boolean literal"
+  
   def symbol(name: String): Parser[ScalaToken] = satisfy {
     case ScalaToken(_, _, ScalaTokenType.Identifier(s)) if s == name => true
     case _ => false

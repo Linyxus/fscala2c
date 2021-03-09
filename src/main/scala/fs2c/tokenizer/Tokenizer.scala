@@ -151,6 +151,21 @@ class Tokenizer(val source: ScalaSource) {
     while skipSpace do ()
   }
 
+  def literalNumeric: LiteralFloat | LiteralInt = {
+    while !eof && peek.isDigit do
+      forward
+    if !eof && peek == '.' then {
+      forward
+      while !eof && peek.isDigit do
+        forward
+      val floatStr = content.substring(start, current)
+      LiteralFloat(floatStr.toDouble)
+    } else {
+      val intStr = content.substring(start, current)
+      LiteralInt(intStr.toInt)
+    }
+  }
+
   /** Parse a symbol starting with a letter and consists of letters and digits.
     */
   def symbol: String = {
@@ -171,6 +186,8 @@ class Tokenizer(val source: ScalaSource) {
     case "new" => Some(KeywordNew)
     case "class" => Some(KeywordClass)
     case "extends" => Some(KeywordExtends)
+    case "True" => Some(LiteralBoolean(true))
+    case "False" => Some(LiteralBoolean(false))
     case _ => None
   }
 
@@ -228,6 +245,8 @@ class Tokenizer(val source: ScalaSource) {
           case ch if ch.isLetter =>
             val str = symbol
             keyword(str) !! identifier(str)
+          case ch if ch.isDigit =>
+            literalNumeric
           case ch => Error("unexpected character")
         }
       }

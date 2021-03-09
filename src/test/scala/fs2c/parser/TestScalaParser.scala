@@ -48,6 +48,14 @@ class TestScalaParser {
     failureStr foreach { s => assertParseFailure(scalaParser.exprParser, s) }
   }
   
+  @Test def literals: Unit = {
+    val tests = List(
+      "1", "1.0", "True", "False",
+      "1 + 1.0", "2.0 + 3.0", "1.1231 + False * True"
+    )
+    tests foreach { s => assertParseSuccess((new ScalaParser).exprParser, s) }
+  }
+  
   @Test def typeParser: Unit = {
     val tests = List(
       "Int", "Float", "Boolean", "String",
@@ -77,7 +85,7 @@ class TestScalaParser {
         |    }
         |  }
         |  var i : Int = a
-        |  i = i + a
+        |  i = i + 1
         |  x + i
         |}""".stripMargin)
   }
