@@ -193,13 +193,15 @@ class ScalaParser {
     makeExprParser(List(
       Binary(LeftAssoc, List(
         "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
-        "||" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
+        "||" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.||, e1, e2)) },
       )),
       Binary(LeftAssoc, List(
         ">" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>, e1, e2)) },
         "<" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<, e1, e2)) },
         ">=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>=, e1, e2)) },
         "<=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<=, e1, e2)) },
+        "==" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.==, e1, e2)) },
+        "!=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.!=, e1, e2)) },
       )),
       Binary(LeftAssoc, List(
         "+" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.+, e1, e2)) },
