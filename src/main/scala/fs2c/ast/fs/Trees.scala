@@ -53,7 +53,10 @@ object Trees {
 
   /** Block expressions.
     */
-  case class BlockExpr[F[_]](defs: List[F[LocalDef[F]]], expr: F[Expr[F]]) extends Expr[F]
+  case class BlockExpr[F[_]](defs: List[F[LocalDef[F]]], expr: F[Expr[F]]) extends Expr[F] {
+    def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr =
+      Typed(tpe = tpe, tree = BlockExpr(defs, expr))
+  }
 
   /** Identifier that refers to a symbol.
     */
@@ -106,6 +109,26 @@ object Trees {
     case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
     
     case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
+    
+    def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
+      case b : Bind[_] =>
+        val bind: tpd.LocalDefBind = Typed(tpe = body.tpe, tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body))
+        bind.tree.sym.dealias = bind
+        bind
+      case _ => assert(false, s"can not call assignTypeBind on $this")
+    }
+    
+    def assignTypeEval(expr: tpd.Expr): tpd.LocalDefEval = this match {
+      case e : Eval[_] =>
+        Typed(tpe = expr.tpe, tree = Eval(expr))
+      case _ => assert(false, s"can not call assignTypeEval on $this")
+    }
+    
+    def assignTypeAssign(sym: Symbol[_], expr: tpd.Expr): tpd.LocalDefAssign = this match {
+      case e : Assign[_] =>
+        Typed(tpe = expr.tpe, tree = Assign(ref = Symbol.Ref.Resolved(sym), expr))
+      case _ => assert(false, s"can not call assignTypeAssign on $this")
+    }
   }
   
   enum ExprBinOpType {
@@ -183,6 +206,7 @@ object Trees {
     type LocalDef = TypedTree[Trees.LocalDef]
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
+    type LocalDefAssign = TypedTree[Trees.LocalDef.Assign]
 
     type BinOpExpr = TypedTree[Trees.BinOpExpr]
 

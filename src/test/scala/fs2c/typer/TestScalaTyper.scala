@@ -47,4 +47,28 @@ class TestScalaTyper {
     assertTyped("(x : Int, y : Int) => x + y > x * y", LambdaType(List(IntType, IntType), BooleanType))
     assertTyped("(x : Int) => (y : Int) => x + y", LambdaType(List(IntType), LambdaType(List(IntType), IntType)))
   }
+  
+  @Test def blockExpr: Unit = {
+    val tests = List(
+      (
+        """{
+          |  val x = 1
+          |  val y = x + 1
+          |  x + y
+          |}""".stripMargin,
+        IntType
+      ),
+      (
+        """{
+          |  var x = 1
+          |  val y = x + 1
+          |  x = x + y
+          |  x * y
+          |}""".stripMargin,
+        IntType
+      ),
+    )
+    
+    tests foreach { case (s, t) => assertTyped(s, t) }
+  }
 }

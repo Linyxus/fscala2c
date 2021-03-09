@@ -21,6 +21,7 @@ class Typer {
     case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
     case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
     case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
+    case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
     case _ => throw TypeError(s"can not type $expr : lacking implementation")
   }
 
@@ -29,7 +30,7 @@ class Typer {
   def typedLambdaExpr(expr: untpd.LambdaExpr): tpd.LambdaExpr = {
     val lambda: Trees.LambdaExpr[Untyped] = expr.tree
     
-    // --- Begin the scope ---
+    // --- Open a new scope ---
     scopeCtx.locateScope()
     
     // add lambda parameters into the scope
@@ -53,7 +54,84 @@ class Typer {
       body = typedBody
     )
   }
- 
+
+  /** Type block expressions.
+    */
+  def typedBlockExpr(expr: untpd.BlockExpr): tpd.BlockExpr = {
+    val block: Trees.BlockExpr[Untyped] = expr.tree
+    
+    // --- Open a new scope ---
+    scopeCtx.locateScope()
+    
+    val defs: List[tpd.LocalDef] = block.defs map typedLocalDef
+    val tpdExpr: tpd.Expr = typedExpr(block.expr)
+    
+    // --- Close the scope ---
+    scopeCtx.relocateScope()
+    
+    block.assignType(tpdExpr.tpe, defs, tpdExpr)
+  }
+  
+  def typedLocalDef(expr: untpd.LocalDef): tpd.LocalDef = {
+    val localDef: Trees.LocalDef[Untyped] = expr.tree
+    
+    localDef match {
+      case bind @ Trees.LocalDef.Bind(sym, mutable, tpe, body) =>
+        val typedBody = typedExpr(body)
+        tpe match {
+          case Some(tpe) if tpe != typedBody.tpe =>
+            throw TypeError(s"Type mismatch: expecting $tpe but found ${typedBody.tpe}")
+          case _ => ()
+        }
+        val typedBind: tpd.LocalDefBind = bind.assignTypeBind(typedBody)
+        scopeCtx.addSymbol(typedBind.tree.sym)
+        
+        typedBind
+      case eval @ Trees.LocalDef.Eval(expr) =>
+        eval.assignTypeEval(typedExpr(expr))
+      case assign @ Trees.LocalDef.Assign(symRef, expr) => {
+        val sym: Symbol[_] = symRef match {
+          case Symbol.Ref.Resolved(sym) =>
+            scopeCtx.findSym(sym.name) match {
+              case None =>
+                throw TypeError(s"unknown symbol: ${sym.name}")
+              case Some(sym) => sym
+            }
+          case Symbol.Ref.Unresolved(symName) =>
+            scopeCtx.findSym(symName) match {
+              case None =>
+                throw TypeError(s"unknown symbol: $symName")
+              case Some(sym) => sym
+            }
+        }
+        val tpdExpr: tpd.Expr = typedExpr(expr)
+        if isSymbolMutable(sym) && tpdExpr.tpe == typeOfSymbol(sym) then
+          assign.assignTypeAssign(sym, tpdExpr)
+        else {
+          if !isSymbolMutable(sym) then
+            throw TypeError(s"can not assign to an immutable $sym")
+          else
+            throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
+        }
+      }
+    }
+  }
+
+  /** Checks whether a symbol is mutable.
+    */
+  def isSymbolMutable(sym: Symbol[_]): Boolean = {
+    sym.dealias match {
+      case typed : Typed[_] =>
+        val tree = typed.tree
+        tree match {
+          case bind : Trees.LocalDef.Bind[_] => bind.mutable
+          case member : Trees.MemberDef[_] => member.mutable
+          case _ => false
+        }
+      case _ => false
+    }
+  }
+
   def typeOfSymbol(sym: Symbol[_]): Type = sym.dealias match {
     case tped : Typed[_] => tped.tpe
     case param : Trees.LambdaParam => param.tpe
@@ -68,7 +146,13 @@ class Typer {
           case Some(sym) =>
             expr.tree.assignType(typeOfSymbol(sym), sym)
         }
-      case Symbol.Ref.Resolved(sym) => expr.tree.assignType(typeOfSymbol(sym), sym)
+      case Symbol.Ref.Resolved(sym) =>
+        scopeCtx.findSym(sym.name) match {
+          case None =>
+            throw TypeError(s"unknown resolved symbol: ${sym.name}, this is caused by a bug in the compiler.")
+          case Some(sym) =>
+            expr.tree.assignType(typeOfSymbol(sym), sym)
+        }
     }
 
   /** Type binary operator expressions.
