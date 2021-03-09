@@ -9,6 +9,7 @@ import fs2c.tools.packratc.Parser.{~}
 import fs2c.ast.fs.Trees
 import Trees.{untpd, Untyped, Typed}
 import fs2c.ast.Symbol
+import fs2c.ast.Scopes._
 import fs2c.typer.Types
 import Types.*
 
@@ -26,83 +27,15 @@ class ScalaParser {
     * @param msg The error message.
     */
   case class SyntaxError(token: Option[ScalaToken], msg: String) extends Exception(msg)
-
-  /** Scope of parsing.
-    *
-    * @param syms   Symbols contained in the scope.
-    * @param parent Parent scope of the current one. None if this is the root scope.
-    */
-  case class ParseScope(var syms: Map[String, Symbol[_]], parent: ParseScope)
-
-  /** Current scope.
-    * Initially, it will be an empty root scope.
-    */
-  var currentScope: ParseScope = ParseScope(Map.empty, null)
-
-  /** Enter a new scope.
-    */
-  def locateScope(): Unit = {
-    currentScope = ParseScope(Map.empty, currentScope)
-    symCacheStack = symCacheStack.head :: symCacheStack
-  }
-
-  /** Exit the current scope.
-    */
-  def relocateScope(): Unit = {
-    currentScope = currentScope.parent.ensuring(_ != null, "can not relocate from the root scope.")
-    symCacheStack = symCacheStack.tail
-  }
-
-  /** Find symbol in the given scope. Will not search deeper into its parent scope.
-    *
-    * @param scope Scope to search in.
-    * @param symName Symbol name to look for.
-    */
-  def findSymIn(scope: ParseScope, symName: String): Option[Symbol[_]] = scope.syms get symName
-
-  /** Find symbol from all nested scopes.
-    *
-    * @param symName Symbol name to look for.
-    */
-  def findSym(symName: String): Option[Symbol[_]] = {
-    @annotation.tailrec def recur(scope: ParseScope): Option[Symbol[_]] = scope match {
-      case null => None
-      case _ => findSymIn(scope, symName) match {
-        case Some(sym) => Some(sym)
-        case None => recur(scope.parent)
-      }
-    }
-
-    recur(currentScope)
-  }
-
-  /** Find symbol in the current scope.
-    */
-  def findSymHere(symName: String): Option[Symbol[_]] = findSymIn(currentScope, symName)
-
-  /** Add a symbol into the current scope.
-    */
-  def addSymbol(sym: Symbol[_]): Unit = {
-    currentScope.syms = currentScope.syms.updated(sym.name, sym)
-  }
-
-  /** A cache for symbol names.
-    * Always store the _closest_ symbol (in the newest scope) for each name.
-    */
-//  def symCache: Map[String, Symbol[_]] = symCacheStack.head
-
-  /** A stack for symbol name cache.
-    * The stack grows when the parser enters a new scope,
-    * and will trackback to previous state when the parser exits a scope.
-    */
-  var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
+  
+  val scopeCtx: ScopeContext = new ScopeContext
 
   /** Parses class definition.
     */
   def classDefParser: Parser[untpd.ClassDef] = {
     val member: Parser[untpd.MemberDef] = memberDef << NL
     val bodyBegin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => t }
-    val bodyEnd: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => relocateScope(); t }
+    val bodyEnd: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => scopeCtx.relocateScope(); t }
     val body: Parser[List[untpd.MemberDef]] =
       (bodyBegin ~ member.many ~ bodyEnd) <| { case _ ~ ls ~ _ => ls}
     val param: Parser[(ScalaToken, String, Type)] =
@@ -111,17 +44,17 @@ class ScalaParser {
       }
     val paramList: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
       case None => 
-        locateScope()
+        scopeCtx.locateScope()
         Nil
       case Some(xs) =>
-        locateScope()
+        scopeCtx.locateScope()
         xs map { case (t, symName, tpe) =>
-          if findSymHere(symName).isDefined then
+          if scopeCtx.findSymHere(symName).isDefined then
             throw SyntaxError(Some(t), s"duplicated parameter name in class definition: $symName")
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(symName, null), tpe)
             lambdaParam.sym.dealias = lambdaParam
-            addSymbol(lambdaParam.sym)
+            scopeCtx.addSymbol(lambdaParam.sym)
             lambdaParam.sym
           }
         }
@@ -134,7 +67,7 @@ class ScalaParser {
 
     ("class" ~ identifier ~ paramList ~ inheritance ~ body) <| {
       case _ ~ (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
-        if findSymHere(symName).isDefined then
+        if scopeCtx.findSymHere(symName).isDefined then
           throw SyntaxError(Some(tk), "duplicated class name: $symName")
         else {
           val ret: untpd.ClassDef = Untyped(Trees.ClassDef(Symbol(symName, null), params, parent, members))
@@ -156,12 +89,12 @@ class ScalaParser {
           case _ => false
         }
 
-        if findSymHere(name).isDefined then
+        if scopeCtx.findSymHere(name).isDefined then
           throw SyntaxError(Some(t), s"duplicated member name in class definition: $name")
         else {
           val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, mutable, tpe, body))
           member.tree.sym.dealias = member
-          addSymbol(member.tree.sym)
+          scopeCtx.addSymbol(member.tree.sym)
           member
         }
     }
@@ -277,16 +210,16 @@ class ScalaParser {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
     val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps =>
       // create a new scope for the lambda
-      locateScope()
+      scopeCtx.locateScope()
       def recur(ps: List[(ScalaToken, Type)]): List[Symbol[Trees.LambdaParam]] = ps match {
         case Nil => Nil
         case (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(name)), tpe) :: ps =>
-          if findSymHere(name).isDefined then
+          if scopeCtx.findSymHere(name).isDefined then
             throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(name, null), tpe)
             lambdaParam.sym.dealias = lambdaParam
-            addSymbol(lambdaParam.sym)
+            scopeCtx.addSymbol(lambdaParam.sym)
             lambdaParam.sym :: recur(ps)
           }
         case _ :: ps => recur(ps)
@@ -295,7 +228,7 @@ class ScalaParser {
     }
     val body: Parser[untpd.Expr] = exprParser <| { x =>
       // exit the scope
-      relocateScope()
+      scopeCtx.relocateScope()
       Untyped(x.tree)
     }
 
@@ -306,8 +239,8 @@ class ScalaParser {
     */
   def blockExpr: Parser[untpd.BlockExpr] = {
     val line: Parser[untpd.LocalDef] = localDef << NL
-    val begin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => locateScope(); t }
-    val end: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => relocateScope(); t }
+    val begin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => scopeCtx.locateScope(); t }
+    val end: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => scopeCtx.relocateScope(); t }
     val block: Parser[untpd.BlockExpr] = 
       (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
         ls match {
@@ -339,12 +272,12 @@ class ScalaParser {
           case _ => false
         }
 
-        if findSymHere(name).isDefined then
+        if scopeCtx.findSymHere(name).isDefined then
           throw SyntaxError(Some(t), s"duplicated value name in local definition: $name")
         else {
           val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
           bind.tree.sym.dealias = bind
-          addSymbol(bind.tree.sym)
+          scopeCtx.addSymbol(bind.tree.sym)
           bind
         }
     }
@@ -360,7 +293,7 @@ class ScalaParser {
     Untyped(Trees.LocalDef.Eval(expr))
   }
   
-  def tryResolveSymbol(symName: String): Symbol.Ref = findSym(symName) match {
+  def tryResolveSymbol(symName: String): Symbol.Ref = scopeCtx.findSym(symName) match {
     case None => Symbol.Ref.Unresolved(symName)
     case Some(sym) => Symbol.Ref.Resolved(sym)
   }
@@ -370,7 +303,7 @@ class ScalaParser {
   def identifierExpr: Parser[untpd.IdentifierExpr] = {
     identifier <| {
       case ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
-        findSym(symName) match {
+        scopeCtx.findSym(symName) match {
           case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
           case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym)))
         }
