@@ -36,6 +36,11 @@ class TestScalaParser {
       "a + b * c",
       "a + b * (c + -d)",
       "a + b * (c + -d) ^ e",
+      "1 > 2",
+      "1 >= 2",
+      "1 <= 2",
+      "1 < 2",
+      "(1 + 1) == 2",
     )
 
     val failureStr = List(
@@ -47,7 +52,7 @@ class TestScalaParser {
     successStr foreach { s => assertParseSuccess(scalaParser.exprParser, s) }
     failureStr foreach { s => assertParseFailure(scalaParser.exprParser, s) }
   }
-  
+
   @Test def literals: Unit = {
     val tests = List(
       "1", "1.0", "True", "False",
@@ -55,7 +60,7 @@ class TestScalaParser {
     )
     tests foreach { s => assertParseSuccess((new ScalaParser).exprParser, s) }
   }
-  
+
   @Test def typeParser: Unit = {
     val tests = List(
       "Int", "Float", "Boolean", "String",
@@ -63,7 +68,7 @@ class TestScalaParser {
       "Int => (Int => Int) => Int", "Int => (Array[Int] => Int) => Array[Int => String]",
       "Foo => Bar"
     )
-    
+
     tests foreach { s => assertParseSuccess((new ScalaParser).typeParser, s) }
   }
 
@@ -111,7 +116,7 @@ class TestScalaParser {
     assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = a")
     assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = (x : Int, y : Int) => x + y")
   }
-  
+
   @Test def classDef: Unit = {
     val tests = List(
       """class Foo {
@@ -119,9 +124,9 @@ class TestScalaParser {
       """class Foo(x1 : Int, y1 : Int) extends Bar {
         |  val x = x1
         |  val y = y1
-        |  
+        |
         |  val addX = (a : Int) => a + x
-        |  
+        |
         |  val func = (a : Int, b : Int) => {
         |    val t1 = a * x
         |    val t2 = b ^ y
