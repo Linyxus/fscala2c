@@ -47,6 +47,17 @@ class TestScalaParser {
     successStr foreach { s => assertParseSuccess(scalaParser.exprParser, s) }
     failureStr foreach { s => assertParseFailure(scalaParser.exprParser, s) }
   }
+  
+  @Test def typeParser: Unit = {
+    val tests = List(
+      "Int", "Float", "Boolean", "String",
+      "Int => Int", "(Int, Int) => Int", "(Int, Int) => Int => Int",
+      "Int => (Int => Int) => Int", "Int => (Array[Int] => Int) => Array[Int => String]",
+      "Foo => Bar"
+    )
+    
+    tests foreach { s => assertParseSuccess((new ScalaParser).typeParser, s) }
+  }
 
   @Test def blockExpr: Unit = {
     assertParseSuccess((new ScalaParser).blockExpr,
