@@ -21,7 +21,7 @@
  
  - [X] packratc: Packrat Parser Combinator library
  
- - [ ] Parser: tokens --> Featherweight Scala raw AST
+ - [X] Parser: tokens --> Featherweight Scala raw AST
  
  - [ ] Raw AST --> Typed AST (Scala Core IR)
  
