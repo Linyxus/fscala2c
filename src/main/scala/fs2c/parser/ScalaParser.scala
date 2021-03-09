@@ -374,16 +374,24 @@ class ScalaParser {
 
     (t ~ "=>" ~ lambdaType) <| { case argTpe ~ _ ~ bodyTpe => LambdaType(argTpe, bodyTpe) }
   }
-  def typeTerm: Parser[Type] = groundType or { typeParser.wrappedBy("(", ")") }
+  
+  def typeTerm: Parser[Type] = groundType or { typeParser.wrappedBy("(", ")") } or symbolType
+  
   def groundType: Parser[GroundType] = (symbol("Int") <* GroundType.IntType) or
       (symbol("Float") <* GroundType.FloatType) or
       (symbol("Boolean") <* GroundType.BooleanType) or
       (symbol("String") <* GroundType.StringType) or
       arrayType
+  
   def arrayType: Parser[GroundType.ArrayType] =
     (symbol("Array") seq "[" seq typeParser seq "]") <| {
       case _ ~ _ ~ tpe ~ _ => GroundType.ArrayType(tpe)
     }
+  
+  def symbolType: Parser[Types.SymbolType] = identifier <| {
+    case ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
+      SymbolType(tryResolveSymbol(symName))
+  }
 }
 
 object ScalaParser {
