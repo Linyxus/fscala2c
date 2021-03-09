@@ -67,6 +67,17 @@ class TestScalaTyper {
           |}""".stripMargin,
         IntType
       ),
+      (
+        """{
+          |  var x = 1
+          |  val add = (y : Int) => {
+          |    x = x + y
+          |    x
+          |  }
+          |  add
+          |}""".stripMargin,
+        LambdaType(List(IntType), IntType)
+      ),
     )
     
     tests foreach { case (s, t) => assertTyped(s, t) }
