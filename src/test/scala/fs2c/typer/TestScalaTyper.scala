@@ -24,12 +24,12 @@ class TestScalaTyper {
       case Right(value) => value._1
     }
   }
-  
+
   def typedExpr(e: untpd.Expr): tpd.Expr = (new Typer).typedExpr(e)
-  
+
   def assertTyped(str: String, tpe: Type): Unit =
     assertEquals(typedExpr(forceParseString(str)).tpe, tpe)
-  
+
   @Test def simpleExpr: Unit = {
     assertTyped("1", GroundType.IntType)
     assertTyped("1 + 1", GroundType.IntType)
@@ -47,7 +47,7 @@ class TestScalaTyper {
     assertTyped("(x : Int, y : Int) => x + y > x * y", LambdaType(List(IntType, IntType), BooleanType))
     assertTyped("(x : Int) => (y : Int) => x + y", LambdaType(List(IntType), LambdaType(List(IntType), IntType)))
   }
-  
+
   @Test def blockExpr: Unit = {
     val tests = List(
       (
@@ -79,7 +79,7 @@ class TestScalaTyper {
         LambdaType(List(IntType), IntType)
       ),
     )
-    
+
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
 }

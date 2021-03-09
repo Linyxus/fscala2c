@@ -136,4 +136,14 @@ class TestScalaParser {
     )
     tests foreach { x => assertParseSuccess((new ScalaParser).classDefParser, x) }
   }
+  
+  @Test def applyOrSelect: Unit = {
+    val tests = List(
+      "foo.bar",
+      "foo.bar.baz",
+      "foo.bar.baz(a, b).c"
+    )
+    
+    tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
+  }
 }
