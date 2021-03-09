@@ -40,4 +40,11 @@ class TestScalaTyper {
     assertTyped("2 > 3 && 3 != 4", GroundType.BooleanType)
     assertTyped("2 == 3 && 3 != 4", GroundType.BooleanType)
   }
+
+  @Test def lambdaExpr: Unit = {
+    assertTyped("(x : Int) => x", LambdaType(List(IntType), IntType))
+    assertTyped("(x : Int, y : Int) => x + y + 2 * x * y", LambdaType(List(IntType, IntType), IntType))
+    assertTyped("(x : Int, y : Int) => x + y > x * y", LambdaType(List(IntType, IntType), BooleanType))
+    assertTyped("(x : Int) => (y : Int) => x + y", LambdaType(List(IntType), LambdaType(List(IntType), IntType)))
+  }
 }
