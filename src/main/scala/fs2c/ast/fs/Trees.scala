@@ -28,7 +28,7 @@ trait Trees {
     * ClassDef(sym = Foo, params = List(a : Int, b : Boolean), parent = Some(Bar), List(...))
     * ```
     */
-  case class ClassDef[F[_]](sym: Symbol[F[ClassDef[F]]], params: List[Symbol[LambdaParam]], parent: Option[Symbol[F[ClassDef[F]]]], members: List[F[MemberDef[F]]]) extends Type
+  case class ClassDef[F[_]](sym: Symbol[F[ClassDef[F]]], params: List[Symbol[LambdaParam]], parent: Option[Symbol.Ref], members: List[F[MemberDef[F]]]) extends Type
 
   /** A member definition in the class body.
     */

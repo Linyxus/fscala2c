@@ -92,4 +92,24 @@ class TestScalaParser {
     assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = a")
     assertParseSuccess((new ScalaParser).memberDef, "val func : (Int, Int) => Int = (x : Int, y : Int) => x + y")
   }
+  
+  @Test def classDef: Unit = {
+    val tests = List(
+      """class Foo {
+        |}""".stripMargin,
+      """class Foo(x1 : Int, y1 : Int) extends Bar {
+        |  val x = x1
+        |  val y = y1
+        |  
+        |  val addX = (a : Int) => a + x
+        |  
+        |  val func = (a : Int, b : Int) => {
+        |    val t1 = a * x
+        |    val t2 = b ^ y
+        |    t1 + t2
+        |  }
+        |}""".stripMargin,
+    )
+    tests foreach { x => assertParseSuccess((new ScalaParser).classDefParser, x) }
+  }
 }

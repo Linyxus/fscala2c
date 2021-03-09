@@ -96,8 +96,54 @@ class ScalaParser {
     * and will trackback to previous state when the parser exits a scope.
     */
   var symCacheStack: List[Map[String, Symbol[_]]] = List(Map.empty)
-  
-  def classDefParser: Parser[untpd.ClassDef] = ???
+
+  /** Parses class definition.
+    */
+  def classDefParser: Parser[untpd.ClassDef] = {
+    val member: Parser[untpd.MemberDef] = memberDef << NL
+    val bodyBegin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => t }
+    val bodyEnd: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => relocateScope(); t }
+    val body: Parser[List[untpd.MemberDef]] =
+      (bodyBegin ~ member.many ~ bodyEnd) <| { case _ ~ ls ~ _ => ls}
+    val param: Parser[(ScalaToken, String, Type)] =
+      (identifier ~ ":" ~ typeParser) <| { case (t @ ScalaToken(_, _, ScalaTokenType.Identifier(symName))) ~ _ ~ tpe =>
+        (t, symName, tpe)
+      }
+    val paramList: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
+      case None => 
+        locateScope()
+        Nil
+      case Some(xs) =>
+        locateScope()
+        xs map { case (t, symName, tpe) =>
+          if findSymHere(symName).isDefined then
+            throw SyntaxError(Some(t), s"duplicated parameter name in class definition: $symName")
+          else {
+            val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(symName, null), tpe)
+            lambdaParam.sym.dealias = lambdaParam
+            addSymbol(lambdaParam.sym)
+            lambdaParam.sym
+          }
+        }
+    }
+    val inheritance: Parser[Option[Symbol.Ref]] = { ("extends" >> identifier) <| { 
+      case tk @ ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
+        tryResolveSymbol(symName)
+      } 
+    }.optional
+
+    ("class" ~ identifier ~ paramList ~ inheritance ~ body) <| {
+      case _ ~ (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
+        if findSymHere(symName).isDefined then
+          throw SyntaxError(Some(tk), "duplicated class name: $symName")
+        else {
+          val ret: untpd.ClassDef = Untyped(Trees.ClassDef(Symbol(symName, null), params, parent, members))
+          ret.tree.sym.dealias = ret
+          ret.tree.members foreach { member => member.tree.classDef = ret.tree.sym }
+          ret
+        }
+    }
+  }
   
   def memberDef: Parser[untpd.MemberDef] = {
     val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
