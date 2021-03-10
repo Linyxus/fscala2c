@@ -46,7 +46,7 @@ object Trees {
   }
 
   /** Parameter in the lambda expression.
-    * 
+    *
     * It is also used to represent class constructor parameters.
     */
   case class LambdaParam(sym: Symbol[LambdaParam], tpe: Type)
@@ -89,13 +89,16 @@ object Trees {
 
   /** Selection.
     */
-  case class SelectExpr[F[_]](expr: F[Expr[F]], member: Symbol.Ref) extends Expr[F]
-  
+  case class SelectExpr[F[_]](expr: F[Expr[F]], member: Symbol.Ref) extends Expr[F] {
+    def assignType(tpe: Type, expr: tpd.Expr, member: Symbol[_]): tpd.SelectExpr =
+      Typed(tpe = tpe, tree = Trees.SelectExpr(expr, Symbol.Ref.Resolved(member)))
+  }
+
   case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, e1: tpd.Expr, e2: tpd.Expr): tpd.BinOpExpr =
       Typed(tree = BinOpExpr(op, e1, e2), tpe = tpe)
   }
-  
+
   case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, e: tpd.Expr): tpd.UnaryOpExpr =
       Typed(tree = UnaryOpExpr(op, e), tpe = tpe)
