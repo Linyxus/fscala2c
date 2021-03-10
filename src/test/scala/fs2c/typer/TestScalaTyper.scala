@@ -39,6 +39,9 @@ class TestScalaTyper {
     assertTyped("2 > 3 && 3 < 4", GroundType.BooleanType)
     assertTyped("2 > 3 && 3 != 4", GroundType.BooleanType)
     assertTyped("2 == 3 && 3 != 4", GroundType.BooleanType)
+    assertTyped("-1", IntType)
+    assertTyped("-(1 + 1 * -1)", IntType)
+    assertTyped("!(1 > 2 && 3 < 4)", BooleanType)
   }
 
   @Test def lambdaExpr: Unit = {
@@ -82,7 +85,7 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
-  
+
   @Test def applyExpr: Unit = {
     val tests = List(
       (
@@ -117,7 +120,7 @@ class TestScalaTyper {
         BooleanType
       ),
     )
-    
+
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
 }

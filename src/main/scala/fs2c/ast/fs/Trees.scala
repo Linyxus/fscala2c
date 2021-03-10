@@ -96,7 +96,10 @@ object Trees {
       Typed(tree = BinOpExpr(op, e1, e2), tpe = tpe)
   }
   
-  case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F]
+  case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F] {
+    def assignType(tpe: Type, e: tpd.Expr): tpd.UnaryOpExpr =
+      Typed(tree = UnaryOpExpr(op, e), tpe = tpe)
+  }
 
   /** Local definitions in block expressions.
     */
@@ -192,6 +195,7 @@ object Trees {
     type SelectExpr = UntypedTree[Trees.SelectExpr]
 
     type BinOpExpr = UntypedTree[Trees.BinOpExpr]
+    type UnaryOpExpr = UntypedTree[Trees.UnaryOpExpr]
 
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
@@ -215,6 +219,7 @@ object Trees {
     type LocalDefAssign = TypedTree[Trees.LocalDef.Assign]
 
     type BinOpExpr = TypedTree[Trees.BinOpExpr]
+    type UnaryOpExpr = TypedTree[Trees.UnaryOpExpr]
 
     type ApplyExpr = TypedTree[Trees.ApplyExpr]
     type SelectExpr = TypedTree[Trees.SelectExpr]

@@ -3,7 +3,7 @@ package fs2c.typer
 import fs2c.ast.Symbol
 import fs2c.ast.Scopes._
 import fs2c.ast.fs._
-import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop}
+import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop, ExprUnaryOpType => uop}
 import Types._
 import GroundType._
 
@@ -19,6 +19,7 @@ class Typer {
     case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
     case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
     case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
+    case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
     case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
     case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
     case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
@@ -155,11 +156,11 @@ class Typer {
             expr.tree.assignType(typeOfSymbol(sym), sym)
         }
     }
-  
+
   def typedApplyExpr(expr: untpd.ApplyExpr): tpd.ApplyExpr = {
     def apply = expr.tree
     val func: tpd.Expr = typedExpr(apply.func)
-    
+
     func.tpe match {
       case LambdaType(expectParamTypes, valueType) =>
         val params: List[tpd.Expr] = apply.args map typedExpr
@@ -200,6 +201,26 @@ class Typer {
     expr.tree.assignType(tpe, e1, e2)
   }
 
+  /** Type unary operator expressions.
+   */
+  def typedUnaryOpExpr(expr: untpd.UnaryOpExpr): tpd.UnaryOpExpr = {
+    val unaryExpr: Trees.UnaryOpExpr[Untyped] = expr.tree
+    val op = unaryExpr.op
+    val e = typedExpr(unaryExpr.e)
+    val tpe = unaryOpSig get op match {
+      case None => throw TypeError(s"unknown unary operator: $op")
+      case Some(sigs) => sigs collectFirst {
+        case sig if sig.infer(e.tpe).isDefined => sig.infer(e.tpe).get
+      }
+    } match {
+      case None => throw TypeError(s"could not find signature for $op with operand type ${e.tpe}")
+      case Some(tpe) => tpe
+    }
+
+    unaryExpr.assignType(tpe = tpe, e = e)
+  }
+
+
   /** Signature for binary operators.
     */
   trait BinOpSig {
@@ -217,6 +238,20 @@ class Typer {
   case class ConcreteBinOpSig(e1: Type, e2: Type, res: Type) extends BinOpSig {
     override def infer(e1: Type, e2: Type): Option[Type] =
       if e1 == this.e1 && e2 == this.e2 then
+        Some(res)
+      else
+        None
+  }
+
+  /** Signature for unary operators.
+    */
+  trait UnaryOpSig {
+    def infer(e: Type): Option[Type]
+  }
+
+  case class ConcreteUnaryOpSig(e: Type, res: Type) extends UnaryOpSig {
+    override def infer(e: Type): Option[Type] =
+      if e == this.e then
         Some(res)
       else
         None
@@ -284,6 +319,18 @@ class Typer {
           else
             None
       }
+    ),
+  )
+
+  /** Signature for unary operators.
+    */
+  val unaryOpSig: Map[uop, List[UnaryOpSig]] = Map(
+    uop.! -> List(
+      ConcreteUnaryOpSig(BooleanType, BooleanType)
+    ),
+    uop.- -> List(
+      ConcreteUnaryOpSig(IntType, IntType),
+      ConcreteUnaryOpSig(FloatType, FloatType),
     ),
   )
 }
