@@ -12,9 +12,9 @@ class TestUnique {
     assertEquals(uniqueName("X"), "X$0")
     assertEquals(uniqueName("X"), "X$1")
     assertEquals(uniqueName("X"), "X$2")
-    assertEquals(uniqueName("X"), "X$3")
     assertEquals(uniqueName("T"), "T$0")
-    assertEquals(uniqueName("X"), "X$4")
+    assertEquals(uniqueName("X"), "X$3")
+    assertEquals(uniqueName("T"), "T$1")
   }
   
 }
