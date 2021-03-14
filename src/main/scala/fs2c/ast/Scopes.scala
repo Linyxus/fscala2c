@@ -9,7 +9,7 @@ object Scopes {
     * @param parent Parent scope of the current one. None if this is the root scope.
     */
   case class ParseScope(var syms: Map[String, Symbol[_]], parent: ParseScope)
-  
+
   class ScopeContext {
     /** Current scope.
       * Initially, it will be an empty root scope.

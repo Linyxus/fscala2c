@@ -6,6 +6,7 @@ import fs2c.ast.fs._
 import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop, ExprUnaryOpType => uop}
 import Types._
 import GroundType._
+import Constraints._
 
 import fs2c.tools.Unique
 import Unique.freshTypeVar
@@ -14,32 +15,77 @@ import Unique.freshTypeVar
   */
 class Typer {
   import Typer.TypeError
+  
+  case class TypingScope(var allTyped: List[Typed[_]], parent: TypingScope)
 
   val scopeCtx: ScopeContext = new ScopeContext
   
-  val constrs = new Constraints.ConstraintSolver
+  val constrs = new ConstraintSolver
+  
+  private var _solvedSubst: Substitution = Substitution.empty
+  
+  private def solvedSubst: Substitution = {
+    if constrChanged then
+      computeSubst()
+    _solvedSubst
+  }
+  
+  private var constrChanged: Boolean = true
+  
+  private def computeSubst(): Unit =
+    _solvedSubst = constrs.solve
 
   /** Records all expressions that have been typed.
     */
-  var allTyped: List[Typed[_]] = Nil
+  var typingScope: TypingScope = TypingScope(Nil, null)
   
-  def recordTyped[X](tpd: => Typed[X]): Typed[X] = {
-    allTyped = tpd :: allTyped
+  def typedInBlock: List[Typed[_]] = typingScope.allTyped
+  
+  def forceInstantiateBlock(): Unit =
+    typedInBlock foreach { tpd => forceInstantiate(tpd) }
+  
+  def recordTyped[X](tpd: Typed[X]): Typed[X] = {
+    typingScope.allTyped = tpd :: typingScope.allTyped
     tpd
   }
+  
+  def locateTypingScope(): Unit =
+    typingScope = TypingScope(Nil, typingScope)
+  
+  def relocateTypingScope(): Unit = {
+    assert(typingScope.parent ne null, "can not relocate from the root typing scope.")
+    typingScope = typingScope.parent
+  }
 
-  def recordEquality(tpe1: Type, tpe2: Type): Unit =
+  def recordEquality(tpe1: Type, tpe2: Type): Unit = {
+    constrChanged = true
     constrs.addEquality(tpe1, tpe2)
+  }
 
   /** Fresh type variable prefixed with T.
     */
-  val freshTvar: TypeVariable =
+  def freshTvar: TypeVariable =
     freshTypeVar(prefix = "T")
 
   /** Fresh type variable prefixed with X.
     */
-  val freshXvar: TypeVariable =
+  def freshXvar: TypeVariable =
     freshTypeVar(prefix = "X")
+
+  /** Perform force instantiation of the type.
+    * Will throw a error if there are type variable that can not be
+    * instantiated in the type.
+    */
+  def forceInstantiate[X](tpd: Typed[X]): Typed[X] = {
+    val instType = solvedSubst(tpd.tpe)
+    instType match {
+      case tvar : TypeVariable =>
+        throw TypeError(s"Can not instantiate type variable $tvar when typing ${tpd.tree}")
+      case t =>
+    }
+    tpd.tpe = instType
+    tpd
+  }
 
   /** Type class definitions.
     */
@@ -57,7 +103,7 @@ class Typer {
       case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
       case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
       case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
-      case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
+      case x : Trees.BlockExpr[Untyped] => typedRecBlockExpr(Untyped(x))
       case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
       case _ => throw TypeError(s"can not type $expr : lacking implementation")
     }
@@ -101,7 +147,7 @@ class Typer {
     // --- Open a new scope ---
     scopeCtx.locateScope()
 
-    val defs: List[tpd.LocalDef] = block.defs map typedLocalDef
+    val defs: List[tpd.LocalDef] = block.defs map { d => typedLocalDef(d, recursiveMode = false) }
     val tpdExpr: tpd.Expr = typedExpr(block.expr)
 
     // --- Close the scope ---
@@ -109,20 +155,69 @@ class Typer {
 
     block.assignType(tpdExpr.tpe, defs, tpdExpr)
   }
+  
+  def typedRecBlockExpr(expr: untpd.BlockExpr): tpd.BlockExpr = {
+    val block: Trees.BlockExpr[Untyped] = expr.tree
+    
+    // --- locate a new scope ---
+    scopeCtx.locateScope()
+    locateTypingScope()
+    val untpdDefs: List[Trees.LocalDef[Untyped]] = block.defs map (_.tree)
+    var placeholders: Map[String, Symbol[tpd.LocalDefBind]] = Map.empty
+    
+    untpdDefs foreach {
+      case Trees.LocalDef.Bind(Symbol(symName, _), mutable, ascription, _) =>
+        // type of the binding
+        val tpe : Type = ascription getOrElse freshXvar
+        val tpdBind: tpd.LocalDefBind = Typed(tpe = tpe, tree = Trees.LocalDef.Bind(null, mutable, null, null))
+        val sym: Symbol[tpd.LocalDefBind] = Symbol(name = symName, dealias = tpdBind)
+        scopeCtx.addSymbol(sym)
+        placeholders = placeholders.updated(symName, sym)
+      case _ =>
+    }
+    
+    val tpdDefs: List[tpd.LocalDef] = block.defs map { d => typedLocalDef(d, recursiveMode = true) }
+    
+    tpdDefs foreach {
+      case Typed(bind : Trees.LocalDef.Bind[Typed], actualType) =>
+        val symName = bind.sym.name
+        placeholders.get(symName) match {
+          case None =>
+          case Some(wrapper) =>
+            val assumedType = wrapper.dealias.tpe
+            wrapper.dealias = Typed(tpe = actualType, tree = bind)
+            recordEquality(assumedType, actualType)
+        }
+      case _ =>
+    }
+    
+    // instantiate all type variables in the block
+    // if the instantiation fails, the recursive definitions types can not be inferred
+    forceInstantiateBlock()
+    
+    val tpdExpr: tpd.Expr = typedExpr(block.expr)
+    
+    // --- relocate to previous scope ---
+    scopeCtx.relocateScope()
+    relocateTypingScope()
 
-  def typedLocalDef(expr: untpd.LocalDef): tpd.LocalDef = {
+    forceInstantiate { block.assignType(tpdExpr.tpe, tpdDefs, tpdExpr) }
+  }
+
+  def typedLocalDef(expr: untpd.LocalDef, recursiveMode: Boolean = true): tpd.LocalDef = recordTyped {
     val localDef: Trees.LocalDef[Untyped] = expr.tree
 
     localDef match {
-      case bind @ Trees.LocalDef.Bind(sym, mutable, tpe, body) =>
+      case bind @ Trees.LocalDef.Bind(_, _, tpe, body) =>
         val typedBody = typedExpr(body)
         tpe match {
-          case Some(tpe) if tpe != typedBody.tpe =>
+          case Some(tpe) if !recursiveMode && tpe != typedBody.tpe =>
             throw TypeError(s"Type mismatch: expecting $tpe but found ${typedBody.tpe}")
           case _ => ()
         }
         val typedBind: tpd.LocalDefBind = bind.assignTypeBind(typedBody)
-        scopeCtx.addSymbol(typedBind.tree.sym)
+        if !recursiveMode then
+          scopeCtx.addSymbol(typedBind.tree.sym)
 
         typedBind
       case eval @ Trees.LocalDef.Eval(expr) =>
@@ -149,7 +244,11 @@ class Typer {
           if !isSymbolMutable(sym) then
             throw TypeError(s"can not assign to an immutable $sym")
           else
-            throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
+            if !recursiveMode then
+              throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
+            else
+              recordEquality(tpdExpr.tpe, typeOfSymbol(sym))
+              assign.assignTypeAssign(sym, tpdExpr)
         }
       }
     }
@@ -196,11 +295,11 @@ class Typer {
   def typedApplyExpr(expr: untpd.ApplyExpr): tpd.ApplyExpr = {
     def apply = expr.tree
     val func: tpd.Expr = typedExpr(apply.func)
+    val params: List[tpd.Expr] = apply.args map typedExpr
+    val paramTypes: List[Type] = params map (_.tpe)
 
     func.tpe match {
       case LambdaType(expectParamTypes, valueType) =>
-        val params: List[tpd.Expr] = apply.args map typedExpr
-        val paramTypes: List[Type] = params map (_.tpe)
         @annotation.tailrec def go(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
           case (Nil, Nil) => ()
           case (Nil, _) | (_, Nil) =>
@@ -213,8 +312,11 @@ class Typer {
         // do arugment type checking
         go(expectParamTypes, paramTypes)
         apply.assignType(tpe = valueType, func, params)
-      case _ =>
-        throw TypeError(s"can not apply expr of type ${func.tpe} : is not a function")
+      case tpe : Type =>
+        val retType = freshTvar
+        val expectType = LambdaType(paramTypes, retType)
+        recordEquality(tpe, expectType)
+        apply.assignType(tpe = retType, func, params)
     }
   }
 
@@ -275,8 +377,16 @@ class Typer {
     override def infer(e1: Type, e2: Type): Option[Type] =
       if e1 == this.e1 && e2 == this.e2 then
         Some(res)
-      else
+      else if e1 == this.e1 then {
+        recordEquality(e2, this.e2)
+        Some(res)
+      }
+      else if e2 == this.e2 then {
+        recordEquality(e1, this.e1)
+        Some(res)
+      } else {
         None
+      }
   }
 
   /** Signature for unary operators.
@@ -289,8 +399,10 @@ class Typer {
     override def infer(e: Type): Option[Type] =
       if e == this.e then
         Some(res)
-      else
-        None
+      else {
+        recordEquality(e, this.e)
+        Some(res)
+      }
   }
 
   /** Signature for built-in binary operators.
@@ -343,8 +455,10 @@ class Typer {
         override def infer(e1: Type, e2: Type): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
-          else
-            None
+          else {
+            recordEquality(e1, e2)
+            Some(BooleanType)
+          }
       }
     ),
     bop.!= -> List(
@@ -352,8 +466,10 @@ class Typer {
         override def infer(e1: Type, e2: Type): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
-          else
-            None
+          else {
+            recordEquality(e1, e2)
+            Some(BooleanType)
+          }
       }
     ),
   )
