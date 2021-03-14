@@ -82,8 +82,13 @@ object Constraints {
 
     /** Alias for [[ConstraintSolver.addConstraint]](Equality(tpe1, tpe2)).
       */
-    def addEquality(tpe1: Type, tpe2: Type): Unit =
-      addConstraint(Equality(tpe1, tpe2))
+    def addEquality(tpe1: Type, tpe2: Type): Unit = {
+      val subst = solve
+      if subst.transformType(tpe1) != subst.transformType(tpe2) then {
+        val eq = Equality(tpe1, tpe2)
+        addConstraint(eq)
+      }
+    }
 
     /** Solve the constraints.
       */
