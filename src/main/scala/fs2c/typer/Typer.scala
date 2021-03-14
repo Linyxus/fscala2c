@@ -7,30 +7,60 @@ import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop, ExprUn
 import Types._
 import GroundType._
 
+import fs2c.tools.Unique
+import Unique.freshTypeVar
+
 /** Typer for Featherweight Scala.
   */
 class Typer {
   import Typer.TypeError
 
   val scopeCtx: ScopeContext = new ScopeContext
+  
+  val constrs = new Constraints.ConstraintSolver
+
+  /** Records all expressions that have been typed.
+    */
+  var allTyped: List[Typed[_]] = Nil
+  
+  def recordTyped[X](tpd: => Typed[X]): Typed[X] = {
+    allTyped = tpd :: allTyped
+    tpd
+  }
+
+  def recordEquality(tpe1: Type, tpe2: Type): Unit =
+    constrs.addEquality(tpe1, tpe2)
+
+  /** Fresh type variable prefixed with T.
+    */
+  val freshTvar: TypeVariable =
+    freshTypeVar(prefix = "T")
+
+  /** Fresh type variable prefixed with X.
+    */
+  val freshXvar: TypeVariable =
+    freshTypeVar(prefix = "X")
 
   /** Type class definitions.
     */
   def typedClassDef(classDef: untpd.ClassDef): tpd.ClassDef = ???
+  
 
   /** Type expressions.
     */
-  def typedExpr(expr: untpd.Expr): tpd.Expr = expr.tree match {
-    case x : Trees.LiteralIntExpr[_] => x.assignType(IntType)
-    case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
-    case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
-    case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
-    case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
-    case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
-    case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
-    case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
-    case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
-    case _ => throw TypeError(s"can not type $expr : lacking implementation")
+  def typedExpr(expr: untpd.Expr): tpd.Expr = recordTyped {
+    expr.tree match {
+      case x : Trees.LiteralIntExpr[_] => x.assignType(IntType)
+      case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
+      case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
+      case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
+      case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
+      case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
+      case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
+      case x : Trees.BlockExpr[Untyped] => typedBlockExpr(Untyped(x))
+      case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
+      case _ => throw TypeError(s"can not type $expr : lacking implementation")
+    }
   }
 
   /** Type lambda expressions.
