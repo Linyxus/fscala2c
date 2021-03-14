@@ -7,10 +7,16 @@ import Trees.{LocalDef, Typed, Untyped, tpd, untpd, ExprBinOpType => bop, ExprUn
 import Types._
 import GroundType._
 
+/** Typer for Featherweight Scala.
+  */
 class Typer {
-  case class TypeError(msg: String) extends Exception(msg)
+  import Typer.TypeError
 
   val scopeCtx: ScopeContext = new ScopeContext
+
+  /** Type class definitions.
+    */
+  def typedClassDef(classDef: untpd.ClassDef): tpd.ClassDef = ???
 
   /** Type expressions.
     */
@@ -336,6 +342,8 @@ class Typer {
 }
 
 object Typer {
+  case class TypeError(msg: String) extends Exception(msg)
+  
   def showTypedExpr(expr: tpd.Expr, indentLevel: Int = 0): String = {
     val tree: Trees.Expr[Typed] = expr.tree
     val tpe: Type = expr.tpe
