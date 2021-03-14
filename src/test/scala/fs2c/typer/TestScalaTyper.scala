@@ -63,7 +63,7 @@ class TestScalaTyper {
       ),
       (
         """{
-          |  var x = 1
+          |  var x: Int = 1
           |  val y = x + 1
           |  x = x + y
           |  x * y
@@ -81,11 +81,19 @@ class TestScalaTyper {
           |}""".stripMargin,
         LambdaType(List(IntType), IntType)
       ),
+      (
+        """{
+          |  val odd = (n : Int) => !(n == 0) && !even(n - 1)
+          |  val even = (n : Int) => n == 0 || !odd(n - 1)
+          |  odd
+          |}""".stripMargin,
+        LambdaType(List(IntType), BooleanType)
+      )
     )
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
-
+  
   @Test def applyExpr: Unit = {
     val tests = List(
       (
