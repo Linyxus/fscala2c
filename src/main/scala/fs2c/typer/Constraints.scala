@@ -17,7 +17,7 @@ object Constraints {
 
   /** Substitions are mappings from type variables to types.
     */
-  class Substitution(protected val tvMap: Map[String, Type]) {
+  class Substitution(val tvMap: Map[String, Type]) {
     /** Add the mapping `tvar` |-> `tpe` into the substitution.
       */
     def add(tvar: TypeVariable, tpe: Type): Substitution = {
