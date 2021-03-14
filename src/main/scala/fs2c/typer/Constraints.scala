@@ -15,14 +15,21 @@ object Constraints {
   
   import Constraint._
 
-  class Substitution(protected val subst: TypeVariable => Type) {
-    def add(tvar: TypeVariable, tpe: Type): Substitution =
-      new Substitution({ x =>
-        if x == tvar then
-          tpe
-        else
-          subst(tvar)
-      })
+  /** Substitions are mappings from type variables to types.
+    */
+  class Substitution(protected val tvMap: Map[String, Type]) {
+    /** Add the mapping `tvar` |-> `tpe` into the substitution.
+      */
+    def add(tvar: TypeVariable, tpe: Type): Substitution = {
+      val subst1 = new Substitution(tvMap.updated(tvar.name, transformType(tpe)))
+      new Substitution(subst1.tvMap map { case (k, v) => (k, subst1.transformType(v)) })
+    }
+
+    def subst(tv: TypeVariable): Type =
+      tvMap get tv.name match {
+        case None => tv
+        case Some(tpe) => tpe
+      }
 
     def transformType(tpe: Type): Type = tpe match {
       case x : GroundType.ArrayType => GroundType.ArrayType(transformType(x.itemType))
@@ -39,19 +46,32 @@ object Constraints {
         case ClassMemberType(tpe, member, memberType) => 
           ClassMemberType(transformType(tpe), member, transformType(memberType))
       }
+    
+    def apply(tpe: Type): Type = transformType(tpe)
+    
+    def apply(constr: Constraint): Constraint = transformConstr(constr)
   }
 
   object Substitution {
-    def empty: Substitution = new Substitution(identity)
+    /** Empty substitution.
+      */
+    def empty: Substitution = new Substitution(Map.empty)
   }
 
   /** Solver for constraints.
     */
   class ConstraintSolver {
     protected var constraints: List[Constraint] = Nil
-    
+
+    /** Add a `constr` into the constraints.
+      */
     def addConstraint(constr: Constraint): Unit =
       constraints = constr :: constraints
+
+    /** Alias for [[ConstraintSolver.addConstraint]](Equality(tpe1, tpe2)).
+      */
+    def addEquality(tpe1: Type, tpe2: Type): Unit =
+      addConstraint(Equality(tpe1, tpe2))
 
     /** Solve the constraints.
       */
@@ -93,5 +113,9 @@ object Constraints {
 
       recur(constraints.reverse, Substitution.empty)
     }
+
+    /** Alias for [[ConstraintSolver.solve]].
+      */
+    def subst: Substitution= solve
   }
 }
