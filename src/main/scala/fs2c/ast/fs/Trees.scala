@@ -161,11 +161,19 @@ object Trees {
     case -
   }
 
-  /** Type projectors to embed extra information into the tree.
-    * Currently placeholders.
+  /** Wrapper for untyped trees.
     */
   case class Untyped[+X](tree: X)
-  case class Typed[+X](tree: X, tpe: Type)
+
+  /** Wrapper for typed trees.
+    * 
+    * @param tree Wrapped tree.
+    * @param tpe Type of the tree.
+    */
+  case class Typed[+X](tree: X, var tpe: Type) {
+    def type_=(tpe: Type) =
+      this.tpe = tpe
+  }
 
   /** Transform tree type to Untyped tree type. For more information, see [[Untyped]].
     */
