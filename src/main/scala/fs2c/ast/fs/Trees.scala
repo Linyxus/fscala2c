@@ -170,7 +170,7 @@ object Trees {
     * @param tree Wrapped tree.
     * @param tpe Type of the tree.
     */
-  case class Typed[+X](tree: X, var tpe: Type) {
+  final case class Typed[+X](tree: X, var tpe: Type) {
     def type_=(tpe: Type) =
       this.tpe = tpe
   }
@@ -236,5 +236,71 @@ object Trees {
     type SelectExpr = TypedTree[Trees.SelectExpr]
 
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
+  }
+
+  trait TreeTraverse[F[+_], G[+_]] {
+    type TreeType = [X[_[_]]] =>> F[X[F]]
+    
+    def unwrapExpr(expr: TreeType[Expr]): Expr[F]
+    
+    def unwrapLocalDef(localDef: TreeType[LocalDef]): LocalDef[F]
+    
+    def traverseExpr(expr: TreeType[Expr]): G[TreeType[Expr]] = unwrapExpr(expr) match {
+      case LambdaExpr(params, tpe, body) =>
+        traverseLambdaExpr(params, tpe, traverseExpr(body))
+      case BlockExpr(defs, expr) =>
+        traverseBlockExpr(defs map traverseLocalDef, traverseExpr(expr))
+      case IdentifierExpr(sym) =>
+        traverseIdentifierExpr(sym)
+      case LiteralIntExpr(value) =>
+        traverseLiteralIntExpr(value)
+      case LiteralFloatExpr(value) =>
+        traverseLiteralFloatExpr(value)
+      case LiteralBooleanExpr(value) =>
+        traverseLiteralBooleanExpr(value)
+      case ApplyExpr(func, args) =>
+        traverseApplyExpr(traverseExpr(func), args map traverseExpr)
+      case SelectExpr(expr, member) =>
+        traverseSelectExpr(traverseExpr(expr), member)
+      case BinOpExpr(op, e1, e2) =>
+        traverseBinOpExpr(op, traverseExpr(e1), traverseExpr(e2))
+      case UnaryOpExpr(op, e) =>
+        traverseUnaryOpExpr(op, traverseExpr(e))
+    }
+    
+    def traverseLocalDef(localDef: TreeType[LocalDef]): G[TreeType[LocalDef]] = unwrapLocalDef(localDef) match {
+      case LocalDef.Assign(ref, body) =>
+        traverseLocalDefAssign(ref, traverseExpr(body))
+      case LocalDef.Bind(sym, mutable, tpe, body) =>
+        traverseLocalDefBind(sym, mutable, tpe, traverseExpr(body))
+      case LocalDef.Eval(expr) =>
+        traverseLocalDefEval(traverseExpr(expr))
+    }
+    
+    def traverseLambdaExpr(params: List[Symbol[LambdaParam]], tpe: Option[Type], body: G[TreeType[Expr]]): G[TreeType[LambdaExpr]]
+    
+    def traverseBlockExpr(defs: List[G[TreeType[LocalDef]]], expr: G[TreeType[Expr]]): G[TreeType[BlockExpr]]
+    
+    def traverseIdentifierExpr(symRef: Symbol.Ref): G[TreeType[IdentifierExpr]]
+    
+    def traverseLiteralIntExpr(value: Int): G[TreeType[LiteralIntExpr]]
+    
+    def traverseLiteralFloatExpr(value: Double): G[TreeType[LiteralFloatExpr]]
+    
+    def traverseLiteralBooleanExpr(value: Boolean): G[TreeType[LiteralBooleanExpr]]
+    
+    def traverseApplyExpr(func: G[TreeType[Expr]], args: List[G[TreeType[Expr]]]): G[TreeType[ApplyExpr]]
+
+    def traverseSelectExpr(expr: G[TreeType[Expr]], member: Symbol.Ref): G[TreeType[SelectExpr]]
+    
+    def traverseBinOpExpr(op: ExprBinOpType, e1: G[TreeType[Expr]], e2: G[TreeType[Expr]]): G[TreeType[BinOpExpr]]
+    
+    def traverseUnaryOpExpr(op: ExprUnaryOpType, e: G[TreeType[Expr]]): G[TreeType[UnaryOpExpr]]
+
+    def traverseLocalDefBind(sym: Symbol[TreeType[LocalDef.Bind]], mutable: Boolean, tpe: Option[Type], body: G[TreeType[Expr]]): G[TreeType[LocalDef.Bind]]
+    
+    def traverseLocalDefEval(expr: G[TreeType[Expr]]): G[TreeType[LocalDef.Eval]]
+    
+    def traverseLocalDefAssign(ref: Symbol.Ref, expr: G[TreeType[Expr]]): G[TreeType[LocalDef.Assign]]
   }
 }
