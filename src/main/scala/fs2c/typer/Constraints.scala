@@ -64,6 +64,16 @@ object Constraints {
     protected var constraints: List[Constraint] = Nil
     
     def listConstraints: List[Constraint] = constraints
+    
+    def showConstraints: String =
+      (
+        constraints map {
+          case Constraint.Equality(t1, t2) =>
+            s"$t1 == $t2"
+          case Constraint.ClassMemberType(tpe, member, memberType) =>
+            s"$tpe <: { $member : $memberType }"
+        } mkString "\n"
+      )
 
     /** Add a `constr` into the constraints.
       */
@@ -103,7 +113,7 @@ object Constraints {
                 recur(equalities ++ xs, subst)
               }
             case e : Equality =>
-              throw TypeError(s"can not unify $e")
+              throw TypeError(s"can not unify $e\n$showConstraints")
             case ClassMemberType(tv : TypeVariable, member, memTpe) =>
               tv.predicates = Predicate.HaveMemberOfType(member, memTpe) :: tv.predicates
               recur(xs, subst)
