@@ -62,6 +62,8 @@ object Constraints {
     */
   class ConstraintSolver {
     protected var constraints: List[Constraint] = Nil
+    
+    def listConstraints: List[Constraint] = constraints
 
     /** Add a `constr` into the constraints.
       */
