@@ -1,5 +1,6 @@
 package fs2c.tools
 
+import fs2c.typer.Types.TypeVariable
 import collection.mutable
 
 object Unique {
@@ -11,4 +12,7 @@ object Unique {
     nameCount.update(prefix, cnt + 1)
     res
   }
+  
+  def freshTypeVar(prefix: String = "X"): TypeVariable =
+    TypeVariable(uniqueName(prefix), Nil)
 }
