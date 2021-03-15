@@ -11,7 +11,6 @@ object Constraints {
     */
   enum Constraint {
     case Equality(tpe1: Type, tpe2: Type)
-    case ClassMemberType(tpe: Type, member: String, memberTpe: Type)
   }
   
   import Constraint._
@@ -69,8 +68,6 @@ object Constraints {
       constr match {
         case Equality(tpe1, tpe2) => 
           Equality(transformType(tpe1), transformType(tpe2))
-        case ClassMemberType(tpe, member, memberType) => 
-          ClassMemberType(transformType(tpe), member, transformType(memberType))
       }
     
     def apply(tpe: Type): Type = transformType(tpe)
@@ -110,8 +107,6 @@ object Constraints {
         constraints map {
           case Constraint.Equality(t1, t2) =>
             s"$t1 == $t2"
-          case Constraint.ClassMemberType(tpe, member, memberType) =>
-            s"$tpe <: { $member : $memberType }"
         } mkString "\n"
       )
 
@@ -132,19 +127,6 @@ object Constraints {
         val eq = Equality(tpe1, tpe2)
         addConstraint(eq)
       }
-    }
-
-    /** Calls [[ConstraintSolver.addConstraint]] to add the member type predicate.
-      */
-    def addMemberType(tp: Type, member: String, memTp: Type): Unit = {
-      solve(tp) match {
-        case _ : TypeVariable =>
-        case _ : ClassTypeVariable =>
-        case tp =>
-          throw TypeError(s"can not add member type constraint to type $tp")
-      }
-      val pred = ClassMemberType(tp, member, memTp)
-      addConstraint(pred)
     }
 
     /** Solve the constraints.
@@ -190,21 +172,6 @@ object Constraints {
               }
             case e : Equality =>
               throw TypeError(s"can not unify $e\n$showConstraints")
-            case ClassMemberType(tv : TypeVariable, member, memTpe) =>
-              tv.predicates = Predicate.HaveMemberOfType(member, memTpe) :: tv.predicates
-              recur(xs, subst)
-            case ClassMemberType(cv : ClassTypeVariable, member, tpe) =>
-              cv.predicates = Predicate.HaveMemberOfType(member, tpe) :: cv.predicates
-              recur(xs, subst)
-            case ClassMemberType(cls : Trees.ClassDef[Trees.Typed], member, memTp) => ???
-              cls.members.find(d => d.tree.sym.name == member) match {
-                case None =>
-                  throw TypeError(s"class $cls does not have $member")
-                case Some(d) =>
-                  recur(Equality(d.tpe, memTp) :: xs, subst)
-              }
-            case ClassMemberType(tpe, _, _) =>
-              throw TypeError(s"can not add class member predicate for type $tpe")
           }
         }
       }

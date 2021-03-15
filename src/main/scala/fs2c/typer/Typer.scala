@@ -16,23 +16,40 @@ import Unique.{freshTypeVar, uniqueName}
 class Typer {
   import Typer.TypeError
 
+  /** Records all typed trees in the scope for the ease of force instantation of all type variables
+    * 
+    * @param allTyped All typed trees in the current scope.
+    * @param parent Parent of the current scope.
+    */
   case class TypingScope(var allTyped: List[Typed[_]], parent: TypingScope)
 
+  /** Scoped symbol table.
+    */
   val scopeCtx: ScopeContext = new ScopeContext
 
+  /** Constraint solver for type variables.
+    */
   val constrs = new ConstraintSolver
 
+  /** Solved substitution of type variables.
+    */
   private def solvedSubst: Substitution = constrs.solve
 
   /** Records all expressions that have been typed.
     */
   var typingScope: TypingScope = TypingScope(Nil, null)
 
+  /** Returns all typed ASTs in the current block.
+    */
   def typedInBlock: List[Typed[_]] = typingScope.allTyped
 
+  /** Forcefully instantiate all type variables in the current block.
+    */
   def forceInstantiateBlock(): Unit =
     typedInBlock foreach { tpd => forceInstantiate(tpd) }
-  
+
+  /** Strip all class type variables in the current block.
+    */
   def stripClassTvarBlock(): Unit =
     typedInBlock foreach { tpd =>
       tpd.tpe = stripClassTypeVariable(tpd.tpe)
@@ -45,9 +62,13 @@ class Typer {
     tpd
   }
 
+  /** Locate a fresh typing scope.
+    */
   def locateTypingScope(): Unit =
     typingScope = TypingScope(Nil, typingScope)
 
+  /** Relocate to previous typing scope.
+    */
   def relocateTypingScope(): Unit = {
     assert(typingScope.parent ne null, "can not relocate from the root typing scope.")
     typingScope = typingScope.parent
@@ -57,10 +78,6 @@ class Typer {
     */
   def recordEquality(tpe1: Type, tpe2: Type): Unit = {
     constrs.addEquality(tpe1, tpe2)
-  }
-
-  def recordMemberType(tp: Type, member: String, memTp: Type): Unit = {
-    constrs.addMemberType(tp, member, memTp)
   }
 
   /** Fresh type variable prefixed with T.
