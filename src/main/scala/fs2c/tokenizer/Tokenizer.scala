@@ -188,6 +188,8 @@ class Tokenizer(val source: ScalaSource) {
     case "extends" => Some(KeywordExtends)
     case "True" => Some(LiteralBoolean(true))
     case "False" => Some(LiteralBoolean(false))
+    case "true" => Some(LiteralBoolean(true))
+    case "false" => Some(LiteralBoolean(false))
     case _ => None
   }
 
