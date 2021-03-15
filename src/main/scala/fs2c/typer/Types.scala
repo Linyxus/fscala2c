@@ -42,6 +42,9 @@ object Types {
   /** Type variables.
     */
   case class TypeVariable(name: String, var predicates: List[Predicate]) extends Type {
+    def mergePredicates(tv: TypeVariable): Unit =
+      this.predicates = tv.predicates ++ this.predicates
+    
     def occursIn(tpe: Type): Boolean = tpe match {
       case tv : TypeVariable => tv == this
       case GroundType.ArrayType(itemTpe) => occursIn(itemTpe)
@@ -55,6 +58,6 @@ object Types {
     */
   case class ClassTypeVariable(classDef: tpd.ClassDef, var predicates: List[Predicate]) extends Type {
     import Predicate._
-    
+
   }
 }

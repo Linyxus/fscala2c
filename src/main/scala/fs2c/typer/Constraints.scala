@@ -55,8 +55,8 @@ object Constraints {
             case Some(inst) => recur(xs, inst :: acc)
           }
         }
-        
-        for 
+
+        for
           instParamTypes <- recur(paramTypes.reverse, Nil)
           instValueType <- instantiateType(valueType)
         yield
@@ -133,9 +133,32 @@ object Constraints {
       }
     }
 
+    /** Calls [[ConstraintSolver.addConstraint]] to add the member type predicate.
+      */
+    def addMemberType(tp: Type, member: String, memTp: Type): Unit = {
+      tp match {
+        case _ : TypeVariable =>
+        case _ : ClassTypeVariable =>
+        case tp =>
+          throw TypeError(s"can not add member type constraint to type $tp")
+      }
+      val pred = ClassMemberType(tp, member, memTp)
+      addConstraint(pred)
+    }
+
     /** Solve the constraints.
       */
     def solve: Substitution = {
+      def tryInhertPredicates(tv1: TypeVariable, tp2: Type): Unit = tp2 match {
+        case tv2 : TypeVariable =>
+          tv2.mergePredicates(tv1)
+        case cv2 : ClassTypeVariable => 
+          cv2.predicates = cv2.predicates ++ tv1.predicates
+        case _ if tv1.predicates.nonEmpty =>
+          throw TypeError(s"can not instantiate type variable $tv1 with predicates to type $tp2")
+        case _ =>
+      }
+      
       @annotation.tailrec def recur(constrs: List[Constraint], subst: Substitution): Substitution = {
         constrs match {
           case Nil => subst
@@ -144,13 +167,17 @@ object Constraints {
             case Equality(tpe1 : TypeVariable, tpe2) =>
               if tpe1 occursIn tpe2 then
                 throw TypeError(s"can not solve recursive type $tpe1 ~ $tpe2")
-              else
+              else {
+                tryInhertPredicates(tpe1, tpe2)
                 recur(xs, subst.add(tpe1, tpe2))
+              }
             case Equality(tpe1, tpe2 : TypeVariable) =>
               if tpe2 occursIn tpe1 then
                 throw TypeError(s"can not solve recursive type $tpe2 ~ $tpe1")
-              else
+              else {
+                tryInhertPredicates(tpe2, tpe1)
                 recur(xs, subst.add(tpe2, tpe1))
+              }
             case Equality(GroundType.ArrayType(tpe1), GroundType.ArrayType(tpe2)) =>
               recur(Equality(tpe1, tpe2) :: xs, subst)
             case Equality(LambdaType(p1, v1), LambdaType(p2, v2)) =>
@@ -165,6 +192,9 @@ object Constraints {
             case ClassMemberType(tv : TypeVariable, member, memTpe) =>
               tv.predicates = Predicate.HaveMemberOfType(member, memTpe) :: tv.predicates
               recur(xs, subst)
+            case ClassMemberType(cv : ClassTypeVariable, member, tpe) =>
+              cv.predicates = Predicate.HaveMemberOfType(member, tpe) :: cv.predicates
+              recur(xs, subst)
             case ClassMemberType(tpe, _, _) =>
               throw TypeError(s"can not add class member predicate for type $tpe")
           }
@@ -175,7 +205,7 @@ object Constraints {
       solved = recur(cachedConstraints.reverse, solved)
       // clear unsolved constraints
       cachedConstraints = Nil
-      
+
       solved
     }
 
