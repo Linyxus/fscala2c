@@ -102,6 +102,12 @@ class Typer {
   }
 
   /** Type lambda expressions.
+    * 
+    * ```text
+    * Γ, x1 : T1, ..., xn : Tn |- t : T | C
+    * ----------------------------------------------------------
+    * Γ |- (x1 : T1, ..., xn : Tn) => t : (T1, ..., Tn) => T | C
+    * ```
     */
   def typedLambdaExpr(expr: untpd.LambdaExpr): tpd.LambdaExpr = {
     val lambda: Trees.LambdaExpr[Untyped] = expr.tree
@@ -147,7 +153,21 @@ class Typer {
 
     block.assignType(tpdExpr.tpe, defs, tpdExpr)
   }
-  
+
+  /** Type block expression with recursive definition group.
+    * 
+    * ```text
+    * Γ, x1 : X1, ..., xn : Xn |- t1 : T1 | C1
+    * ...
+    * Γ, x1 : X1, ..., xn : Xn |- tn : Tn | Cn
+    * Γ, x1 : X1, ..., xn : Xn |- t : T | C
+    * C' = C \/ C1 \/ ... \/ Cn \/ { X1 = T1, ..., Xn = Tn }
+    * Xi is the ascripted type of xi if exists, a fresh type
+    * variable otherwise
+    * ------------------------------------------------------
+    * Γ |- { val x1 = t1; ...; val xn = tn; t } : T | C'
+    * ```
+    */
   def typedRecBlockExpr(expr: untpd.BlockExpr): tpd.BlockExpr = {
     val block: Trees.BlockExpr[Untyped] = expr.tree
     
@@ -266,6 +286,14 @@ class Typer {
     case param : Trees.LambdaParam => param.tpe
   }
 
+  /** Type identifiers.
+    * 
+    * ```
+    * x : T ∈ Γ
+    * ----------
+    * Γ |- x : T
+    * ```
+    */
   def typedIdentifierExpr(expr: untpd.IdentifierExpr): tpd.IdentifierExpr =
     expr.tree.sym match {
       case Symbol.Ref.Unresolved(symName) =>
@@ -284,6 +312,17 @@ class Typer {
         }
     }
 
+  /** Type application expression.
+    * 
+    * ```text
+    * Γ |- t1 : T1 | C1
+    * Γ |- t2 : T2 | C2
+    * X is a fresh type variable
+    * C' = C1 /\ C2 /\ { T1 = T2 -> X }
+    * ---------------------------------
+    *        Γ |- t1 t2 : X | C'
+    * ```
+    */
   def typedApplyExpr(expr: untpd.ApplyExpr): tpd.ApplyExpr = {
     def apply = expr.tree
     val func: tpd.Expr = typedExpr(apply.func)
