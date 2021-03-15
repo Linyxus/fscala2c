@@ -23,10 +23,10 @@
  
  - [X] Parser: tokens --> Featherweight Scala raw AST
  
- - Raw AST --> Typed AST (Scala Core IR)
+ - [X] Typer: Raw AST --> Typed AST (Scala Core IR)
    - [X] Local type inference for expressions
    - [X] Hindley-Milner type inference for recursive definition group in block expressions
-   - [ ] Hindley-Milner type inference for recursive class definition
+   - [X] Hindley-Milner type inference for recursive class definition
  
  - [ ] Optimize typed AST (optimization is so boring; let's do this later)
  
