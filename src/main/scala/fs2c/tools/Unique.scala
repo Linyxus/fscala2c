@@ -6,6 +6,8 @@ import collection.mutable
 object Unique {
   val nameCount = mutable.Map.empty[String, Int]
   
+  def reset(): Unit = nameCount.clear()
+
   def uniqueName(prefix: String): String = {
     val cnt = nameCount.getOrElse(prefix, 0)
     val res = prefix + "$" + cnt.toString
