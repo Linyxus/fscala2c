@@ -138,4 +138,42 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
+  
+  @Test def ifExpr: Unit = {
+    val tests = List(
+      (
+        """{
+          |  val fact = (n : Int) => {
+          |    if n == 0 then
+          |      1
+          |    else
+          |      n * fact(n - 1)
+          |  }
+          |  
+          |  fact
+          |}""".stripMargin,
+        LambdaType(List(IntType), IntType)
+      ),
+      (
+        """{
+          |  val odd = (n : Int) =>
+          |    if n == 0 then False else !even(n - 1)
+          |  val even = (n : Int) =>
+          |    if n == 0 then True else !odd(n - 1)
+          |  odd
+          |}""".stripMargin,
+        LambdaType(List(IntType), BooleanType)
+      ),
+      (
+        """{
+          |  val x = 0
+          |  val y = if x < 0 then 0 else x
+          |  x + y
+          |}""".stripMargin,
+        IntType
+      ),
+    )
+    
+    tests foreach { case (s, t) => assertTyped(s, t) }
+  }
 }
