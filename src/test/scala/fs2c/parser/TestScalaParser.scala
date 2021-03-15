@@ -146,4 +146,23 @@ class TestScalaParser {
     
     tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
   }
+  
+  @Test def ifExpr: Unit = {
+    val tests = List(
+      """if true then {
+        |  val x = 1
+        |  var y = 10
+        |  y = y + x
+        |  x * y
+        |} else 1 + 1""".stripMargin,
+      "if true then false else true",
+      "if n == 0 then 1 else n * fact(n - 1)",
+      """if n >= 0 then
+        |  1
+        |else
+        |  n * fact(n - 1)""".stripMargin
+    )
+    
+    tests foreach { x => assertParseSuccess((new ScalaParser).ifExpr, x) }
+  }
 }
