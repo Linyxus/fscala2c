@@ -110,6 +110,11 @@ object Trees {
     def assignType(tpe: Type, cond: tpd.Expr, trueBody: tpd.Expr, falseBody: tpd.Expr): tpd.IfExpr =
       Typed(tpe = tpe, tree = Trees.IfExpr(cond, trueBody, falseBody))
   }
+  
+  case class NewExpr[F[_]](ref: Symbol.Ref, params: List[F[Expr[F]]]) extends Expr[F] {
+    def assignType(tpe: Type, sym: Symbol[tpd.ClassDef], params: List[tpd.Expr]): tpd.NewExpr =
+      Typed(tpe = tpe, tree = NewExpr(Symbol.Ref.Resolved(sym), params))
+  }
 
   case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, e1: tpd.Expr, e2: tpd.Expr): tpd.BinOpExpr =
@@ -227,6 +232,8 @@ object Trees {
 
     type IfExpr = UntypedTree[Trees.IfExpr]
 
+    type NewExpr = UntypedTree[Trees.NewExpr]
+
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
   
@@ -255,6 +262,8 @@ object Trees {
     type SelectExpr = TypedTree[Trees.SelectExpr]
     
     type IfExpr = TypedTree[Trees.IfExpr]
+    
+    type NewExpr = TypedTree[Trees.NewExpr]
 
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
   }
