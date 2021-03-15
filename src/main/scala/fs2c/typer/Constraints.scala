@@ -38,6 +38,31 @@ object Constraints {
         LambdaType(paramTypes map transformType, transformType(valueType))
       case x => x
     }
+
+    /** Instantiate type. Return `None` is there exists type variables that can not be instantiated.
+      */
+    def instantiateType(tpe: Type): Option[Type] = tpe match {
+      case x : GroundType.ArrayType => instantiateType(x.itemType) map { inst => GroundType.ArrayType(inst) }
+      case x : TypeVariable => subst(x) match {
+        case _ : TypeVariable => None
+        case tpe => Some(tpe)
+      }
+      case LambdaType(paramTypes, valueType) =>
+        @annotation.tailrec def recur(xs: List[Type], acc: List[Type]): Option[List[Type]] = xs match {
+          case Nil => Some(acc)
+          case x :: xs => instantiateType(x) match {
+            case None => None
+            case Some(inst) => recur(xs, inst :: acc)
+          }
+        }
+        
+        for 
+          instParamTypes <- recur(paramTypes.reverse, Nil)
+          instValueType <- instantiateType(valueType)
+        yield
+          LambdaType(instParamTypes, instValueType)
+      case x => Some(x)
+    }
     
     def transformConstr(constr: Constraint): Constraint =
       constr match {
@@ -61,10 +86,24 @@ object Constraints {
   /** Solver for constraints.
     */
   class ConstraintSolver {
+    /** All constraints that have been recorded.
+      */
     protected var constraints: List[Constraint] = Nil
-    
+
+    /** Cached constraints that have not been solved.
+      */
+    protected var cachedConstraints: List[Constraint] = Nil
+
+    /** Solved substitution.
+      */
+    protected var solved: Substitution = Substitution.empty
+
+    /** List all constraints.
+      */
     def listConstraints: List[Constraint] = constraints
-    
+
+    /** Show all constraints.
+      */
     def showConstraints: String =
       (
         constraints map {
@@ -77,10 +116,14 @@ object Constraints {
 
     /** Add a `constr` into the constraints.
       */
-    def addConstraint(constr: Constraint): Unit =
+    def addConstraint(constr: Constraint): Unit = {
+      // record the constraint
       constraints = constr :: constraints
+      // add the constraint to unsolved constraints
+      cachedConstraints = constr :: cachedConstraints
+    }
 
-    /** Alias for [[ConstraintSolver.addConstraint]](Equality(tpe1, tpe2)).
+    /** Calls [[ConstraintSolver.addConstraint]](Equality(tpe1, tpe2)). It will check whether the equality is trivial.
       */
     def addEquality(tpe1: Type, tpe2: Type): Unit = {
       val subst = solve
@@ -128,11 +171,16 @@ object Constraints {
         }
       }
 
-      recur(constraints.reverse, Substitution.empty)
+      // solve constraints incrementally and update the result
+      solved = recur(cachedConstraints.reverse, solved)
+      // clear unsolved constraints
+      cachedConstraints = Nil
+      
+      solved
     }
 
     /** Alias for [[ConstraintSolver.solve]].
       */
-    def subst: Substitution= solve
+    def subst: Substitution = solve
   }
 }

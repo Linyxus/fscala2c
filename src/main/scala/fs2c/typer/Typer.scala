@@ -22,19 +22,8 @@ class Typer {
   
   val constrs = new ConstraintSolver
   
-  private var _solvedSubst: Substitution = Substitution.empty
+  private def solvedSubst: Substitution = constrs.solve
   
-  private def solvedSubst: Substitution = {
-    if constrChanged then
-      computeSubst()
-    _solvedSubst
-  }
-  
-  private var constrChanged: Boolean = true
-  
-  private def computeSubst(): Unit =
-    _solvedSubst = constrs.solve
-
   /** Records all expressions that have been typed.
     */
   var typingScope: TypingScope = TypingScope(Nil, null)
@@ -58,7 +47,6 @@ class Typer {
   }
 
   def recordEquality(tpe1: Type, tpe2: Type): Unit = {
-    constrChanged = true
     constrs.addEquality(tpe1, tpe2)
   }
 
@@ -77,15 +65,18 @@ class Typer {
     * instantiated in the type.
     */
   def forceInstantiate[X](tpd: Typed[X]): Typed[X] = {
-    val instType = solvedSubst(tpd.tpe)
+    val instType = solvedSubst.instantiateType(tpd.tpe)
     instType match {
-      case tvar : TypeVariable =>
-        throw TypeError(s"Can not instantiate type variable $tvar when typing ${tpd.tree}")
-      case t =>
+      case None =>
+        throw TypeError(s"Can not instantiate type variable ${tpd.tpe} when typing ${tpd.tree}")
+      case Some(tpe) =>
+        tpd.tpe = tpe
+        tpd
     }
-    tpd.tpe = instType
-    tpd
   }
+  
+  def tryInstantiateType(tpe: Type): Option[Type] =
+    solvedSubst.instantiateType(tpe)
 
   /** Type class definitions.
     */
@@ -395,13 +386,16 @@ class Typer {
     def infer(e: Type): Option[Type]
   }
 
-  case class ConcreteUnaryOpSig(e: Type, res: Type) extends UnaryOpSig {
+  case class ConcreteUnaryOpSig(e: Type, res: Type, ambiguous: Boolean = true) extends UnaryOpSig {
     override def infer(e: Type): Option[Type] =
-      if e == this.e then
-        Some(res)
-      else {
-        recordEquality(e, this.e)
-        Some(res)
+      tryInstantiateType(e) match {
+        case None if !ambiguous =>
+          recordEquality(e, this.e)
+          Some(res)
+        case Some(tpe) if tpe == this.e =>
+          Some(res)
+        case _ =>
+          None
       }
   }
 
@@ -478,7 +472,7 @@ class Typer {
     */
   val unaryOpSig: Map[uop, List[UnaryOpSig]] = Map(
     uop.! -> List(
-      ConcreteUnaryOpSig(BooleanType, BooleanType)
+      ConcreteUnaryOpSig(BooleanType, BooleanType, ambiguous = false)
     ),
     uop.- -> List(
       ConcreteUnaryOpSig(IntType, IntType),
