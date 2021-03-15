@@ -389,9 +389,15 @@ class ScalaParser {
 }
 
 object ScalaParser {
+  def parseSource[X](p: Parser[X], source: ScalaSource): Result[X] = {
+    val tokenizer = new Tokenizer(source)
+    parseWithTokenizer(p, tokenizer)
+  }
+  
   /** --- debug --- */
   def parseString[X](p: Parser[X], str: String): Result[X] = {
     val tokenizer = new Tokenizer(new ScalaSource("test", str))
     parseWithTokenizer(p, tokenizer)
   }
+  
 }
