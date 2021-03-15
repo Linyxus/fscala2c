@@ -122,7 +122,7 @@ class ScalaParser {
     * ```
     *
     */
-  def exprParser: Parser[untpd.Expr] = {
+  def exprParser: Parser[untpd.Expr] = ifExpr or {
     makeExprParser(List(
       Binary(LeftAssoc, List(
         "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
@@ -152,6 +152,13 @@ class ScalaParser {
         "-" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.-, e)) },
       ))
     ), applyAndSelectExpr)
+  }
+  
+  def ifExpr: Parser[untpd.IfExpr] = {
+    ("if" ~ exprParser ~ "then" ~ exprParser ~ (NL.optional >> "else") ~ exprParser) <| {
+      case _ ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
+        Untyped(Trees.IfExpr(cond, trueBody, falseBody))
+    }
   }
 
   /** Parses the following grammar corresponding to member selection and application in the language.
