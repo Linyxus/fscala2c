@@ -24,8 +24,17 @@ class TestScalaTyper {
       case Right(value) => value._1
     }
   }
+  
+  def forceParseDefString(source: String): untpd.ClassDef = {
+    ScalaParser.parseString((new ScalaParser).classDefParser, source) match {
+      case Left(_) => ???
+      case Right(x) => x._1
+    }
+  }
 
   def typedExpr(e: untpd.Expr): tpd.Expr = (new Typer).typedExpr(e)
+  
+  def typedDef(d: untpd.ClassDef): tpd.ClassDef = (new Typer).typedClassDef(d)
 
   def assertTyped(str: String, tpe: Type): Unit =
     assertEquals(typedExpr(forceParseString(str)).tpe, tpe)
@@ -138,7 +147,7 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
-  
+
   @Test def ifExpr: Unit = {
     val tests = List(
       (
@@ -149,7 +158,7 @@ class TestScalaTyper {
           |    else
           |      n * fact(n - 1)
           |  }
-          |  
+          |
           |  fact
           |}""".stripMargin,
         LambdaType(List(IntType), IntType)
@@ -173,7 +182,22 @@ class TestScalaTyper {
         IntType
       ),
     )
-    
+
     tests foreach { case (s, t) => assertTyped(s, t) }
+  }
+  
+  @Test def classDef: Unit = {
+    val source =
+      """class Point(x0 : Int, y0 : Int) {
+        |  val x = x0
+        |  val y = y0
+        |  val fact = (n : Int) => if n == 0 then 1 else n * fact(n - 1)
+        |}
+        |""".stripMargin
+    
+    val d = forceParseDefString(source)
+    
+    println(d)
+    println(typedDef(d).tpe)
   }
 }
