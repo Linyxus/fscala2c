@@ -21,5 +21,10 @@ object Symbol {
     }
     
     def nonResolved: Boolean = !isResolved
+    
+    def name: String = this match {
+      case Resolved(sym) => sym.name
+      case Unresolved(symName) => symName
+    }
   }
 }
