@@ -29,6 +29,16 @@ class ScalaParser {
   case class SyntaxError(token: Option[ScalaToken], msg: String) extends Exception(msg)
   
   val scopeCtx: ScopeContext = new ScopeContext
+  
+  /** Entry parser to parse Featherweight Scala source.
+    * 
+    * A source file will consist of several [[Trees.ClassDef]]s.
+    */
+  def mainParser: Parser[List[untpd.ClassDef]] = 
+    classDefParser.sepBy(NL)
+  
+  def fileParser: Parser[List[untpd.ClassDef]] =
+    mainParser << EOF
 
   /** Parses class definition.
     */
