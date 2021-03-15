@@ -191,13 +191,20 @@ class TestScalaTyper {
       """class Point(x0 : Int, y0 : Int) {
         |  val x = x0
         |  val y = y0
+        |  val p = new Point(1, 1)
         |  val fact = (n : Int) => if n == 0 then 1 else n * fact(n - 1)
         |}
         |""".stripMargin
     
     val d = forceParseDefString(source)
     
-    println(d)
-    println(typedDef(d).tpe)
+    val typer = new Typer
+    
+    val clsTpe = typer.typedClassDef(d)
+    println(clsTpe.showTyped)
+    
+    val expr = forceParseString("new Point(1, 2)")
+    println(expr)
+    println(typer.typedExpr(expr))
   }
 }

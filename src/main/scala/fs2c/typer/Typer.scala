@@ -53,6 +53,10 @@ class Typer {
   def recordEquality(tpe1: Type, tpe2: Type): Unit = {
     constrs.addEquality(tpe1, tpe2)
   }
+  
+  def recordMemberType(tp: Type, member: String, memTp: Type): Unit = {
+    constrs.addMemberType(tp, member, memTp)
+  }
 
   /** Fresh type variable prefixed with T.
     */
@@ -126,10 +130,6 @@ class Typer {
   def typedClassDef(classDef: untpd.ClassDef): tpd.ClassDef = {
     val clsDef: Trees.ClassDef[Untyped] = classDef.tree
 
-    // --- locate a new scope ---
-    scopeCtx.locateScope()
-    locateTypingScope()
-
     // add constructor parameters into scope
     clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
 
@@ -140,6 +140,10 @@ class Typer {
 
     // add class definition into scope
     scopeCtx.addSymbol(typedClsDef.tree.sym)
+    
+    // --- locate a new scope ---
+    scopeCtx.locateScope()
+    locateTypingScope()
 
     // introduce placeholder definitions into scope
     val untypedMemDefs: List[Trees.MemberDef[Untyped]] = clsDef.members map (_.tree)
@@ -213,6 +217,7 @@ class Typer {
       case x : Trees.BlockExpr[Untyped] => typedRecBlockExpr(Untyped(x))
       case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
       case x : Trees.IfExpr[Untyped] => typedIfExpr(Untyped(x))
+      case x : Trees.NewExpr[Untyped] => typedNewExpr(Untyped(x))
       case _ => throw TypeError(s"can not type $expr : lacking implementation")
     }
   }
@@ -508,6 +513,45 @@ class Typer {
     tpdFBody.tpe = tpeF
 
     ifExpr.assignType(tpeT, tpdCond, tpdTBody, tpdFBody)
+  }
+  
+  def typedNewExpr(expr: untpd.NewExpr): tpd.NewExpr = {
+    val newExpr: Trees.NewExpr[Untyped] = expr.tree
+    val clsName = newExpr.ref.name
+    val clsSym = scopeCtx.findSym(clsName) match {
+      case None =>
+        throw TypeError(s"unknown symbol $clsName")
+      case Some(sym) =>
+        sym
+    }
+    val clsTpe : Type = typeOfSymbol(clsSym) match {
+      case clv : ClassTypeVariable => clv
+      case clsDef : Trees.ClassDef[_] => clsDef
+      case x =>
+        throw TypeError(s"$x is not a class")
+    }
+    val innerClsTpe: Trees.ClassDef[Typed] = clsTpe match {
+      case clv : ClassTypeVariable => clv.classDef.tree
+      case clsDef : Trees.ClassDef[Typed] => clsDef
+      case _ =>
+        throw TypeError(s"can not retrieve inner class type of type $clsTpe. This is caused by a bug in the compiler.")
+    }
+    val params: List[tpd.Expr] = newExpr.params map typedExpr
+    
+    val expectTypes: List[Type] = innerClsTpe.params map { x => x.dealias.tpe }
+    val realTypes: List[Type] = params map (_.tpe)
+    
+    @annotation.tailrec def recur(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
+      case (Nil, Nil) => ()
+      case (Nil, _) | (_, Nil) =>
+        throw TypeError(s"parameter list length mismatch: expect $expectTypes but found $realTypes")
+      case (t1 :: ts1, t2 :: ts2) =>
+        recordEquality(t1, t2)
+        recur(ts1, ts2)
+    }
+    recur(realTypes, expectTypes)
+    
+    newExpr.assignType(tpe = clsTpe, sym = innerClsTpe.sym, params = params)
   }
 
   /** Type binary operator expressions.
