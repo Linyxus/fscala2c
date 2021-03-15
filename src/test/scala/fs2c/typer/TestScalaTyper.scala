@@ -88,12 +88,19 @@ class TestScalaTyper {
           |  odd
           |}""".stripMargin,
         LambdaType(List(IntType), BooleanType)
-      )
+      ),
+      (
+        """{
+          |  val fact = (n : Int) => n * fact(n - 1)
+          |  fact
+          |}""".stripMargin,
+        LambdaType(List(IntType), IntType)
+      ),
     )
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
-  
+
   @Test def applyExpr: Unit = {
     val tests = List(
       (
