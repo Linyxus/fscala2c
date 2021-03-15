@@ -34,6 +34,16 @@ object Trees {
       res.tree.sym.dealias = res
       res
     }
+
+    override def toString: String = s"class ${sym.name}"
+  }
+  
+  extension (cls : tpd.ClassDef) {
+    def showTyped: String = {
+      val clsDef = cls.tree
+      
+      s"$clsDef(${clsDef.params}) : { ${clsDef.members map { m => s"${m.tree} : ${m.tpe}" } }"
+    }
   }
 
   /** A member definition in the class body.
@@ -44,6 +54,8 @@ object Trees {
       res.tree.sym.dealias = res
       res
     }
+
+    override def toString(): String = s"${sym.name}"
   }
 
   /** Tree for expressions

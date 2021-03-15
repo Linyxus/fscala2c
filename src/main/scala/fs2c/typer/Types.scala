@@ -59,5 +59,6 @@ object Types {
   case class ClassTypeVariable(classDef: tpd.ClassDef, var predicates: List[Predicate]) extends Type {
     import Predicate._
 
+    override def toString: String = s"ClassTypeVar(${classDef.tree})"
   }
 }
