@@ -153,7 +153,17 @@ class ScalaParser {
       ))
     ), applyAndSelectExpr)
   }
-  
+
+  /** Parses if expressions. Logical new line before then is valid despite within the same expression. Specifically,
+    * the following example is valid.
+    * 
+    * ```scala
+    * if n == 0 then
+    *   1
+    * else
+    *   n * fact(n - 1)
+    * ```
+    */
   def ifExpr: Parser[untpd.IfExpr] = {
     ("if" ~ exprParser ~ "then" ~ exprParser ~ (NL.optional >> "else") ~ exprParser) <| {
       case _ ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
