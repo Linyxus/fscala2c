@@ -96,6 +96,7 @@ class Typer {
       case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
       case x : Trees.BlockExpr[Untyped] => typedRecBlockExpr(Untyped(x))
       case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
+      case x : Trees.IfExpr[Untyped] => typedIfExpr(Untyped(x))
       case _ => throw TypeError(s"can not type $expr : lacking implementation")
     }
   }
@@ -309,6 +310,49 @@ class Typer {
         recordEquality(tpe, expectType)
         apply.assignType(tpe = retType, func, params)
     }
+  }
+
+  /** Type if expressions.
+    * 
+    * ```
+    * Γ |- t1 : T1 | C1, t2 : T2 | C2, t3 : T3 | C3
+    * C' = C1 \/ C2 \/ C3 \/ { T1 = Boolean, T2 = T3 }
+    * ------------------------------------------------
+    *      Γ |- if t1 then t2 else t3 : T2 | C'
+    * ```
+    */
+  def typedIfExpr(expr: untpd.IfExpr): tpd.IfExpr = {
+    val ifExpr: Trees.IfExpr[Untyped] = expr.tree
+    val tpdCond: tpd.Expr = typedExpr(ifExpr.cond)
+    val tpdTBody: tpd.Expr = typedExpr(ifExpr.trueBody)
+    val tpdFBody: tpd.Expr = typedExpr(ifExpr.falseBody)
+    
+    val condType: Type = tryInstantiateType(tpdCond.tpe) match {
+      case None =>
+        recordEquality(tpdCond.tpe, GroundType.BooleanType)
+        tpdCond.tpe
+      case Some(tpe) if tpe == GroundType.BooleanType =>
+        tpe
+      case Some(tpe) =>
+        throw TypeError(s"expect Boolean in if condition, but found $tpe")
+    }
+    
+    val (tpeT, tpeF) = (tryInstantiateType(tpdTBody.tpe), tryInstantiateType(tpdFBody.tpe)) match {
+      case (Some(tpe1), Some(tpe2)) if tpe1 == tpe2 => (tpe1, tpe2)
+      case (Some(tpe1), Some(tpe2)) =>
+        throw TypeError(s"body of if expressions have different types: $tpe1 and $tpe2")
+      case (_, _) =>
+        val (tpe1, tpe2) = (tpdTBody.tpe, tpdFBody.tpe)
+        recordEquality(tpe1, tpe2)
+        (tpe1, tpe2)
+    }
+
+    // instantiate condition and body types if possible
+    tpdCond.tpe = condType
+    tpdTBody.tpe = tpeT
+    tpdFBody.tpe = tpeF
+    
+    ifExpr.assignType(tpeT, tpdCond, tpdTBody, tpdFBody)
   }
 
   /** Type binary operator expressions.
