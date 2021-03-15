@@ -117,11 +117,17 @@ class Typer {
     scopeCtx.locateScope()
     locateTypingScope()
     
+    // add constructor parameters into scope
+    clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
+    
     // tpd.ClassDef <--> ClassTypeVariable
     val typedClsDef: tpd.ClassDef = clsDef.assignType(null, null)
     val clsTvar: ClassTypeVariable = clsVar(typedClsDef)
     typedClsDef.tpe = clsTvar
     
+    // add class definition into scope
+    scopeCtx.addSymbol(typedClsDef.tree.sym)
+
     // introduce placeholder definitions into scope
     val untypedMemDefs: List[Trees.MemberDef[Untyped]] = clsDef.members map (_.tree)
     var placeholders: Map[String, Symbol[tpd.MemberDef]] = Map.empty
@@ -156,9 +162,6 @@ class Typer {
     typedClsDef.tpe = instantiateClassTypeVariable(clsTvar)
     
     typedClsDef.tree.members = typedMemDefs
-    
-    // add class definition into scope
-    scopeCtx.addSymbol(typedClsDef.tree.sym)
     
     // --- relocate to the old scope ---
     scopeCtx.relocateScope()
