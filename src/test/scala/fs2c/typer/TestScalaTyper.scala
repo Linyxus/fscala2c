@@ -20,11 +20,12 @@ import scala.language.implicitConversions
 class TestScalaTyper {
   def forceParseString(source: String): untpd.Expr = {
     ScalaParser.parseString((new ScalaParser).exprParser, source) match {
-      case Left(value) => ???
+      case Left(value) =>
+        assert(false, value.toString)
       case Right(value) => value._1
     }
   }
-  
+
   def forceParseDefString(source: String): untpd.ClassDef = {
     ScalaParser.parseString((new ScalaParser).classDefParser, source) match {
       case Left(_) => ???
@@ -33,7 +34,7 @@ class TestScalaTyper {
   }
 
   def typedExpr(e: untpd.Expr): tpd.Expr = (new Typer).typedExpr(e)
-  
+
   def typedDef(d: untpd.ClassDef): tpd.ClassDef = (new Typer).typedClassDef(d)
 
   def assertTyped(str: String, tpe: Type): Unit =
@@ -185,26 +186,65 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
-  
+
   @Test def classDef: Unit = {
     val source =
-      """class Point(x0 : Int, y0 : Int) {
-        |  val x = x0
-        |  val y = y0
-        |  val p = new Point(1, 1)
-        |  val fact = (n : Int) => if n == 0 then 1 else n * fact(n - 1)
+      """class Counter(initial : Int) {
+        |  var cnt = initial
+        |  
+        |  val inc = () => {
+        |    val old = cnt
+        |    cnt = cnt + 1
+        |    old
+        |  }
+        |  
+        |  val incOther = (other : Counter) => other.inc()
+        |  
+        |  val likeOther = (other : Counter) => {
+        |    val old = cnt
+        |    cnt = other.cnt
+        |    old
+        |  }
+        |  
+        |  val newAndInc = () => {
+        |    val counter = new Counter(cnt)
+        |    counter.inc()
+        |    counter
+        |  }
         |}
         |""".stripMargin
-    
+
     val d = forceParseDefString(source)
-    
     val typer = new Typer
+    typer.typedClassDef(d)
     
-    val clsTpe = typer.typedClassDef(d)
-    println(clsTpe.showTyped)
-    
-    val expr = forceParseString("new Point(1, 2)")
-    println(expr)
-    println(typer.typedExpr(expr))
+    val tests = List(
+      (
+        """{
+          |  val x = {
+          |    val counter = new Counter(0)
+          |    counter.inc()
+          |  }
+          |  x
+          |}""".stripMargin,
+        IntType
+      ),
+      (
+        """{
+          |  val counter = new Counter(10)
+          |  counter.inc
+          |}""".stripMargin,
+        LambdaType(List(), IntType)
+      ),
+      (
+        """{
+          |  val counter = new Counter(10)
+          |  counter.newAndInc().newAndInc().newAndInc().inc
+          |}""".stripMargin,
+        LambdaType(List(), IntType)
+      ),
+    )
+
+    tests foreach { case (s, t) => assertEquals(typer.typedExpr(forceParseString(s)).tpe, t) }
   }
 }

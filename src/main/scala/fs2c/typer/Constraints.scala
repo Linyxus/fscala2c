@@ -2,6 +2,7 @@ package fs2c.typer
 
 import Types._
 import fs2c.typer
+import fs2c.ast.fs.Trees
 import Typer.TypeError
 
 object Constraints {
@@ -136,7 +137,7 @@ object Constraints {
     /** Calls [[ConstraintSolver.addConstraint]] to add the member type predicate.
       */
     def addMemberType(tp: Type, member: String, memTp: Type): Unit = {
-      tp match {
+      solve(tp) match {
         case _ : TypeVariable =>
         case _ : ClassTypeVariable =>
         case tp =>
@@ -152,13 +153,13 @@ object Constraints {
       def tryInhertPredicates(tv1: TypeVariable, tp2: Type): Unit = tp2 match {
         case tv2 : TypeVariable =>
           tv2.mergePredicates(tv1)
-        case cv2 : ClassTypeVariable => 
+        case cv2 : ClassTypeVariable =>
           cv2.predicates = cv2.predicates ++ tv1.predicates
         case _ if tv1.predicates.nonEmpty =>
           throw TypeError(s"can not instantiate type variable $tv1 with predicates to type $tp2")
         case _ =>
       }
-      
+
       @annotation.tailrec def recur(constrs: List[Constraint], subst: Substitution): Substitution = {
         constrs match {
           case Nil => subst
@@ -195,6 +196,13 @@ object Constraints {
             case ClassMemberType(cv : ClassTypeVariable, member, tpe) =>
               cv.predicates = Predicate.HaveMemberOfType(member, tpe) :: cv.predicates
               recur(xs, subst)
+            case ClassMemberType(cls : Trees.ClassDef[Trees.Typed], member, memTp) => ???
+              cls.members.find(d => d.tree.sym.name == member) match {
+                case None =>
+                  throw TypeError(s"class $cls does not have $member")
+                case Some(d) =>
+                  recur(Equality(d.tpe, memTp) :: xs, subst)
+              }
             case ClassMemberType(tpe, _, _) =>
               throw TypeError(s"can not add class member predicate for type $tpe")
           }

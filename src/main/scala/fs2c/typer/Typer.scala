@@ -32,6 +32,11 @@ class Typer {
 
   def forceInstantiateBlock(): Unit =
     typedInBlock foreach { tpd => forceInstantiate(tpd) }
+  
+  def stripClassTvarBlock(): Unit =
+    typedInBlock foreach { tpd =>
+      tpd.tpe = stripClassTypeVariable(tpd.tpe)
+    }
 
   /** Record typed tree in the current block.
     */
@@ -53,7 +58,7 @@ class Typer {
   def recordEquality(tpe1: Type, tpe2: Type): Unit = {
     constrs.addEquality(tpe1, tpe2)
   }
-  
+
   def recordMemberType(tp: Type, member: String, memTp: Type): Unit = {
     constrs.addMemberType(tp, member, memTp)
   }
@@ -100,7 +105,7 @@ class Typer {
     */
   def instantiateClassTypeVariable(clsVar: ClassTypeVariable): Type = {
     import Predicate._
-    val expectTypeList: List[(String, Type)] = 
+    val expectTypeList: List[(String, Type)] =
       clsVar.predicates map { case HaveMemberOfType(mem, t) => mem -> forceInstantiateType(t) }
     val expectTypes: Map[String, Type] =
       expectTypeList.groupMapReduce(_._1)(_._2)((tpe1, tpe2) =>
@@ -109,7 +114,7 @@ class Typer {
         else
           throw TypeError(s"mismatch of class type member: $tpe1 and $tpe2")
       )
-    val realTypes: Map[String, Type] = 
+    val realTypes: Map[String, Type] =
       (clsVar.classDef.tree.members map { x => x.tree.sym.name -> forceInstantiateType(x.tpe) }).toMap
 
     if !(expectTypes.keySet subsetOf realTypes.keySet) then
@@ -124,23 +129,31 @@ class Typer {
 
     clsVar.classDef.tree
   }
+  
+  def stripClassTypeVariable(tpe: Type): Type = tpe match {
+    case clv : ClassTypeVariable => clv.classDef.tree
+    case LambdaType(params, ret) => LambdaType(params map stripClassTypeVariable, stripClassTypeVariable(ret))
+    case ArrayType(item) => ArrayType(stripClassTypeVariable(item))
+    case t => t
+  }
 
   /** Type class definitions.
     */
   def typedClassDef(classDef: untpd.ClassDef): tpd.ClassDef = {
     val clsDef: Trees.ClassDef[Untyped] = classDef.tree
 
-    // add constructor parameters into scope
-    clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
-
     // tpd.ClassDef <--> ClassTypeVariable
     val typedClsDef: tpd.ClassDef = clsDef.assignType(null, null)
     val clsTvar: ClassTypeVariable = clsVar(typedClsDef)
     typedClsDef.tpe = clsTvar
-
+    
     // add class definition into scope
     scopeCtx.addSymbol(typedClsDef.tree.sym)
     
+    // add constructor parameters into scope
+    clsDef.params foreach { sym => typedLambdaParam(sym.dealias) }
+    clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
+
     // --- locate a new scope ---
     scopeCtx.locateScope()
     locateTypingScope()
@@ -148,30 +161,36 @@ class Typer {
     // introduce placeholder definitions into scope
     val untypedMemDefs: List[Trees.MemberDef[Untyped]] = clsDef.members map (_.tree)
     var placeholders: Map[String, Symbol[tpd.MemberDef]] = Map.empty
-    untypedMemDefs foreach { memDef =>
+    val preTypedMemberDefs: List[tpd.MemberDef] = untypedMemDefs map { memDef =>
       val tpe: Type = memDef.tpe getOrElse freshXvar
       val typed: tpd.MemberDef = memDef.assignType(tpe, typedClsDef.tree.sym, null)
       scopeCtx.addSymbol(typed.tree.sym)
       placeholders = placeholders.updated(typed.tree.sym.name, typed.tree.sym)
+      typed
     }
+    typedClsDef.tree.members = preTypedMemberDefs
 
     // typing the member definitions
-    val typedMemDefs: List[tpd.MemberDef] = clsDef.members map typedMemberDef
-
-    typedMemDefs foreach {
-      case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType) =>
-        placeholders get d.sym.name match {
-          case None =>
-            throw TypeError(s"fatal error: member name not found in placeholders. This is caused by a bug.")
-          case Some(sym) =>
-            val assumedType: Type = sym.dealias.tpe
-            recordEquality(assumedType, actualType)
-            sym.dealias = tpdDef
-            tpdDef.tree.classDef = typedClsDef.tree.sym
-        }
+    val typedMemDefs: List[tpd.MemberDef] = clsDef.members map { d =>
+      val res = typedMemberDef(d)
+      
+      res match {
+        case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType) =>
+          placeholders get d.sym.name match {
+            case None =>
+              throw TypeError(s"fatal error: member name not found in placeholders. This is caused by a bug.")
+            case Some(sym) =>
+              val assumedType: Type = sym.dealias.tpe
+              recordEquality(assumedType, actualType)
+              sym.dealias = tpdDef
+              tpdDef.tree.classDef = typedClsDef.tree.sym
+          }
+      }
+      
+      res
     }
 
-    /** forcefully instantiate all type variables
+    /** forcefully instantiate all type variables and strip class
       * note: this will not instantiate the currently typing ClassDef */
     forceInstantiateBlock()
 
@@ -179,6 +198,8 @@ class Typer {
 
     // instantiate the class type
     typedClsDef.tpe = instantiateClassTypeVariable(clsTvar)
+    // strip all class type variables in the block
+    stripClassTvarBlock()
 
 
     // --- relocate to the old scope ---
@@ -218,6 +239,7 @@ class Typer {
       case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
       case x : Trees.IfExpr[Untyped] => typedIfExpr(Untyped(x))
       case x : Trees.NewExpr[Untyped] => typedNewExpr(Untyped(x))
+      case x : Trees.SelectExpr[Untyped] => typedSelectExpr(Untyped(x))
       case _ => throw TypeError(s"can not type $expr : lacking implementation")
     }
   }
@@ -237,6 +259,7 @@ class Typer {
     scopeCtx.locateScope()
 
     // add lambda parameters into the scope
+    lambda.params foreach { sym => typedLambdaParam(sym.dealias) }
     lambda.params map { sym => scopeCtx.addSymbol(sym) }
     // typing the body
     val typedBody: tpd.Expr = typedExpr(lambda.body)
@@ -309,19 +332,23 @@ class Typer {
       case _ =>
     }
 
-    val tpdDefs: List[tpd.LocalDef] = block.defs map { d => typedLocalDef(d, recursiveMode = true) }
-
-    tpdDefs foreach {
-      case Typed(bind : Trees.LocalDef.Bind[Typed], actualType) =>
-        val symName = bind.sym.name
-        placeholders.get(symName) match {
-          case None =>
-          case Some(wrapper) =>
-            val assumedType = wrapper.dealias.tpe
-            wrapper.dealias = Typed(tpe = actualType, tree = bind)
-            recordEquality(assumedType, actualType)
-        }
-      case _ =>
+    val tpdDefs: List[tpd.LocalDef] = block.defs map { d => 
+      val res = typedLocalDef(d, recursiveMode = true) 
+      
+      res match {
+        case Typed(bind : Trees.LocalDef.Bind[Typed], actualType) =>
+          val symName = bind.sym.name
+          placeholders.get(symName) match {
+            case None =>
+            case Some(wrapper) =>
+              val assumedType = wrapper.dealias.tpe
+              wrapper.dealias = Typed(tpe = actualType, tree = bind)
+              recordEquality(assumedType, actualType)
+          }
+        case _ =>
+      }
+      
+      res
     }
 
     // instantiate all type variables in the block
@@ -405,6 +432,28 @@ class Typer {
   def typeOfSymbol(sym: Symbol[_]): Type = sym.dealias match {
     case tped : Typed[_] => tped.tpe
     case param : Trees.LambdaParam => param.tpe
+  }
+  
+  def typedLambdaParam(param: Trees.LambdaParam): Trees.LambdaParam = {
+    param.tpe match {
+      case symTp : SymbolType =>
+        param.tpe = resolveSymbolType(symTp)
+      case _ =>
+    }
+    param
+  }
+  
+  def resolveSymbolType(tpe: SymbolType): Type = {
+    val symName = tpe.refSym.name
+    scopeCtx.findSym(symName) match {
+      case Some(sym) => 
+        typeOfSymbol(sym) match {
+          case clv : ClassTypeVariable => clv
+          case cls : Trees.ClassDef[Typed] => cls
+        }
+      case None =>
+        throw TypeError(s"unknown symbol: $symName")
+    }
   }
 
   /** Type identifiers.
@@ -514,7 +563,7 @@ class Typer {
 
     ifExpr.assignType(tpeT, tpdCond, tpdTBody, tpdFBody)
   }
-  
+
   def typedNewExpr(expr: untpd.NewExpr): tpd.NewExpr = {
     val newExpr: Trees.NewExpr[Untyped] = expr.tree
     val clsName = newExpr.ref.name
@@ -537,10 +586,10 @@ class Typer {
         throw TypeError(s"can not retrieve inner class type of type $clsTpe. This is caused by a bug in the compiler.")
     }
     val params: List[tpd.Expr] = newExpr.params map typedExpr
-    
+
     val expectTypes: List[Type] = innerClsTpe.params map { x => x.dealias.tpe }
     val realTypes: List[Type] = params map (_.tpe)
-    
+
     @annotation.tailrec def recur(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
       case (Nil, Nil) => ()
       case (Nil, _) | (_, Nil) =>
@@ -550,8 +599,38 @@ class Typer {
         recur(ts1, ts2)
     }
     recur(realTypes, expectTypes)
-    
+
     newExpr.assignType(tpe = clsTpe, sym = innerClsTpe.sym, params = params)
+  }
+  
+  def typedSelectExpr(expr: untpd.SelectExpr): tpd.SelectExpr = {
+    val select: Trees.SelectExpr[Untyped] = expr.tree
+    val tpdExpr: tpd.Expr = typedExpr(select.expr)
+    
+    val tpe: Type = tryInstantiateType(tpdExpr.tpe) match {
+      case None =>
+        throw TypeError(s"can not infer the type of the expression being selected: ${tpdExpr} : ${tpdExpr.tpe}\n${solvedSubst.tvMap}")
+      case Some(tp) => tp match {
+        case tv: ClassTypeVariable =>
+          tv.classDef.tree.members.find(m => m.tree.sym.name == select.member) match {
+            case None =>
+              throw TypeError(s"${tv.classDef.tree} does not have ${select.member}")
+            case Some(m) =>
+              m.tpe
+          }
+        case cls: Trees.ClassDef[Typed] =>
+          cls.members.find(m => m.tree.sym.name == select.member) match {
+            case None =>
+              throw TypeError(s"$cls does not have ${select.member}")
+            case Some(m) =>
+              m.tpe
+          }
+        case tp =>
+          throw TypeError(s"can not select member from type $tp")
+      }
+    }
+    
+    select.assignType(tpe, tpdExpr)
   }
 
   /** Type binary operator expressions.
@@ -608,7 +687,9 @@ class Typer {
   /** Concrete signature with fixed operand and result types.
     */
   case class ConcreteBinOpSig(e1: Type, e2: Type, res: Type) extends BinOpSig {
-    override def infer(e1: Type, e2: Type): Option[Type] =
+    override def infer(tp1: Type, tp2: Type): Option[Type] = {
+      val e1 = tryInstantiateType(tp1) getOrElse tp1
+      val e2 = tryInstantiateType(tp2) getOrElse tp2
       if e1 == this.e1 && e2 == this.e2 then
         Some(res)
       else if e1 == this.e1 then {
@@ -621,6 +702,7 @@ class Typer {
       } else {
         None
       }
+    }
   }
 
   /** Signature for unary operators.

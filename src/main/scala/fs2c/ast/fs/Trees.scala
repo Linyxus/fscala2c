@@ -73,7 +73,7 @@ object Trees {
     *
     * It is also used to represent class constructor parameters.
     */
-  case class LambdaParam(sym: Symbol[LambdaParam], tpe: Type)
+  case class LambdaParam(sym: Symbol[LambdaParam], var tpe: Type)
 
   /** Block expressions.
     */
@@ -113,9 +113,9 @@ object Trees {
 
   /** Selection.
     */
-  case class SelectExpr[F[_]](expr: F[Expr[F]], member: Symbol.Ref) extends Expr[F] {
-    def assignType(tpe: Type, expr: tpd.Expr, member: Symbol[_]): tpd.SelectExpr =
-      Typed(tpe = tpe, tree = Trees.SelectExpr(expr, Symbol.Ref.Resolved(member)))
+  case class SelectExpr[F[_]](expr: F[Expr[F]], member: String) extends Expr[F] {
+    def assignType(tpe: Type, expr: tpd.Expr): tpd.SelectExpr =
+      Typed(tpe = tpe, tree = Trees.SelectExpr(expr, member))
   }
   
   case class IfExpr[F[_]](cond: F[Expr[F]], trueBody: F[Expr[F]], falseBody: F[Expr[F]]) extends Expr[F] {
@@ -333,7 +333,7 @@ object Trees {
     
     def traverseApplyExpr(func: G[TreeType[Expr]], args: List[G[TreeType[Expr]]]): G[TreeType[ApplyExpr]]
 
-    def traverseSelectExpr(expr: G[TreeType[Expr]], member: Symbol.Ref): G[TreeType[SelectExpr]]
+    def traverseSelectExpr(expr: G[TreeType[Expr]], member: String): G[TreeType[SelectExpr]]
     
     def traverseBinOpExpr(op: ExprBinOpType, e1: G[TreeType[Expr]], e2: G[TreeType[Expr]]): G[TreeType[BinOpExpr]]
     

@@ -193,7 +193,7 @@ class ScalaParser {
   def applyAndSelectExpr: Parser[untpd.Expr] = {
     def selP: Parser[untpd.Expr => untpd.Expr] = 
       { "." ~ identifier } <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(member)) =>
-        e => Untyped(Trees.SelectExpr(e, Symbol.Ref.Unresolved(member)))
+        e => Untyped(Trees.SelectExpr(e, member))
       }
     def applyP: Parser[untpd.Expr => untpd.Expr] =
       exprParser.sepBy(",").wrappedBy("(", ")") <| { case es =>
