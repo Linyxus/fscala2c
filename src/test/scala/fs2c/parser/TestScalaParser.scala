@@ -176,4 +176,24 @@ class TestScalaParser {
     
     tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
   }
+  
+  @Test def main: Unit = {
+    val tests = List(
+      """class Foo {
+        |}
+        |
+        |class Bar {
+        |}
+        |""".stripMargin,
+      """class Foo {
+        |}
+        |
+        |class Bar {
+        |  val x = new Foo
+        |}
+        |""".stripMargin,
+    )
+
+    tests foreach { x => assertParseSuccess((new ScalaParser).mainParser, x) }
+  }
 }
