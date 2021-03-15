@@ -1,8 +1,9 @@
 package fs2c.typer
 
 import fs2c.ast.Symbol
+import fs2c.ast.fs.Trees.{tpd, untpd}
 
-trait Types {
+object Types {
   /** The trait for all types.
     */
   trait Type
@@ -49,6 +50,11 @@ trait Types {
       case _ => false
     }
   }
-}
 
-object Types extends Types
+  /** Special type variable recording information about the *shape* of a class type definition.
+    */
+  case class ClassTypeVariable(classDef: tpd.ClassDef, var predicates: List[Predicate]) extends Type {
+    import Predicate._
+    
+  }
+}
