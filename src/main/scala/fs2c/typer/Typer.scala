@@ -33,6 +33,8 @@ class Typer {
   def forceInstantiateBlock(): Unit =
     typedInBlock foreach { tpd => forceInstantiate(tpd) }
 
+  /** Record typed tree in the current block.
+    */
   def recordTyped[X](tpd: Typed[X]): Typed[X] = {
     typingScope.allTyped = tpd :: typingScope.allTyped
     tpd
@@ -46,6 +48,8 @@ class Typer {
     typingScope = typingScope.parent
   }
 
+  /** Alias of [[ConstraintSolver.addEquality]].
+    */
   def recordEquality(tpe1: Type, tpe2: Type): Unit = {
     constrs.addEquality(tpe1, tpe2)
   }
@@ -158,10 +162,11 @@ class Typer {
       * note: this will not instantiate the currently typing ClassDef */
     forceInstantiateBlock()
     
+    typedClsDef.tree.members = typedMemDefs
+    
     // instantiate the class type
     typedClsDef.tpe = instantiateClassTypeVariable(clsTvar)
     
-    typedClsDef.tree.members = typedMemDefs
     
     // --- relocate to the old scope ---
     scopeCtx.relocateScope()
