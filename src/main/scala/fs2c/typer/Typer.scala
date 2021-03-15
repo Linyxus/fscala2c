@@ -90,6 +90,8 @@ class Typer {
   def freshXvar: TypeVariable =
     freshTypeVar(prefix = "X")
 
+  /** Creates a fresh class type variable for `clsDef`.
+    */
   def clsVar(clsDef: tpd.ClassDef): ClassTypeVariable =
     ClassTypeVariable(clsDef, Nil)
 
@@ -108,9 +110,13 @@ class Typer {
     }
   }
 
+  /** Tries to instantiate the type. Returns [[None]] if there exists uninstantiated type variable within the type.
+    */
   def tryInstantiateType(tpe: Type): Option[Type] =
     solvedSubst.instantiateType(tpe)
 
+  /** Forcefully instantiate the type. Throws an error if fails.
+    */
   def forceInstantiateType(tpe: Type): Type =
     tryInstantiateType(tpe) match {
       case None =>
@@ -146,7 +152,9 @@ class Typer {
 
     clsVar.classDef.tree
   }
-  
+
+  /** Strip class type variable of within the type.
+    */
   def stripClassTypeVariable(tpe: Type): Type = tpe match {
     case clv : ClassTypeVariable => clv.classDef.tree
     case LambdaType(params, ret) => LambdaType(params map stripClassTypeVariable, stripClassTypeVariable(ret))
@@ -381,6 +389,8 @@ class Typer {
     forceInstantiate { block.assignType(tpdExpr.tpe, tpdDefs, tpdExpr) }
   }
 
+  /** Types local definition.
+    */
   def typedLocalDef(expr: untpd.LocalDef, recursiveMode: Boolean = true): tpd.LocalDef = recordTyped {
     val localDef: Trees.LocalDef[Untyped] = expr.tree
 
@@ -446,11 +456,17 @@ class Typer {
     }
   }
 
+  /** Retrieve the type of the symbol.
+    */
   def typeOfSymbol(sym: Symbol[_]): Type = sym.dealias match {
     case tped : Typed[_] => tped.tpe
     case param : Trees.LambdaParam => param.tpe
+    case _ =>
+      throw TypeError(s"can not retrieve type of symbol $sym with dealias ${sym.dealias}")
   }
-  
+
+  /** Typing lambda parameters. This will resolve SymbolType if exists.
+    */
   def typedLambdaParam(param: Trees.LambdaParam): Trees.LambdaParam = {
     param.tpe match {
       case symTp : SymbolType =>
@@ -459,7 +475,9 @@ class Typer {
     }
     param
   }
-  
+
+  /** Resolves the symbol type.
+    */
   def resolveSymbolType(tpe: SymbolType): Type = {
     val symName = tpe.refSym.name
     scopeCtx.findSym(symName) match {
@@ -581,6 +599,8 @@ class Typer {
     ifExpr.assignType(tpeT, tpdCond, tpdTBody, tpdFBody)
   }
 
+  /** Typing new expressions.
+    */
   def typedNewExpr(expr: untpd.NewExpr): tpd.NewExpr = {
     val newExpr: Trees.NewExpr[Untyped] = expr.tree
     val clsName = newExpr.ref.name
@@ -619,7 +639,9 @@ class Typer {
 
     newExpr.assignType(tpe = clsTpe, sym = innerClsTpe.sym, params = params)
   }
-  
+
+  /** Typing select expressions.
+    */
   def typedSelectExpr(expr: untpd.SelectExpr): tpd.SelectExpr = {
     val select: Trees.SelectExpr[Untyped] = expr.tree
     val tpdExpr: tpd.Expr = typedExpr(select.expr)
@@ -825,7 +847,9 @@ class Typer {
 
 object Typer {
   case class TypeError(msg: String) extends Exception(msg)
-  
+
+  /** Shows tpd.Expr.
+    */
   def showTypedExpr(expr: tpd.Expr, indentLevel: Int = 0): String = {
     val tree: Trees.Expr[Typed] = expr.tree
     val tpe: Type = expr.tpe
