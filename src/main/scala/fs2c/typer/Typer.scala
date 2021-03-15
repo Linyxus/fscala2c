@@ -63,7 +63,7 @@ class Typer {
     */
   def freshXvar: TypeVariable =
     freshTypeVar(prefix = "X")
-  
+
   def clsVar(clsDef: tpd.ClassDef): ClassTypeVariable =
     ClassTypeVariable(clsDef, Nil)
 
@@ -84,7 +84,7 @@ class Typer {
 
   def tryInstantiateType(tpe: Type): Option[Type] =
     solvedSubst.instantiateType(tpe)
-  
+
   def forceInstantiateType(tpe: Type): Type =
     tryInstantiateType(tpe) match {
       case None =>
@@ -96,9 +96,18 @@ class Typer {
     */
   def instantiateClassTypeVariable(clsVar: ClassTypeVariable): Type = {
     import Predicate._
-    val expectTypes: Map[String, Type] = (clsVar.predicates map { case HaveMemberOfType(mem, t) => mem -> forceInstantiateType(t) }).toMap
-    val realTypes: Map[String, Type] = (clsVar.classDef.tree.members map { x => x.tree.sym.name -> forceInstantiateType(x.tpe) }).toMap
-    
+    val expectTypeList: List[(String, Type)] = 
+      clsVar.predicates map { case HaveMemberOfType(mem, t) => mem -> forceInstantiateType(t) }
+    val expectTypes: Map[String, Type] =
+      expectTypeList.groupMapReduce(_._1)(_._2)((tpe1, tpe2) =>
+        if tpe1 == tpe2 then
+          tpe1
+        else
+          throw TypeError(s"mismatch of class type member: $tpe1 and $tpe2")
+      )
+    val realTypes: Map[String, Type] = 
+      (clsVar.classDef.tree.members map { x => x.tree.sym.name -> forceInstantiateType(x.tpe) }).toMap
+
     if !(expectTypes.keySet subsetOf realTypes.keySet) then
       throw TypeError(s"can not conform required member set ${expectTypes.keySet} with actual set ${realTypes.keySet}")
 
@@ -108,7 +117,7 @@ class Typer {
       if expect != real then
         throw TypeError(s"unmatched type for member $key, expected $expect but found $real")
     }
-    
+
     clsVar.classDef.tree
   }
 
@@ -116,19 +125,19 @@ class Typer {
     */
   def typedClassDef(classDef: untpd.ClassDef): tpd.ClassDef = {
     val clsDef: Trees.ClassDef[Untyped] = classDef.tree
-    
+
     // --- locate a new scope ---
     scopeCtx.locateScope()
     locateTypingScope()
-    
+
     // add constructor parameters into scope
     clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
-    
+
     // tpd.ClassDef <--> ClassTypeVariable
     val typedClsDef: tpd.ClassDef = clsDef.assignType(null, null)
     val clsTvar: ClassTypeVariable = clsVar(typedClsDef)
     typedClsDef.tpe = clsTvar
-    
+
     // add class definition into scope
     scopeCtx.addSymbol(typedClsDef.tree.sym)
 
@@ -141,10 +150,10 @@ class Typer {
       scopeCtx.addSymbol(typed.tree.sym)
       placeholders = placeholders.updated(typed.tree.sym.name, typed.tree.sym)
     }
-    
+
     // typing the member definitions
     val typedMemDefs: List[tpd.MemberDef] = clsDef.members map typedMemberDef
-    
+
     typedMemDefs foreach {
       case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType) =>
         placeholders get d.sym.name match {
@@ -157,35 +166,35 @@ class Typer {
             tpdDef.tree.classDef = typedClsDef.tree.sym
         }
     }
-    
+
     /** forcefully instantiate all type variables
       * note: this will not instantiate the currently typing ClassDef */
     forceInstantiateBlock()
-    
+
     typedClsDef.tree.members = typedMemDefs
-    
+
     // instantiate the class type
     typedClsDef.tpe = instantiateClassTypeVariable(clsTvar)
-    
-    
+
+
     // --- relocate to the old scope ---
     scopeCtx.relocateScope()
     relocateTypingScope()
-    
+
     typedClsDef
   }
 
   /** Type member definitions.
-    * 
+    *
     * Simply compute the type of the body. Will not check whether ascription and actual type matchs (this will be done
     * within [[Typer.typedClassDef]]. Will not add symbol into the scope.
     */
   def typedMemberDef(memberDef: untpd.MemberDef): tpd.MemberDef = recordTyped {
     val memDef: Trees.MemberDef[Untyped] = memberDef.tree
-    
+
     val body: tpd.Expr = typedExpr(memDef.body)
     val tpe: Type = body.tpe
-    
+
     memDef.assignType(tpe, null, body)
   }
 
