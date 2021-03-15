@@ -122,7 +122,7 @@ class ScalaParser {
     * ```
     *
     */
-  def exprParser: Parser[untpd.Expr] = ifExpr or {
+  def exprParser: Parser[untpd.Expr] = ifExpr or newExpr or {
     makeExprParser(List(
       Binary(LeftAssoc, List(
         "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
@@ -168,6 +168,16 @@ class ScalaParser {
     ("if" ~ exprParser ~ "then" ~ exprParser ~ (NL.optional >> "else") ~ exprParser) <| {
       case _ ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
         Untyped(Trees.IfExpr(cond, trueBody, falseBody))
+    }
+  }
+  
+  def newExpr: Parser[untpd.NewExpr] = {
+    val params: Parser[List[untpd.Expr]] = exprParser.sepBy(",").wrappedBy("(", ")").optional <| {
+      case None => Nil
+      case Some(xs) => xs
+    }
+    ("new" ~ identifier ~ params) <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(symName)) ~ params =>
+      Untyped(Trees.NewExpr(Symbol.Ref.Unresolved(symName), params))
     }
   }
 
