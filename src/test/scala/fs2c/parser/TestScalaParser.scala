@@ -165,4 +165,15 @@ class TestScalaParser {
     
     tests foreach { x => assertParseSuccess((new ScalaParser).ifExpr, x) }
   }
+  
+  @Test def newExpr: Unit = {
+    val tests = List(
+      "new Foo",
+      "new Foo()",
+      "(new Foo(a, b, c)).bar",
+      "(new Foo(a, b, c)).bar(1, 2, 3)"
+    )
+    
+    tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
+  }
 }
