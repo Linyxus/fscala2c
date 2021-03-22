@@ -19,4 +19,14 @@ class TestUnique {
     assertEquals(uniqueName("T"), "T$1")
   }
   
+  @Test def uniqueCNames: Unit = {
+    import Unique._
+    reset()
+    
+    assertEquals(uniqueCName("foo"), "foo__0")
+    assertEquals(uniqueCName("foo"), "foo__1")
+    assertEquals(uniqueCName("foo"), "foo__2")
+    assertEquals(uniqueCName("bar"), "bar__3")
+  }
+  
 }

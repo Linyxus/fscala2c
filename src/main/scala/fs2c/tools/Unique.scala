@@ -5,7 +5,7 @@ import collection.mutable
 
 object Unique {
   val nameCount = mutable.Map.empty[String, Int]
-  
+
   def reset(): Unit = nameCount.clear()
 
   def uniqueName(prefix: String): String = {
@@ -17,4 +17,14 @@ object Unique {
   
   def freshTypeVar(prefix: String = "X"): TypeVariable =
     TypeVariable(uniqueName(prefix), Nil)
+    
+  var globalNameCount: Int = 0
+  
+  def nextHexPostfix(): String = {
+    val s = globalNameCount.toHexString
+    globalNameCount += 1
+    s
+  }
+  
+  def uniqueCName(name: String): String = name + "__" + nextHexPostfix()
 }
