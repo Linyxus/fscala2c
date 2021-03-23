@@ -5,10 +5,133 @@ import fs2c.ast.c.{ Trees => C }
 
 object CodeBundles {
   
-  type CodeBundleOf[X] = X match
-    case FS.Expr[_] => Unit
-    case _ => Unit
+  /** Bundle of C code generated when translating a Featherweight Scala definition or expression.
+    */
+  trait CodeBundle
   
-  case class PureBundle(expr: C.Expr)
+  case object NoCode extends CodeBundle
+
+  /** Bundle of code consisting purely of a expression.
+    * 
+    * Translating simple arithmetic and logical expression, function application and selection
+    * may result in [[PureExprBundle]].
+    */
+  case class PureExprBundle(expr: C.Expr) extends CodeBundle
+
+  /** Bundle of code consisting of a block of C statements and results a C expression.
+    * 
+    * For example, the following If expression in Scala will result in a [[BlockBundle]].
+    * Scala code:
+    * ```scala
+    * if x > 0 then
+    *   1
+    * else
+    *   -1
+    * ```
+    * Translated C code:
+    * ```c
+    * int t;
+    * if (x > 0) {
+    *   t = 1;
+    * } else {
+    *   t = -1;
+    * }
+    * ```
+    * The resulted expression in the bundle will be `t`, which is a temp variable.
+    */
+  case class BlockBundle(expr: C.Expr, block: C.Block) extends CodeBundle
+
+  /** Code bundle for simple lifted local lambda functions without non-local references (free variables).
+    */
+  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends CodeBundle
+
+  /** Bundle of code consisting of a lambda closure.
+    * 
+    * For example, for a local lambda with free variables:
+    * ```scala
+    * val adder = (i : Int) => n + i
+    * ```
+    * where `n : Int` is a free variable.
+    * 
+    * It will be translated into a group of C definitions:
+    * ```c
+    * struct adder_env {
+    *   int n;
+    * }
+    * 
+    * int adder(struct adder_env *env, int i) {
+    *   return env->n + i;
+    * }
+    * 
+    * typedef int (*adder_t)(struct adder_env *, int)
+    * ```
+    * and a block of statements:
+    * ```
+    *   struct adder_env *env = init_adder_env(n);
+    *   struct func_closure *adder_closure = init_func_closure(adder, env);
+    * ```
+    * and finally the expression `adder_closure`.
+    * 
+    * To better illustrate the idea of function closures, at call sites of `adder` (maybe outside the scope where
+    * `adder` is defined), the generated C code will become:
+    * ```c
+    * (adder_t*)(adder_closure->func)((struct adder_env *)(adder_closure->env), i)
+    * ```
+    */
+  case class ClosureBundle(expr: C.Expr, block: C.Block,
+                           envStructDef: C.StructDef,
+                           funcDef: C.FuncDef,
+                           funcTypeDef: C.TypeAliasDef
+                          ) extends CodeBundle
+
+  /** Code bundle consisting of the C structure definition, related method function definition of a Scala class.
+    * 
+    * A simple example:
+    * ```scala
+    * class Point(x0 : Int, y0 : Int) {
+    *   val x = x0
+    *   val y = y0
+    *   val distTo = (that : Point) => {
+    *     val abs = (n : Int) => if n < 0 then -n else n
+    *     val dx = abs(that.x - x)
+    *     val dy = abs(that.y - y)
+    *     dx + dy
+    *   }
+    * }
+    * ```
+    * The above snippet will be translated to
+    * ```c
+    * // struct
+    * struct Point {
+    *   int x;
+    *   int y;
+    * }
+    * 
+    * // init function
+    * struct Point *init_Point(int x0, int y0) {
+    *   // ...
+    * }
+    * 
+    * // lifted local lambda
+    * // no env provided, no closure is created, since this lambda have no free variables
+    * int Point_distTo_abs(int n) {
+    *   int t;
+    *   if (n < 0) {
+    *     t = -n;
+    *   else {
+    *     t = n;
+    *   }
+    *   return t;
+    * }
+    * 
+    * // class method
+    * int Point_distTo(struct Point *this, struct Point *that) {
+    *   int dx = Point_distTo_abs(that->x - this->x);
+    *   int dy = Point_distTo_abs(that->y - this->y);
+    *   dx + dy
+    * }
+    * ```
+    */
+  case class ClassBundle(structDef: C.StructDef, initDef: C.FuncDef, methodsDef: List[C.FuncDef]) extends CodeBundle
 
 }
