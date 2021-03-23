@@ -200,7 +200,7 @@ class Typer {
       val res = typedMemberDef(d)
       
       res match {
-        case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType) =>
+        case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType, _) =>
           placeholders get d.sym.name match {
             case None =>
               throw TypeError(s"fatal error: member name not found in placeholders. This is caused by a bug.")
@@ -361,7 +361,7 @@ class Typer {
       val res = typedLocalDef(d, recursiveMode = true) 
       
       res match {
-        case Typed(bind : Trees.LocalDef.Bind[Typed], actualType) =>
+        case Typed(bind : Trees.LocalDef.Bind[Typed], actualType, _) =>
           val symName = bind.sym.name
           placeholders.get(symName) match {
             case None =>

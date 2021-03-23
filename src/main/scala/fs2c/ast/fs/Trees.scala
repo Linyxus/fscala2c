@@ -2,6 +2,7 @@ package fs2c.ast.fs
 
 import fs2c.ast.Symbol
 import fs2c.typer.Types._
+import fs2c.codegen.{ CodeBundles => bd }
 
 /** Abstract syntax trees for Featherweight Scala
   *
@@ -204,7 +205,7 @@ object Trees {
     * @param tree Wrapped tree.
     * @param tpe Type of the tree.
     */
-  final case class Typed[+X](tree: X, var tpe: Type) {
+  final case class Typed[+X](tree: X, var tpe: Type, var code: bd.CodeBundle = bd.NoCode) {
     def type_=(tpe: Type) =
       this.tpe = tpe
   }
