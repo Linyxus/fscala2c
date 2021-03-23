@@ -35,3 +35,14 @@
  - [ ] Optimize C AST
  
  - [ ] C AST --> C source code
+
+ ## References
+
+ - Hindley-Milner type inference for recursive definition groups:
+   [Wikipedia](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system),
+   [Blog](https://blog.linyxus.xyz/posts/hm-type-inference-for-stlc/)
+
+ - Closure conversion for compiling lambda expressions to global definitions:
+   [Slides](http://lampwww.epfl.ch/teaching/archive/advanced_compiler/2007/resources/slides/act-2007-05-closure-conversion.pdf),
+   [Blog](http://matt.might.net/articles/closure-conversion/),
+   [Tutorial](https://craftinginterpreters.com/closures.html)
