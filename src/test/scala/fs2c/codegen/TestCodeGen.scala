@@ -55,4 +55,9 @@ class TestCodeGen {
     )
     tests foreach { (i, o) => assertEquals(genExpr(typedString(i)).getExpr.toString, o) }
   }
+  
+  @Test def ifExpr: Unit = {
+    val e = typedString("(if false then 1 else 0) * (if false then 3 else 2)")
+    genExpr(e)
+  }
 }

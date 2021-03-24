@@ -39,6 +39,7 @@ class CodeGen {
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
+    case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
@@ -94,9 +95,29 @@ class CodeGen {
     case _ if op == sbopEq => cbop.==
     case _ if op == sbopNeq => cbop.!=
   }
-  
+
+  /** Generate C code for If expression.
+    */
   def genIfExpr(expr: tpd.IfExpr): bd.BlockBundle = expr.assignCode { case FS.IfExpr(cond, et, ef) =>
-    ???
+    val (tempVar, tempDef) = defn.localVariable(freshVarName, C.BaseType.IntType)
+    
+    val bdCond = genExpr(cond)
+    
+    val condExpr = bdCond.getExpr
+    val condBlock = bdCond.getBlock
+    
+    val bdt = genExpr(et)
+    val bdf = genExpr(ef)
+    
+    val tBlock = bdt.getBlock :+ defn.assignVar(tempVar, bdt.getExpr)
+    val fBlock = bdf.getBlock :+ defn.assignVar(tempVar, bdf.getExpr)
+    
+    val ifStmt = C.Statement.If(condExpr, tBlock, Some(fBlock))
+    
+    bd.BlockBundle(
+      expr = C.IdentifierExpr(tempVar),
+      block = tempDef ++ condBlock :+ ifStmt
+    )
   }
   
   def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ???

@@ -16,7 +16,6 @@ object Trees {
   enum BaseType extends Type {
     case IntType
     case DoubleType
-    case BoolType
     case CharType
   }
 
@@ -128,7 +127,8 @@ object Trees {
     case If(cond: Expr, thenBody: Block, elseBody: Option[Block])
     case While(cond: Expr, body: Block)
     case Eval(e: Expr)
-    case Assign(d: Symbol[VariableDef], expr: Expr)
+    case AssignVar(d: Symbol[VariableDef], expr: Expr)
+    case AssignMember(d: Symbol[StructMember], expr: Expr)
     case Def(d: VariableDef)
   }
 
