@@ -36,6 +36,10 @@ object Trees {
     def members: List[StructMember] = structSym.dealias.members
   }
 
+  case class PointerType(dealiasType: Type) extends Type
+  
+  case object VoidType extends Type
+
   /** Expressions in C.
     */
   trait Expr
