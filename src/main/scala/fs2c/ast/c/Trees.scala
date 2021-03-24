@@ -37,7 +37,7 @@ object Trees {
   }
 
   case class PointerType(dealiasType: Type) extends Type
-  
+
   case object VoidType extends Type
 
   /** Expressions in C.
@@ -46,7 +46,9 @@ object Trees {
 
   /** Binary expressions.
     */
-  case class BinOpExpr(op: BinOpType, e1: Expr, e2: Expr) extends Expr
+  case class BinOpExpr(op: BinOpType, e1: Expr, e2: Expr) extends Expr {
+    override def toString: String = s"($op $e1 $e2)"
+  }
 
   enum BinOpType {
     case +
@@ -91,15 +93,21 @@ object Trees {
 
   /** Int expression.
     */
-  case class IntExpr(value: Int) extends Expr, LiteralExpr
+  case class IntExpr(value: Int) extends Expr, LiteralExpr {
+    override def toString: String = s"$value"
+  }
 
   /** Float expression.
     */
-  case class FloatExpr(value: Double) extends Expr, LiteralExpr
+  case class FloatExpr(value: Double) extends Expr, LiteralExpr {
+    override def toString: String = s"$value"
+  }
 
   /** Boolean expression.
     */
-  case class BoolExpr(value: Boolean) extends Expr, LiteralExpr
+  case class BoolExpr(value: Boolean) extends Expr, LiteralExpr {
+    override def toString: String = s"$value"
+  }
 
   /** Definitions in the C language.
     */
@@ -125,7 +133,7 @@ object Trees {
   case class TypeAliasDef(sym: Symbol[TypeAliasDef], dealias: Type) extends Definition
 
   case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition
-  
+
   object StructDef {
     def makeStructDef(name: String, memberDefs: List[VariableDef]): StructDef = {
       val structSym: Symbol[StructDef] = Symbol(name = name, dealias = null)
@@ -140,7 +148,7 @@ object Trees {
   case class StructMember(d: VariableDef, var struct: Symbol[StructDef])
 
   case class VariableDef(sym: Symbol[VariableDef], tp: Type)
-  
+
   object VariableDef {
     def makeVariableDef(name: String, tp: Type): VariableDef = {
       val sym: Symbol[VariableDef] = Symbol(name, null)
@@ -149,7 +157,7 @@ object Trees {
       d
     }
   }
-  
+
   extension (name : String) {
     def :: (tp: Type): VariableDef = VariableDef.makeVariableDef(name, tp)
   }
