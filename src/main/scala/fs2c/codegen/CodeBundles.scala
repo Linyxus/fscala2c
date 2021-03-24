@@ -14,6 +14,8 @@ object CodeBundles {
     def getBlock: C.Block
   }
   
+  trait LambdaBundle extends ValueBundle
+  
   case object NoCode extends CodeBundle
 
   /** Bundle of code consisting purely of a expression.
@@ -54,7 +56,7 @@ object CodeBundles {
 
   /** Code bundle for simple lifted local lambda functions without non-local references (free variables).
     */
-  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends CodeBundle with ValueBundle {
+  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends LambdaBundle {
     override def getExpr = expr
     override def getBlock = Nil
   }
@@ -97,7 +99,7 @@ object CodeBundles {
                            envStructDef: C.StructDef,
                            funcDef: C.FuncDef,
                            funcTypeDef: C.TypeAliasDef
-                          ) extends CodeBundle with ValueBundle {
+                          ) extends LambdaBundle {
     override def getExpr = expr
     override def getBlock = block
   }
