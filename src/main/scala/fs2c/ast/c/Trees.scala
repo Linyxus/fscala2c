@@ -109,6 +109,8 @@ object Trees {
     override def toString: String = s"$value"
   }
 
+  case class IdentifierExpr[T](sym: Symbol[T]) extends Expr
+
   /** Definitions in the C language.
     */
   trait Definition
@@ -135,9 +137,9 @@ object Trees {
   case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition
 
   object StructDef {
-    def makeStructDef(name: String, memberDefs: List[VariableDef]): StructDef = {
+    def makeStructDef(name: String, memberDefs: List[(String, Type)]): StructDef = {
       val structSym: Symbol[StructDef] = Symbol(name = name, dealias = null)
-      val members = memberDefs map { d => StructMember(d, structSym) }
+      val members = memberDefs map { (name, t) => StructMember.makeStructMember(name, t, structSym) }
       val struct = StructDef(structSym, members)
       structSym.dealias = struct
 
@@ -145,7 +147,15 @@ object Trees {
     }
   }
 
-  case class StructMember(d: VariableDef, var struct: Symbol[StructDef])
+  case class StructMember(sym: Symbol[StructMember], tp: Type, var struct: Symbol[StructDef])
+  
+  object StructMember {
+    def makeStructMember(name: String, tp: Type, structSym: Symbol[StructDef]) = {
+      val m = StructMember(Symbol[StructMember](name, null), tp, structSym)
+      m.sym.dealias = m
+      m
+    }
+  }
 
   case class VariableDef(sym: Symbol[VariableDef], tp: Type)
 
