@@ -9,6 +9,11 @@ object CodeBundles {
     */
   trait CodeBundle
   
+  trait ValueBundle extends CodeBundle {
+    def getExpr: C.Expr
+    def getBlock: C.Block
+  }
+  
   case object NoCode extends CodeBundle
 
   /** Bundle of code consisting purely of a expression.
@@ -16,7 +21,10 @@ object CodeBundles {
     * Translating simple arithmetic and logical expression, function application and selection
     * may result in [[PureExprBundle]].
     */
-  case class PureExprBundle(expr: C.Expr) extends CodeBundle
+  case class PureExprBundle(expr: C.Expr) extends CodeBundle with ValueBundle {
+    override def getExpr = expr
+    override def getBlock = Nil
+  }
 
   /** Bundle of code consisting of a block of C statements and results a C expression.
     * 
@@ -39,11 +47,17 @@ object CodeBundles {
     * ```
     * The resulted expression in the bundle will be `t`, which is a temp variable.
     */
-  case class BlockBundle(expr: C.Expr, block: C.Block) extends CodeBundle
+  case class BlockBundle(expr: C.Expr, block: C.Block) extends CodeBundle with ValueBundle {
+    override def getExpr = expr
+    override def getBlock = block
+  }
 
   /** Code bundle for simple lifted local lambda functions without non-local references (free variables).
     */
-  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends CodeBundle
+  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends CodeBundle with ValueBundle {
+    override def getExpr = expr
+    override def getBlock = Nil
+  }
 
   /** Bundle of code consisting of a lambda closure.
     * 
@@ -78,11 +92,15 @@ object CodeBundles {
     * (adder_t*)(adder_closure->func)((struct adder_env *)(adder_closure->env), i)
     * ```
     */
-  case class ClosureBundle(expr: C.Expr, block: C.Block,
+  case class ClosureBundle(expr: C.Expr, 
+                           block: C.Block,
                            envStructDef: C.StructDef,
                            funcDef: C.FuncDef,
                            funcTypeDef: C.TypeAliasDef
-                          ) extends CodeBundle
+                          ) extends CodeBundle with ValueBundle {
+    override def getExpr = expr
+    override def getBlock = block
+  }
 
   /** Code bundle consisting of the C structure definition, related method function definition of a Scala class.
     * 
