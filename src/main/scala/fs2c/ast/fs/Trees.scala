@@ -208,6 +208,12 @@ object Trees {
   final case class Typed[+X](tree: X, var tpe: Type, var code: bd.CodeBundle = bd.NoCode) {
     def type_=(tpe: Type) =
       this.tpe = tpe
+      
+    def assignCode[T <: bd.CodeBundle](assignCode: X => T): T = {
+      val gen = assignCode(tree)
+      code = gen
+      gen
+    }
   }
 
   /** Transform tree type to Untyped tree type. For more information, see [[Untyped]].
