@@ -125,8 +125,32 @@ object Trees {
   case class TypeAliasDef(sym: Symbol[TypeAliasDef], dealias: Type) extends Definition
 
   case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition
+  
+  object StructDef {
+    def makeStructDef(name: String, memberDefs: List[VariableDef]): StructDef = {
+      val structSym: Symbol[StructDef] = Symbol(name = name, dealias = null)
+      val members = memberDefs map { d => StructMember(d, structSym) }
+      val struct = StructDef(structSym, members)
+      structSym.dealias = struct
+
+      struct
+    }
+  }
 
   case class StructMember(d: VariableDef, var struct: Symbol[StructDef])
 
   case class VariableDef(sym: Symbol[VariableDef], tp: Type)
+  
+  object VariableDef {
+    def makeVariableDef(name: String, tp: Type): VariableDef = {
+      val sym: Symbol[VariableDef] = Symbol(name, null)
+      val d = VariableDef(sym, tp)
+      sym.dealias = d
+      d
+    }
+  }
+  
+  extension (name : String) {
+    def :: (tp: Type): VariableDef = VariableDef.makeVariableDef(name, tp)
+  }
 }
