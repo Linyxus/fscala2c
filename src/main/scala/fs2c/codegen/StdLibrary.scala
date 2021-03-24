@@ -18,8 +18,8 @@ class StdLibrary(val gen: CodeGen) {
       C.StructDef.makeStructDef(
         name = "func_closure",
         memberDefs = List(
-          "func" :: defn.VoidPointer,
-          "env" :: defn.VoidPointer
+          "func" -> defn.VoidPointer,
+          "env" -> defn.VoidPointer
         )
       )
   }
