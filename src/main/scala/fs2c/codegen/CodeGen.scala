@@ -6,13 +6,19 @@ import fs2c.ast.fs.{ Trees => FS }
 import FS.tpd
 import FS.{ExprBinOpType => sbop}
 import C.{BinOpType => cbop}
+import fs2c.tools.Unique
 
 class CodeGen {
+  import CodeGen.CodeGenError
 
   /** Context for C code generator.
     */
   val ctx = new CodeGenContext
   
+  def mangle(name: String): String = Unique.uniqueCName(name)
+
+  def freshAnonFuncName: String = Unique.uniqueCName("anon_func")
+
   private var generatedDef: List[C.Definition] = Nil
 
   /** Output definition. Record the definition and return it as it is.
@@ -26,8 +32,14 @@ class CodeGen {
     C.StructDef.makeStructDef(name, memberDefs)
   }
   
-  def genExpr(expr: tpd.Expr): bd.ValueBundle = ???
-
+  def genExpr(expr: tpd.Expr): bd.ValueBundle = expr.tree match {
+    case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
+    case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
+    case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
+    case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
+    case _ => throw CodeGenError(s"unsupported expr $expr")
+  }
+  
   /** Generate code for int literals.
     */
   def genIntLiteralExpr(expr: tpd.LiteralIntExpr): bd.PureExprBundle = expr.assignCode { t =>
@@ -84,5 +96,7 @@ class CodeGen {
 }
 
 object CodeGen {
+  
+  case class CodeGenError(msg: String) extends Exception(s"Code generation error: $msg")
   
 }
