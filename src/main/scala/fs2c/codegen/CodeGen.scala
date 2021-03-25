@@ -34,6 +34,8 @@ class CodeGen {
     C.StructDef.makeStructDef(name, memberDefs)
   }
 
+  /** Generate C code for Scala expressions.
+    */
   def genExpr(expr: tpd.Expr): bd.ValueBundle = expr.tree match {
     case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
