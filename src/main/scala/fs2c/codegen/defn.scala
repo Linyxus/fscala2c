@@ -19,4 +19,7 @@ object defn {
 
   def assignVar(sym: Symbol[C.VariableDef], expr: C.Expr): C.Statement =
     C.Statement.AssignVar(sym, expr)
+  
+  def funcType(paramTypes: List[C.Type], valueType: C.Type): C.FuncType =
+    C.FuncType(valueType, paramTypes)
 }

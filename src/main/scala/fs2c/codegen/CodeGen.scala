@@ -3,6 +3,7 @@ package fs2c.codegen
 import fs2c.codegen.{CodeBundles => bd}
 import fs2c.ast.c.{ Trees => C }
 import fs2c.ast.fs.{ Trees => FS }
+import fs2c.typer.{ Types => FST }
 import FS.tpd
 import FS.{ExprBinOpType => sbop}
 import C.{BinOpType => cbop}
@@ -19,6 +20,8 @@ class CodeGen {
 
   def freshAnonFuncName: String = Unique.uniqueCName("anon_func")
   
+  def freshAnonFuncTypeName: String = Unique.uniqueCName("anon_func_type")
+  
   def freshVarName: String = Unique.uniqueCName("temp")
 
   private var generatedDef: List[C.Definition] = Nil
@@ -32,6 +35,41 @@ class CodeGen {
 
   def makeStructDef(name: String, memberDefs: List[(String, C.Type)]): C.StructDef = outDef {
     C.StructDef.makeStructDef(name, memberDefs)
+  }
+  
+  def makeAliasDef(name: String, dealias: C.Type): C.TypeAliasDef = outDef {
+    C.TypeAliasDef.makeTypeAliasDef(name, dealias)
+  }
+  
+  
+  def genType(tp: FST.Type, aliasName: Option[String] = None): bd.TypeBundle = tp.assignCode {
+    tp match {
+      case FST.GroundType.IntType => bd.SimpleTypeBundle {
+        C.BaseType.IntType
+      }
+      case FST.GroundType.FloatType => bd.SimpleTypeBundle {
+        C.BaseType.DoubleType
+      }
+      case FST.GroundType.BooleanType => bd.SimpleTypeBundle {
+        C.BaseType.IntType
+      }
+      case FST.LambdaType(paramTypes, valueType) => genLambdaType(paramTypes, valueType, aliasName)
+    }
+  }
+
+  /** Generate C code bundle for a LambdaType in Scala.
+    */
+  def genLambdaType(paramTypes: List[FST.Type], valueType: FST.Type, aliasName: Option[String]): bd.AliasTypeBundle = {
+    val name = aliasName getOrElse freshAnonFuncTypeName
+    
+    val tps = paramTypes map { t => genType(t, None).getTp }
+    val vTp = genType(valueType, None).getTp
+    
+    val d: C.TypeAliasDef = outDef {
+      makeAliasDef(name, defn.funcType(tps, vTp))
+    }
+    
+    bd.AliasTypeBundle(C.AliasType(d.sym), d)
   }
 
   /** Generate C code for Scala expressions.

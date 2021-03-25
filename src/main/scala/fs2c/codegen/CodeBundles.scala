@@ -154,4 +154,31 @@ object CodeBundles {
     */
   case class ClassBundle(structDef: C.StructDef, initDef: C.FuncDef, methodsDef: List[C.FuncDef]) extends CodeBundle
 
+  /** Code bundle produced when generatin code for Scala types.
+    */
+  trait TypeBundle extends CodeBundle {
+    def getTp: C.Type
+    
+    def getDef: Option[C.Definition]
+  }
+
+  /** A simple type bundle from one-to-one correspondance between Scala and C types.
+    * 
+    * @param tpe Corresponding C type.
+    */
+  case class SimpleTypeBundle(tpe: C.Type) extends TypeBundle {
+    override def getTp = tpe
+    override def getDef = None
+  }
+
+  /** A aliased type bundle with C alias type definition to simplify code representation.
+    * 
+    * @param tpe Alias type.
+    * @param aliasDef Associated C type alias definition.
+    */
+  case class AliasTypeBundle(tpe: C.AliasType, aliasDef: C.TypeAliasDef) extends TypeBundle {
+    override def getTp = tpe
+    override def getDef = Some(aliasDef)
+  }
+
 }

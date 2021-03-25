@@ -24,7 +24,7 @@ object Trees {
     * @param retType Return type of the function. `None` means void.
     * @param paramTypes Parameter types.
     */
-  case class FuncType(retType: Option[Type], paramTypes: List[Type]) extends Type
+  case class FuncType(retType: Type, paramTypes: List[Type]) extends Type
 
   /** A user-defined struct type in C.
     *
@@ -33,6 +33,12 @@ object Trees {
   case class StructType(structSym: Symbol[StructDef]) extends Type {
     def name: String = structSym.name
     def members: List[StructMember] = structSym.dealias.members
+  }
+
+  /** A user-defined alias type.
+    */
+  case class AliasType(aliasSym: Symbol[TypeAliasDef]) extends Type {
+    def dealias: Type = aliasSym.dealias.dealias
   }
 
   case class PointerType(dealiasType: Type) extends Type
@@ -133,6 +139,14 @@ object Trees {
   }
 
   case class TypeAliasDef(sym: Symbol[TypeAliasDef], dealias: Type) extends Definition
+  
+  object TypeAliasDef {
+    def makeTypeAliasDef(name: String, dealias: Type): TypeAliasDef = {
+      val d: TypeAliasDef = TypeAliasDef(Symbol(name, null), dealias)
+      d.sym.dealias = d
+      d
+    }
+  }
 
   case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition
 

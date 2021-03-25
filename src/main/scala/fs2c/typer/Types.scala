@@ -1,12 +1,21 @@
 package fs2c.typer
 
 import fs2c.ast.Symbol
+import fs2c.codegen.{ CodeBundles => bd }
 import fs2c.ast.fs.Trees.{tpd, untpd}
 
 object Types {
   /** The trait for all types.
     */
-  trait Type
+  trait Type {
+    var code: bd.CodeBundle = bd.NoCode
+
+    def assignCode[T <: bd.CodeBundle](bundle: => T): T = {
+      val gen = bundle
+      code = gen
+      gen
+    }
+  }
 
   /** A proxy type referring to type through a symbol.
     */
