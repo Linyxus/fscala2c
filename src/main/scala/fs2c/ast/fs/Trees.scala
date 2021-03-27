@@ -204,8 +204,12 @@ object Trees {
     * 
     * @param tree Wrapped tree.
     * @param tpe Type of the tree.
+    * @param code Generated code bundle for the tree.
+    * @param freeNames Free names of the tree.
     */
-  final case class Typed[+X](tree: X, var tpe: Type, var code: bd.CodeBundle = bd.NoCode) {
+  final case class Typed[+X](tree: X, var tpe: Type, 
+                             var code: bd.CodeBundle = bd.NoCode, 
+                             var freeNames: List[Symbol[_]] = Nil) {
     def type_=(tpe: Type) =
       this.tpe = tpe
       
