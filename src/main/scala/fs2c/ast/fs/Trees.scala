@@ -66,8 +66,9 @@ object Trees {
   /** Lambda expressions.
     */
   case class LambdaExpr[F[_]](params: List[Symbol[LambdaParam]], tpe: Option[Type], body: F[Expr[F]]) extends Expr[F] {
-    def assignType(tpe: Type, body: tpd.Expr): tpd.LambdaExpr =
+    def assignType(tpe: Type, body: tpd.Expr): tpd.LambdaExpr = setFreeNames(body.freeNames) {
       Typed(tree = LambdaExpr(params, tpe = this.tpe, body = body), tpe = tpe)
+    }
   }
 
   /** Parameter in the lambda expression.
@@ -79,8 +80,11 @@ object Trees {
   /** Block expressions.
     */
   case class BlockExpr[F[_]](defs: List[F[LocalDef[F]]], expr: F[Expr[F]]) extends Expr[F] {
-    def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr =
+    def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr = setFreeNames(
+      defs.flatMap(_.freeNames) ++ expr.freeNames
+    ) {
       Typed(tpe = tpe, tree = BlockExpr(defs, expr))
+    }
   }
 
   /** Identifier that refers to a symbol.
@@ -108,20 +112,26 @@ object Trees {
   /** Application.
     */
   case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F] {
-    def assignType(tpe: Type, func: tpd.Expr, args: List[tpd.Expr]): tpd.ApplyExpr =
-      Typed(tpe = tpe, tree = ApplyExpr(func = func, args = args))
+    def assignType(tpe: Type, func: tpd.Expr, args: List[tpd.Expr]): tpd.ApplyExpr = 
+      setFreeNames(func.freeNames ++ args.flatMap(_.freeNames)) {
+        Typed(tpe = tpe, tree = ApplyExpr(func = func, args = args))
+      }
   }
 
   /** Selection.
     */
   case class SelectExpr[F[_]](expr: F[Expr[F]], member: String) extends Expr[F] {
     def assignType(tpe: Type, expr: tpd.Expr): tpd.SelectExpr =
-      Typed(tpe = tpe, tree = Trees.SelectExpr(expr, member))
+      Typed(tpe = tpe, tree = Trees.SelectExpr(expr, member), freeNames = expr.freeNames)
   }
   
   case class IfExpr[F[_]](cond: F[Expr[F]], trueBody: F[Expr[F]], falseBody: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, cond: tpd.Expr, trueBody: tpd.Expr, falseBody: tpd.Expr): tpd.IfExpr =
-      Typed(tpe = tpe, tree = Trees.IfExpr(cond, trueBody, falseBody))
+      Typed(
+        tpe = tpe,
+        tree = Trees.IfExpr(cond, trueBody, falseBody),
+        freeNames = cond.freeNames ++ trueBody.freeNames ++ falseBody.freeNames
+      )
   }
   
   case class NewExpr[F[_]](ref: Symbol.Ref, params: List[F[Expr[F]]]) extends Expr[F] {
@@ -131,12 +141,12 @@ object Trees {
 
   case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, e1: tpd.Expr, e2: tpd.Expr): tpd.BinOpExpr =
-      Typed(tree = BinOpExpr(op, e1, e2), tpe = tpe)
+      Typed(tree = BinOpExpr(op, e1, e2), tpe = tpe, freeNames = e1.freeNames ++ e2.freeNames)
   }
 
   case class UnaryOpExpr[F[_]](op: ExprUnaryOpType, e: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, e: tpd.Expr): tpd.UnaryOpExpr =
-      Typed(tree = UnaryOpExpr(op, e), tpe = tpe)
+      Typed(tree = UnaryOpExpr(op, e), tpe = tpe, freeNames = e.freeNames)
   }
 
   /** Local definitions in block expressions.
@@ -156,7 +166,12 @@ object Trees {
 
     def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
       case b : Bind[_] =>
-        val bind: tpd.LocalDefBind = Typed(tpe = body.tpe, tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body))
+        val bind: tpd.LocalDefBind = 
+          Typed(
+            tpe = body.tpe,
+            tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body),
+            freeNames = body.freeNames
+          )
         bind.tree.sym.dealias = bind
         bind
       case _ => assert(false, s"can not call assignTypeBind on $this")
@@ -164,13 +179,19 @@ object Trees {
 
     def assignTypeEval(expr: tpd.Expr): tpd.LocalDefEval = this match {
       case e : Eval[_] =>
-        Typed(tpe = expr.tpe, tree = Eval(expr))
+        Typed(tpe = expr.tpe, tree = Eval(expr), freeNames = expr.freeNames)
       case _ => assert(false, s"can not call assignTypeEval on $this")
     }
 
     def assignTypeAssign(sym: Symbol[_], expr: tpd.Expr): tpd.LocalDefAssign = this match {
       case e : Assign[_] =>
-        Typed(tpe = expr.tpe, tree = Assign(ref = Symbol.Ref.Resolved(sym), expr))
+        Typed(
+          tpe = expr.tpe,
+          tree = Assign(ref = Symbol.Ref.Resolved(sym), expr),
+          freeNames = expr.freeNames  // need to further check whether the assigned sym is
+                                      // free, since this piece of info will not be available
+                                      // in Types.scala
+        )
       case _ => assert(false, s"can not call assignTypeAssign on $this")
     }
   }
@@ -259,7 +280,7 @@ object Trees {
 
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
   }
-  
+
   object tpd {
     type ClassDef = TypedTree[Trees.ClassDef]
     type MemberDef = TypedTree[Trees.MemberDef]
@@ -289,6 +310,11 @@ object Trees {
     type NewExpr = TypedTree[Trees.NewExpr]
 
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
+  }
+
+  def setFreeNames[X](freeNames: List[Symbol[_]])(tpdTree: Typed[X]): Typed[X] = {
+    tpdTree.freeNames = freeNames
+    tpdTree
   }
 
   trait TreeTraverse[F[+_], G[+_]] {

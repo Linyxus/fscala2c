@@ -391,6 +391,14 @@ class Typer {
   /** Types local definition.
     */
   def typedLocalDef(expr: untpd.LocalDef, recursiveMode: Boolean = true): tpd.LocalDef = recordTyped {
+    def checkAssignFree(sym: Symbol[_])(tpdAssign: tpd.LocalDefAssign): tpd.LocalDefAssign = {
+      val isFree = scopeCtx.findSymHere(sym.name).isEmpty
+      if isFree then
+        tpdAssign.freeNames = sym :: tpdAssign.freeNames
+      
+      tpdAssign
+    }
+    
     val localDef: Trees.LocalDef[Untyped] = expr.tree
 
     localDef match {
@@ -424,13 +432,13 @@ class Typer {
             }
         }
         val tpdExpr: tpd.Expr = typedExpr(expr)
-        if isSymbolMutable(sym) && tpdExpr.tpe == typeOfSymbol(sym) then
-          assign.assignTypeAssign(sym, tpdExpr)
-        else {
-          if !isSymbolMutable(sym) then
-            throw TypeError(s"can not assign to an immutable $sym")
+        checkAssignFree(sym) {
+          if isSymbolMutable(sym) && tpdExpr.tpe == typeOfSymbol(sym) then
+            assign.assignTypeAssign(sym, tpdExpr)
           else
-            if !recursiveMode then
+            if !isSymbolMutable(sym) then
+              throw TypeError(s"can not assign to an immutable $sym")
+            else if !recursiveMode then
               throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
             else
               recordEquality(tpdExpr.tpe, typeOfSymbol(sym))
@@ -498,23 +506,38 @@ class Typer {
     * Γ |- x : T
     * ```
     */
-  def typedIdentifierExpr(expr: untpd.IdentifierExpr): tpd.IdentifierExpr =
+  def typedIdentifierExpr(expr: untpd.IdentifierExpr): tpd.IdentifierExpr = {
+    def setFreshName(sym: Symbol[_])(identExpr: tpd.IdentifierExpr): tpd.IdentifierExpr = {
+      def foundInCurrentScope(sym: Symbol[_]): Boolean =
+        scopeCtx.findSymHere(sym.name).isDefined
+      
+      if !foundInCurrentScope(sym) then
+        identExpr.freeNames = List(sym)
+
+      identExpr
+    }
+
     expr.tree.sym match {
       case Symbol.Ref.Unresolved(symName) =>
         scopeCtx.findSym(symName) match {
           case None =>
             throw TypeError(s"unknown symbol: $symName")
           case Some(sym) =>
-            expr.tree.assignType(typeOfSymbol(sym), sym)
+            setFreshName(sym) {
+              expr.tree.assignType(typeOfSymbol(sym), sym)
+            }
         }
       case Symbol.Ref.Resolved(sym) =>
         scopeCtx.findSym(sym.name) match {
           case None =>
             throw TypeError(s"unknown resolved symbol: ${sym.name}, this is caused by a bug in the compiler.")
           case Some(sym) =>
-            expr.tree.assignType(typeOfSymbol(sym), sym)
+            setFreshName(sym) {
+              expr.tree.assignType(typeOfSymbol(sym), sym)
+            }
         }
     }
+  }
 
   /** Type application expression.
     *
