@@ -247,4 +247,49 @@ class TestScalaTyper {
 
     tests foreach { case (s, t) => assertEquals(typer.typedExpr(forceParseString(s)).tpe, t) }
   }
+  
+  @Test def freeNames: Unit = {
+    val source =
+      """class Foo {
+        |  val i = 0
+        |  val j = 0
+        |  val k = 0
+        |  
+        |  val get0 = () => i
+        |  
+        |  val get1 = (i : Int) => i
+        |  
+        |  val get2 = () => i + j - (i * j)
+        |  
+        |  val get3 = (i : Int) => add(i, j)
+        |  
+        |  val add = (i : Int, j : Int) => i + j + k
+        |}
+        |""".stripMargin
+
+    val d = forceParseDefString(source)
+    val typer = new Typer
+    val res = typer.typedClassDef(d)
+    
+    def locateMemberFreeNames(name: String): Set[String] = {
+      def recur(ds: List[tpd.MemberDef]): List[String] = ds match {
+        case Nil => 
+          assert(ds.nonEmpty, f"reach end of members, but can not find $name")
+          ???
+        case d :: ds if d.tree.sym.name == name => d.freeNames.map { x => x.name }
+        case _ :: ds => recur(ds)
+      }
+      Set.from(recur(res.tree.members))
+    }
+    
+    val tests = List(
+      "get0" -> Set("i"),
+      "get1" -> Set.empty,
+      "get2" -> Set("i", "j"),
+      "get3" -> Set("add", "j"),
+      "add" -> Set("k"),
+    )
+    
+    tests foreach { case (i, o) => assertEquals(o, locateMemberFreeNames(i)) }
+  }
 }
