@@ -53,6 +53,10 @@ object Trees {
     def assignType(tpe: Type, classDef: Symbol[tpd.ClassDef], body: tpd.Expr): tpd.MemberDef = {
       val res = Typed(tpe = tpe, tree = Trees.MemberDef[Typed](Symbol(sym.name, null), classDef, mutable, this.tpe, body))
       res.tree.sym.dealias = res
+      
+      if body ne null then
+        res.freeNames = body.freeNames
+      
       res
     }
 
@@ -112,7 +116,7 @@ object Trees {
   /** Application.
     */
   case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F] {
-    def assignType(tpe: Type, func: tpd.Expr, args: List[tpd.Expr]): tpd.ApplyExpr = 
+    def assignType(tpe: Type, func: tpd.Expr, args: List[tpd.Expr]): tpd.ApplyExpr =
       setFreeNames(func.freeNames ++ args.flatMap(_.freeNames)) {
         Typed(tpe = tpe, tree = ApplyExpr(func = func, args = args))
       }
@@ -166,7 +170,7 @@ object Trees {
 
     def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
       case b : Bind[_] =>
-        val bind: tpd.LocalDefBind = 
+        val bind: tpd.LocalDefBind =
           Typed(
             tpe = body.tpe,
             tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body),
