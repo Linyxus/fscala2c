@@ -1,4 +1,4 @@
-# fs2c
+# fscala2c
  A Featherweight Scala to C compiler.
  
  Compiler course project at BUPT.
