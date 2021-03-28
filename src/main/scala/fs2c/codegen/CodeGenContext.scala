@@ -23,7 +23,7 @@ class CodeGenContext {
   
   protected def setTopLevel(b: Boolean): Unit =
     myTopLevel = b
-    
+
   def innerLevel[T](body: => T): T = {
     def origTopLevel = isTopLevel
     setTopLevel(false)
@@ -31,4 +31,6 @@ class CodeGenContext {
     setTopLevel(origTopLevel)
     res
   }
+  
+  /** Closure-conversion */
 }

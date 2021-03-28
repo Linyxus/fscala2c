@@ -200,11 +200,56 @@ class CodeGen {
   def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ???
   
   def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
-    case FS.LambdaExpr(params, _, body) =>
-      val lambdaType = expr.tpe
+    case lambda : FS.LambdaExpr[FS.Typed] =>
+      val funcName = lambdaName getOrElse freshAnonFuncName
       
-      ???
+      // generate function return type
+      val lambdaType: FST.LambdaType = expr.tpe.asInstanceOf
+      val valueType = lambdaType.valueType
+      val cValueType: C.Type = genType(valueType).getTp
+
+      // generate parameter definitions
+      val cParams: List[C.FuncParam] = lambda.params map { sym => genLambdaParam(sym.dealias) }
+      
+      // compute escaped variables
+      val escaped: List[Symbol[tpd.LocalDefBind]] = escapedVars(expr.freeNames)
+      
+      escaped match {
+        case Nil =>
+          val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
+          val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
+          val funcDef = C.FuncDef.makeFuncDef(
+            funcName,
+            cValueType,
+            cParams,
+            block
+          )
+          val identExpr = C.IdentifierExpr(funcDef.sym)
+          
+          bd.SimpleFuncBundle(identExpr, funcDef)
+        case escaped =>
+          val envMembers = escaped map { sym =>
+            sym.name -> genType(sym.dealias.tpe).getTp
+          }
+          val funcEnv = createClosureEnv(envMembers, funcName)
+          
+          ???
+      }
   }
+  
+  def genLambdaParam(param: FS.LambdaParam): C.FuncParam = param match { case FS.LambdaParam(sym, tp) =>
+    val cTp: C.Type = genType(tp).getTp
+    
+    val res = C.FuncParam(Symbol(sym.name, null), cTp)
+    res.sym.dealias = res
+      
+    res
+  }
+  
+  def createClosureEnv(env: List[(String, C.Type)], funcName: String): C.StructDef = C.StructDef.makeStructDef(
+    name = funcName + "_env",
+    memberDefs = env
+  )
   
   def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind]] = {
     def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind]]): List[Symbol[tpd.LocalDefBind]] = xs match {
