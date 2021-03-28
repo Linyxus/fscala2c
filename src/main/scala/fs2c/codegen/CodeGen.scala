@@ -63,12 +63,20 @@ class CodeGen {
     val tps = paramTypes map { t => genType(t, None).getTp }
     val vTp = genType(valueType, None).getTp
     
-    val d: C.TypeAliasDef = outDef {
-      makeAliasDef(name, defn.funcType(tps, vTp))
-    }
+    val d: C.TypeAliasDef = maybeAliasFuncType(defn.funcType(tps, vTp), name)
     
     bd.AliasTypeBundle(C.AliasType(d.sym), d)
   }
+  
+  def maybeAliasFuncType(funcType: C.FuncType, aliasName: String): C.TypeAliasDef =
+    ctx.genFuncCache.get(funcType) match {
+      case Some(alias) => alias
+      case None => outDef {
+        val res = makeAliasDef(aliasName, funcType)
+        ctx.genFuncCache = ctx.genFuncCache.updated(funcType, res)
+        res
+      }
+    }
 
   /** Generate C code for Scala expressions.
     */
