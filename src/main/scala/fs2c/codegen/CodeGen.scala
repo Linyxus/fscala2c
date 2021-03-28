@@ -1,6 +1,7 @@
 package fs2c.codegen
 
 import fs2c.codegen.{CodeBundles => bd}
+import fs2c.ast.Symbol
 import fs2c.ast.c.{ Trees => C }
 import fs2c.ast.fs.{ Trees => FS }
 import fs2c.typer.{ Types => FST }
@@ -86,6 +87,7 @@ class CodeGen {
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
+    case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
@@ -168,7 +170,29 @@ class CodeGen {
   
   def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ???
   
-  def genLambdaExpr(expr: tpd.LambdaExpr, name: Option[String] = None): bd.ValueBundle = ???
+  def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
+    case FS.LambdaExpr(params, _, body) =>
+      val lambdaType = expr.tpe
+      
+      ???
+  }
+  
+  def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind]] = {
+    def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind]]): List[Symbol[tpd.LocalDefBind]] = xs match {
+      case Nil => Nil
+      case x :: xs => x.dealias match {
+        case tpt : FS.Typed[_] => tpt.tree match {
+          case localDef: FS.LocalDef.Bind[_] if !localDef.isLambdaBind =>
+            recur(xs, x.asInstanceOf :: acc)
+          case _ => recur(xs, acc)
+        }
+        case _ => recur(xs, acc)
+      }
+    }
+    
+    recur(freeNames, Nil).distinctBy(eq)
+  }
+  
 }
 
 object CodeGen {
