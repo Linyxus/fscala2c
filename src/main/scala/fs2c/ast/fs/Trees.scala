@@ -181,6 +181,22 @@ object Trees {
       case _ => assert(false, s"can not call assignTypeBind on $this")
     }
 
+    /** Checks whether this local definition binds a lambda expr.
+      */
+    def isLambdaBind: Boolean = this match {
+      case b : Bind[_] => b.body match {
+        case tpt : Typed[_] => tpt.tree match {
+          case _ : LambdaExpr[_] => true
+          case _ => false
+        }
+        case untpt : Untyped[_] => untpt.tree match {
+          case _ : LambdaExpr[_] => true
+          case _ => false
+        }
+      }
+      case _ => false
+    }
+
     def assignTypeEval(expr: tpd.Expr): tpd.LocalDefEval = this match {
       case e : Eval[_] =>
         Typed(tpe = expr.tpe, tree = Eval(expr), freeNames = expr.freeNames)
