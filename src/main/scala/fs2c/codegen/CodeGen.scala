@@ -32,15 +32,36 @@ class CodeGen {
     d
   }
 
+  /** Make a structure definition.
+    * 
+    * @param name The struct name.
+    * @param memberDefs Member definitions.
+    * @return
+    */
   def makeStructDef(name: String, memberDefs: List[(String, C.Type)]): C.StructDef = outDef {
     C.StructDef.makeStructDef(name, memberDefs)
   }
-  
+
+  /** Make a type alias definition with given `name` and `dealias.`
+    * ```c
+    * type name = dealias;
+    * ```
+    * 
+    * @param name The name to alias the type to.
+    * @param dealias The aliased name.
+    * @return Type alias definition.
+    */
   def makeAliasDef(name: String, dealias: C.Type): C.TypeAliasDef = outDef {
     C.TypeAliasDef.makeTypeAliasDef(name, dealias)
   }
-  
-  
+
+  /** Generate C type for Scala type.
+    * 
+    * @param tp The input Scala type.
+    * @param aliasName Alias definition name. It will be passed if a alias needed to be created. 
+    *                  See [[CodeGen.genLambdaType]].
+    * @return Generated C code bundle for the given type.
+    */
   def genType(tp: FST.Type, aliasName: Option[String] = None): bd.TypeBundle = tp.assignCode {
     tp match {
       case FST.GroundType.IntType => bd.SimpleTypeBundle {
@@ -68,7 +89,15 @@ class CodeGen {
     
     bd.AliasTypeBundle(C.AliasType(d.sym), d)
   }
-  
+
+  /** Maybe generate alias definition for `funcType`.
+    * It will first looks up `funcType` in cache, return the generated type alias definition if already generated,
+    * output a new type alias definition otherwise.
+    * 
+    * @param funcType 
+    * @param aliasName Name for the alias definition.
+    * @return
+    */
   def maybeAliasFuncType(funcType: C.FuncType, aliasName: String): C.TypeAliasDef =
     ctx.genFuncCache.get(funcType) match {
       case Some(alias) => alias
