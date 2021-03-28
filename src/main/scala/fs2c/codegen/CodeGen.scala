@@ -24,12 +24,10 @@ class CodeGen {
   
   def freshVarName: String = Unique.uniqueCName("temp")
 
-  private var generatedDef: List[C.Definition] = Nil
-
   /** Output definition. Record the definition and return it as it is.
     */
   def outDef[T <: C.Definition](d: => T): T = {
-    generatedDef = d :: generatedDef
+    ctx.generatedDefs = d :: ctx.generatedDefs
     d
   }
 
