@@ -16,4 +16,19 @@ class CodeGenContext {
   /** Current scope for generated C definitions.
     */
   val cScope: SymbolTable = new SymbolTable
+  
+  protected var myTopLevel: Boolean = true
+
+  def isTopLevel: Boolean = myTopLevel
+  
+  protected def setTopLevel(b: Boolean): Unit =
+    myTopLevel = b
+    
+  def innerLevel[T](body: => T): T = {
+    def origTopLevel = isTopLevel
+    setTopLevel(false)
+    val res = body
+    setTopLevel(origTopLevel)
+    res
+  }
 }
