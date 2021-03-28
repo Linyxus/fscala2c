@@ -120,7 +120,16 @@ object Trees {
     */
   trait Definition
 
-  case class FuncDef(_retType: Type, params: List[FuncParam], block: Block) extends Definition, Func
+  case class FuncDef(sym: Symbol[FuncDef], _retType: Type, params: List[FuncParam], block: Block) extends Definition, Func
+  
+  object FuncDef {
+    def makeFuncDef(name: String, retType: Type, params: List[FuncParam], body: Block): FuncDef = {
+      val res = FuncDef(Symbol(name, null), retType, params, body)
+      res.sym.dealias = res
+
+      res
+    }
+  }
 
   case class FuncParam(sym: Symbol[FuncParam], tp: Type)
 
