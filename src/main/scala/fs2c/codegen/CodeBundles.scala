@@ -56,7 +56,7 @@ object CodeBundles {
 
   /** Code bundle for simple lifted local lambda functions without non-local references (free variables).
     */
-  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef, funcTypeDef: C.TypeAliasDef) extends LambdaBundle {
+  case class SimpleFuncBundle(expr: C.Expr, funcDef: C.FuncDef) extends LambdaBundle {
     override def getExpr = expr
     override def getBlock = Nil
   }
