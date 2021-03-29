@@ -16,6 +16,8 @@ class CodeGen {
   /** Context for C code generator.
     */
   val ctx = new CodeGenContext
+  
+  val stdLib = new StdLibrary(this)
 
   def mangle(name: String): String = Unique.uniqueCName(name)
 
@@ -186,8 +188,8 @@ class CodeGen {
     val bdt = genExpr(et)
     val bdf = genExpr(ef)
     
-    val tBlock = bdt.getBlock :+ defn.assignVar(tempVar, bdt.getExpr)
-    val fBlock = bdf.getBlock :+ defn.assignVar(tempVar, bdf.getExpr)
+    val tBlock = bdt.getBlock :+ defn.assignVar(tempVar.dealias, bdt.getExpr)
+    val fBlock = bdf.getBlock :+ defn.assignVar(tempVar.dealias, bdf.getExpr)
     
     val ifStmt = C.Statement.If(condExpr, tBlock, Some(fBlock))
     
@@ -213,7 +215,7 @@ class CodeGen {
       
       // compute escaped variables
       val escaped: List[Symbol[tpd.LocalDefBind]] = escapedVars(expr.freeNames)
-      
+
       escaped match {
         case Nil =>
           val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
@@ -233,7 +235,68 @@ class CodeGen {
           }
           val funcEnv = createClosureEnv(envMembers, funcName)
           
-          ???
+          def initClosureEnv: (C.Expr, C.Block) = {
+            val (tempVar, varBlock) = defn.localVariable(freshVarName, funcEnv.tp)
+            
+            val assignBlock = escaped map { sym =>
+              val tptBind: tpd.LocalDefBind = sym.dealias
+              tptBind.code match {
+                case bd.NoCode =>
+                  throw CodeGenError(s"code $tptBind has not been generated; can not forward-reference")
+                case bd : bd.VariableBundle =>
+                  val name = tptBind.tree.sym.name
+                  val cMember = funcEnv.members find { m => m.sym.name == name } match {
+                    case None =>
+                      assert(false, "escaped variable should be found in closure env")
+                    case Some(x) => x
+                  }
+                  defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
+              }
+            }
+            
+            C.IdentifierExpr(tempVar) -> (varBlock ++ assignBlock)
+          }
+
+          def initClosure(func: C.Expr, env: C.Expr): (C.Expr, C.Block) = {
+            val closureDef: C.StructDef = stdLib.FuncClosure.load
+            
+            val (tempVar, varDef) = defn.localVariable(s"${funcName}_closure", closureDef.tp)
+            
+            val block = varDef ++ List(
+              defn.assignMember(tempVar.dealias, closureDef.ensureFind("func").sym, func),
+              defn.assignMember(tempVar.dealias, closureDef.ensureFind("env").sym, env),
+            )
+            
+              C.IdentifierExpr(tempVar) -> block
+          }
+          
+          val (funcExpr, funcDef) = ctx.inClosure(funcEnv) {
+            // get the final function param
+            val cParams2 = ctx.getClosureEnvParam :: cParams
+            val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
+            val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
+            val funcDef = C.FuncDef.makeFuncDef(
+              funcName,
+              cValueType,
+              cParams2,
+              block
+            )
+            
+            val identExpr = C.IdentifierExpr(funcDef.sym)
+            
+            (identExpr, funcDef)
+          }
+          
+          val (envExpr, envBlock) = initClosureEnv
+          
+          val (finalExpr, closureBlock) = initClosure(funcExpr, envExpr)
+          
+          bd.ClosureBundle(
+            expr = finalExpr,
+            block = envBlock ++ closureBlock,
+            envStructDef = funcEnv,
+            funcDef = funcDef
+          )
       }
   }
   
@@ -246,7 +309,7 @@ class CodeGen {
     res
   }
   
-  def createClosureEnv(env: List[(String, C.Type)], funcName: String): C.StructDef = C.StructDef.makeStructDef(
+  def createClosureEnv(env: List[(String, C.Type)], funcName: String): C.StructDef = makeStructDef(
     name = funcName + "_env",
     memberDefs = env
   )
