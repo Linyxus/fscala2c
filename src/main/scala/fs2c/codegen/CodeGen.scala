@@ -157,8 +157,14 @@ class CodeGen {
             case bundle : bd.ValueBundle => bd.PureExprBundle(bundle.getExpr)
             case _ => assert(false, s"unexpected code bundle for lambda param: ${lambdaParam.code}")
           }
+        case tpt : FS.Typed[_] => tpt.code match {
+          case bundle : bd.VariableBundle =>
+            bd.PureExprBundle(C.IdentifierExpr(bundle.varDef.sym))
+          case _ =>
+            throw CodeGenError(s"unsupported referenced typed tree: $tpt with generated code ${tpt.code}")
+        }
         case x =>
-          throw CodeGenError(s"unsupported reference identifier: ${t.sym}")
+          throw CodeGenError(s"unsupported reference identifier: ${t.sym} with reference ${resolved.sym.dealias}")
       }
       case _ =>
         assert(false, "encounter unresolved symbol in code generator, this is a bug.")
@@ -231,24 +237,24 @@ class CodeGen {
     expr.assignCode { case blockExpr : FS.BlockExpr[FS.Typed] =>
       def goRecLocalDef(localDef: tpd.LocalDef): Unit =
         if localDef.tree.isLambdaBind then
-          localDef assignCode { 
+          localDef assignCode {
             case d : FS.LocalDef.Bind[FS.Typed] =>
               bd.RecBundle(sym = Symbol[C.FuncDef](maybeMangleName(d.sym.name), null))
             case _ =>
               assert(false, "a lambda binding must be a FS.LocalDef.Bind")
           }
-          
+
       def genLocalDef(localDef: tpd.LocalDef): bd.CodeBundle & bd.HasBlock = localDef assignCode {
         case bind : FS.LocalDef.Bind[FS.Typed] =>
           val name: String = localDef.code match {
             case bd.RecBundle(sym) => sym.name
             case _ => maybeMangleName(bind.sym.name)
           }
-          
+
           val bundle: bd.ValueBundle = genExpr(bind.body)
-          
+
           val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe).getTp)
-          
+
           val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
 
           bd.VariableBundle(
@@ -264,7 +270,7 @@ class CodeGen {
               assert(false, "unresolved symbol reference in typed tree. a bug!")
           }
           val bodyBd: bd.ValueBundle = genExpr(assign.expr)
-          
+
           val assignStmt: C.Statement = sym.dealias match {
             case tpt : FS.Typed[_] =>
               tpt.code match {
@@ -275,24 +281,24 @@ class CodeGen {
               }
             case _ => assert(false, "symbol refers to untyped tree")
           }
-          
+
           bd.PureBlockBundle(bodyBd.getBlock :+ assignStmt)
       }
-      
+
       val localDefs = blockExpr.defs
-      
+
       // assign placeholder recursive code bundle for each lambda binding
       localDefs foreach goRecLocalDef
-      
+
       // translate local definitions
       val cBlockBundles = localDefs map genLocalDef
-      
+
       // translated block
       val block1 = cBlockBundles flatMap { x => x.extractBlock }
-      
+
       // translate the final expression
       val exprBundle: bd.ValueBundle = genExpr(blockExpr.expr)
-      
+
       bd.BlockBundle(
         expr = exprBundle.getExpr,
         block = block1 ++ exprBundle.getBlock

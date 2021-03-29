@@ -91,4 +91,17 @@ class TestCodeGen {
     
     tests foreach { i => genExpr(typedString(i)) }
   }
+  
+  @Test def blockExpr: Unit = {
+    val source =
+      """{
+        |  val x = 1
+        |  val y = 2
+        |  val foo = (x : Int, y : Int) => x + 2 * y
+        |  x + y
+        |}
+        |""".stripMargin
+    val e = typedString(source)
+    genExpr(e)
+  }
 }
