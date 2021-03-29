@@ -1,10 +1,11 @@
 package fs2c.codegen
 
 import fs2c.ast.Symbol
-import fs2c.ast.c.{ Trees => C }
+import fs2c.ast.c.{Trees => C}
 import fs2c.core.SymbolTable
 
 class CodeGenContext {
+  
   /** All generated C definitions.
     */
   var generatedDefs: List[C.Definition] = Nil
@@ -33,4 +34,41 @@ class CodeGenContext {
   }
   
   /** Closure-conversion */
+  protected var myClosureEnvParam: C.FuncParam = null
+  protected var myClosureEnv: Map[String, Symbol[C.StructMember]] = Map.empty
+  
+  def hasClosureEnv: Boolean = myClosureEnv ne null
+  
+  def getClosureEnvParam: C.FuncParam = { 
+    assert(myClosureEnvParam ne null, "current closure should not be null")
+    myClosureEnvParam
+  }
+
+  def refClosureEnv(name: String): Option[C.Expr] =
+    if !hasClosureEnv then
+      None
+    else myClosureEnv get name map { sym =>
+      C.SelectExpr(C.IdentifierExpr(myClosureEnvParam.sym), sym)
+    }
+    
+  private def initClosure(closureEnv: C.StructDef): (C.FuncParam, Map[String, Symbol[C.StructMember]]) = {
+    val env = Map.from(closureEnv.members map { m => (m.sym.name, m.sym) })
+    val param = C.FuncParam.makeFuncParam("func_env", C.StructType(closureEnv.sym))
+    
+    (param, env)
+  }
+  
+  def inClosure[T](closureEnv: C.StructDef)(body: => T): T = {
+    val (p, env) = initClosure(closureEnv)
+    val (origP, origEnv) = (myClosureEnvParam, myClosureEnv)
+    myClosureEnvParam = p
+    myClosureEnv = env
+    
+    val res = body
+    
+    myClosureEnvParam = origP
+    myClosureEnv = origEnv
+    
+    res
+  }
 }
