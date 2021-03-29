@@ -82,15 +82,22 @@ object Trees {
     *
     * @param funcSym Symbol of the function to be called.
     */
-  case class CallFunc(funcSym: Symbol[Func], params: List[Expr]) extends Expr
+  case class CallFunc(func: Expr, params: List[Expr]) extends Expr
+  
+  case class SizeOf(tp: Type) extends Expr
 
   /** Functions in C language.
     *
     * Can either be a [[GroundFunc]] or a [[FuncDef]].
     */
-  trait Func
+  trait Func {
+    def $$ (es: Expr*): Expr = this match {
+      case g : GroundFunc => CallFunc(g, es.toList)
+      case f : FuncDef => CallFunc(IdentifierExpr(f.sym), es.toList)
+    }
+  }
 
-  case class GroundFunc(name: String, header: List[String]) extends Func
+  case class GroundFunc(name: String, header: List[String]) extends Func, Expr
 
   /** Literal expression.
     */
