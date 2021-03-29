@@ -115,6 +115,8 @@ object Trees {
   }
 
   case class IdentifierExpr[T](sym: Symbol[T]) extends Expr
+  
+  case class SelectExpr(expr: Expr, designator: Symbol[StructMember]) extends Expr
 
   /** Definitions in the C language.
     */
