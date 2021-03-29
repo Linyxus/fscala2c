@@ -35,7 +35,7 @@ class CodeGenContext {
   
   /** Closure-conversion */
   protected var myClosureEnvParam: C.FuncParam = null
-  protected var myClosureEnv: Map[String, Symbol[C.StructMember]] = Map.empty
+  protected var myClosureEnv: Map[Symbol[_], Symbol[C.StructMember]] = Map.empty
   
   def hasClosureEnv: Boolean = myClosureEnv ne null
   
@@ -44,22 +44,33 @@ class CodeGenContext {
     myClosureEnvParam
   }
 
-  def refClosureEnv(name: String): Option[C.Expr] =
+  def refClosureEnv(sym: Symbol[_]): Option[C.Expr] =
     if !hasClosureEnv then
       None
-    else myClosureEnv get name map { sym =>
+    else myClosureEnv get sym map { sym =>
       C.SelectExpr(C.IdentifierExpr(myClosureEnvParam.sym), sym)
     }
     
-  private def initClosure(closureEnv: C.StructDef): (C.FuncParam, Map[String, Symbol[C.StructMember]]) = {
-    val env = Map.from(closureEnv.members map { m => (m.sym.name, m.sym) })
+  private def initClosure(origSyms: List[Symbol[_]], closureEnv: C.StructDef): (C.FuncParam, Map[Symbol[_], Symbol[C.StructMember]]) = {
+    val origMapping: Map[String, Symbol[_]] = Map.from { origSyms map { sym => sym.name -> sym } }
+    val env: Map[Symbol[_], Symbol[C.StructMember]] = Map.from { 
+      closureEnv.members map { m => 
+        val name = m.sym.name
+        origMapping get name match {
+          case None =>
+            assert(false, "name in closure env should be found in escaped variables")
+          case Some(s) =>
+            s -> m.sym
+        }
+      }
+    }
     val param = C.FuncParam.makeFuncParam("func_env", C.StructType(closureEnv.sym))
     
     (param, env)
   }
   
-  def inClosure[T](closureEnv: C.StructDef)(body: => T): T = {
-    val (p, env) = initClosure(closureEnv)
+  def inClosure[T](escaped: List[Symbol[_]], closureEnv: C.StructDef)(body: => T): T = {
+    val (p, env) = initClosure(escaped, closureEnv)
     val (origP, origEnv) = (myClosureEnvParam, myClosureEnv)
     myClosureEnvParam = p
     myClosureEnv = env
