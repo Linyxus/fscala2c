@@ -360,13 +360,13 @@ class Typer {
       val res = typedLocalDef(d, recursiveMode = true) 
       
       res match {
-        case Typed(bind : Trees.LocalDef.Bind[Typed], actualType, _, _) =>
+        case res @ Typed(bind : Trees.LocalDef.Bind[Typed], actualType, _, _) =>
           val symName = bind.sym.name
           placeholders.get(symName) match {
             case None =>
             case Some(wrapper) =>
               val assumedType = wrapper.dealias.tpe
-              wrapper.dealias = Typed(tpe = actualType, tree = bind)
+              wrapper.dealias = res.asInstanceOf
               recordEquality(assumedType, actualType)
           }
         case _ =>
