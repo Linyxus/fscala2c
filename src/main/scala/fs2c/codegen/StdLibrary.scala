@@ -13,8 +13,8 @@ class StdLibrary(val gen: CodeGen) {
     * }
     * ```
     */
-  val FuncClosure: LibBundle = new LibBundle(gen) {
-    override protected def bundle: C.Definition =
+  val FuncClosure: LibBundle[C.StructDef] = new LibBundle[C.StructDef](gen) {
+    override protected def bundle: C.StructDef =
       C.StructDef.makeStructDef(
         name = "func_closure",
         memberDefs = List(
@@ -27,12 +27,12 @@ class StdLibrary(val gen: CodeGen) {
 }
 
 object StdLibrary {
-  trait LibBundle(gen: CodeGen) {
+  trait LibBundle[T <: C.Definition](gen: CodeGen) {
     private var loaded: Boolean = false
     
     def isLoaded: Boolean = loaded
     
-    def load: C.Definition = 
+    def load: T = 
       if loaded then
         bundle
       else {
@@ -43,8 +43,8 @@ object StdLibrary {
         d
       }
     
-    protected def bundle: C.Definition
+    protected def bundle: T
     
-    protected def dependencies: List[LibBundle] = Nil
+    protected def dependencies: List[LibBundle[_]] = Nil
   }
 }
