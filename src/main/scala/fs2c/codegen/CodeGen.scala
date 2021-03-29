@@ -56,6 +56,10 @@ class CodeGen {
   def makeAliasDef(name: String, dealias: C.Type): C.TypeAliasDef = outDef {
     C.TypeAliasDef.makeTypeAliasDef(name, dealias)
   }
+  
+  def makeFuncDef(name: String, valueType: C.Type, params: List[C.FuncParam], body: C.Block): C.FuncDef = outDef {
+    C.FuncDef.makeFuncDef(name, valueType, params, body)
+  }
 
   /** Generate C type for Scala type.
     * 
@@ -116,6 +120,7 @@ class CodeGen {
     case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
+    case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
     case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf)
@@ -141,6 +146,22 @@ class CodeGen {
   def genBooleanLiteralExpr(expr: tpd.LiteralBooleanExpr): bd.PureExprBundle = expr.assignCode { t =>
     val code = bd.PureExprBundle(C.BoolExpr(t.value))
     code
+  }
+  
+  def genIdentifierExpr(expr: tpd.IdentifierExpr): bd.PureExprBundle = expr.assignCode { t =>
+    t.sym match {
+      case resolved : Symbol.Ref.Resolved[_] => resolved.sym.dealias match {
+        case lambdaParam: FS.LambdaParam =>
+          lambdaParam.code match {
+            case bundle : bd.ValueBundle => bd.PureExprBundle(bundle.getExpr)
+            case _ => assert(false, s"unexpected code bundle for lambda param: ${lambdaParam.code}")
+          }
+        case x =>
+          throw CodeGenError(s"unsupported reference identifier: ${t.sym}")
+      }
+      case _ =>
+        assert(false, "encounter unresolved symbol in code generator, this is a bug.")
+    }
   }
 
   def genBinaryOpExpr(expr: tpd.BinOpExpr): bd.ValueBundle = expr.assignCode { case FS.BinOpExpr(op, e1, e2) =>
@@ -200,7 +221,7 @@ class CodeGen {
   }
   
   def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ???
-  
+
   def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
     case lambda : FS.LambdaExpr[FS.Typed] =>
       val funcName = lambdaName getOrElse freshAnonFuncName
@@ -220,7 +241,7 @@ class CodeGen {
         case Nil =>
           val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
           val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
-          val funcDef = C.FuncDef.makeFuncDef(
+          val funcDef = makeFuncDef(
             funcName,
             cValueType,
             cParams,
@@ -270,12 +291,12 @@ class CodeGen {
               C.IdentifierExpr(tempVar) -> block
           }
           
-          val (funcExpr, funcDef) = ctx.inClosure(funcEnv) {
+          val (funcExpr, funcDef) = ctx.inClosure(escaped, funcEnv) {
             // get the final function param
             val cParams2 = ctx.getClosureEnvParam :: cParams
             val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
             val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
-            val funcDef = C.FuncDef.makeFuncDef(
+            val funcDef = makeFuncDef(
               funcName,
               cValueType,
               cParams2,
@@ -300,15 +321,21 @@ class CodeGen {
       }
   }
   
-  def genLambdaParam(param: FS.LambdaParam): C.FuncParam = param match { case FS.LambdaParam(sym, tp) =>
-    val cTp: C.Type = genType(tp).getTp
-    
-    val res = C.FuncParam(Symbol(sym.name, null), cTp)
-    res.sym.dealias = res
+  def genLambdaParam(param: FS.LambdaParam): C.FuncParam = {
+    val res = param match { case FS.LambdaParam(sym, tp, _) =>
+      val cTp: C.Type = genType(tp).getTp
       
+      val res = C.FuncParam(Symbol(sym.name, null), cTp)
+      res.sym.dealias = res
+        
+      res
+    }
+    
+    param.code = bd.PureExprBundle(C.IdentifierExpr(res.sym))
+    
     res
   }
-  
+
   def createClosureEnv(env: List[(String, C.Type)], funcName: String): C.StructDef = makeStructDef(
     name = funcName + "_env",
     memberDefs = env
