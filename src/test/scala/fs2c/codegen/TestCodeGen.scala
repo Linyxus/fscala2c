@@ -29,8 +29,13 @@ class TestCodeGen {
   
   def typedString(source: String): FS.tpd.Expr = typedExpr(forceParseString(source))
   
-  def genExpr(expr: FS.tpd.Expr): bd.ValueBundle = (new CodeGen).genExpr(expr)
-  
+  def genExpr(expr: FS.tpd.Expr): bd.ValueBundle = {
+    val codegen = new CodeGen
+    val res = codegen.genExpr(expr)
+    
+    res
+  }
+
   def genType(tpe: FST.Type): bd.TypeBundle = (new CodeGen).genType(tpe)
   
   @Test def simpleExpr: Unit = {
@@ -75,5 +80,15 @@ class TestCodeGen {
     )
     
     tests foreach { (i, o) => assertEquals(o, genType(i)) }
+  }
+  
+  @Test def simpleLambda: Unit = {
+    val tests = List(
+      "(x : Int) => 10",
+      "(x : Int, y : Int) => x + y + 1",
+      "(x : Int, y : Int) => 10.0",
+    )
+    
+    tests foreach { i => genExpr(typedString(i)) }
   }
 }
