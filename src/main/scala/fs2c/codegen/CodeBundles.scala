@@ -2,6 +2,7 @@ package fs2c.codegen
 
 import fs2c.ast.fs.{ Trees => FS }
 import fs2c.ast.c.{ Trees => C }
+import fs2c.ast.Symbol
 
 object CodeBundles {
   
@@ -17,13 +18,18 @@ object CodeBundles {
   trait LambdaBundle extends ValueBundle
   
   case object NoCode extends CodeBundle
+  
+  case class RecBundle[T](sym: Symbol[T]) extends ValueBundle {
+    override def getExpr = C.IdentifierExpr(sym)
+    override def getBlock = Nil
+  }
 
   /** Bundle of code consisting purely of a expression.
     * 
     * Translating simple arithmetic and logical expression, function application and selection
     * may result in [[PureExprBundle]].
     */
-  case class PureExprBundle(expr: C.Expr) extends CodeBundle with ValueBundle {
+  case class PureExprBundle(expr: C.Expr) extends ValueBundle {
     override def getExpr = expr
     override def getBlock = Nil
   }
