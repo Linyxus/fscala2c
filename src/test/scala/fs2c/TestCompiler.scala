@@ -10,6 +10,7 @@ class TestCompiler {
       "tests/point.scala",
       "tests/even.scala",
       "tests/fact.scala",
+      "tests/bigrec.scala",
     )
     val compiler = new Compiler
     sources foreach { s => compiler.typedFile(s) }
