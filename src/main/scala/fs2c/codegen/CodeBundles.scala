@@ -10,9 +10,14 @@ object CodeBundles {
     */
   trait CodeBundle
   
-  trait ValueBundle extends CodeBundle {
+  trait HasBlock {
+    def extractBlock: C.Block
+  }
+  
+  trait ValueBundle extends CodeBundle, HasBlock {
     def getExpr: C.Expr
     def getBlock: C.Block
+    override def extractBlock = getBlock
   }
   
   trait LambdaBundle extends ValueBundle
@@ -186,6 +191,11 @@ object CodeBundles {
     override def getDef = Some(aliasDef)
   }
   
-  case class VariableBundle(varDef: C.VariableDef, block: C.Block) extends CodeBundle
+  case class VariableBundle(varDef: C.VariableDef, block: C.Block) extends CodeBundle, HasBlock {
+    override def extractBlock = block
+  }
 
+  case class PureBlockBundle(block: C.Block) extends CodeBundle, HasBlock {
+    override def extractBlock = block
+  }
 }

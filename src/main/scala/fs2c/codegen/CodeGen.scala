@@ -123,6 +123,7 @@ class CodeGen {
     case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
+    case _ : FS.BlockExpr[FS.Typed] => genBlockExpr(expr.asInstanceOf)
     case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
@@ -226,44 +227,77 @@ class CodeGen {
     else
       mangle(name)
   
-  def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = expr.assignCode { case blockExpr : FS.BlockExpr[FS.Typed] =>
-    def goRecLocalDef(localDef: tpd.LocalDef): Unit =
-      if localDef.tree.isLambdaBind then
-        localDef assignCode { 
-          case d : FS.LocalDef.Bind[FS.Typed] =>
-            bd.RecBundle(sym = Symbol[C.FuncDef](maybeMangleName(d.sym.name), null))
-          case _ =>
-            assert(false, "a lambda binding must be a FS.LocalDef.Bind")
-        }
-        
-    def genLocalDef(localDef: tpd.LocalDef): bd.VariableBundle = localDef assignCode {
-      case bind : FS.LocalDef.Bind[FS.Typed] =>
-        val name: String = localDef.code match {
-          case bd.RecBundle(sym) => sym.name
-          case _ => maybeMangleName(bind.sym.name)
-        }
-        
-        val bundle: bd.ValueBundle = genExpr(bind.body)
-        
-        val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe).getTp)
-        
-        val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
+  def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ctx.innerLevel {
+    expr.assignCode { case blockExpr : FS.BlockExpr[FS.Typed] =>
+      def goRecLocalDef(localDef: tpd.LocalDef): Unit =
+        if localDef.tree.isLambdaBind then
+          localDef assignCode { 
+            case d : FS.LocalDef.Bind[FS.Typed] =>
+              bd.RecBundle(sym = Symbol[C.FuncDef](maybeMangleName(d.sym.name), null))
+            case _ =>
+              assert(false, "a lambda binding must be a FS.LocalDef.Bind")
+          }
+          
+      def genLocalDef(localDef: tpd.LocalDef): bd.CodeBundle & bd.HasBlock = localDef assignCode {
+        case bind : FS.LocalDef.Bind[FS.Typed] =>
+          val name: String = localDef.code match {
+            case bd.RecBundle(sym) => sym.name
+            case _ => maybeMangleName(bind.sym.name)
+          }
+          
+          val bundle: bd.ValueBundle = genExpr(bind.body)
+          
+          val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe).getTp)
+          
+          val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
 
-        bd.VariableBundle(
-          varDef = varDef.dealias,
-          block = (bundle.getBlock ++ varBlock) :+ assignStmt
-        )
-      case eval : FS.LocalDef.Eval[FS.Typed] =>
-        val expr = eval.expr
-        ???
+          bd.VariableBundle(
+            varDef = varDef.dealias,
+            block = (bundle.getBlock ++ varBlock) :+ assignStmt
+          )
+        case eval : FS.LocalDef.Eval[FS.Typed] =>
+          genExpr(eval.expr)
+        case assign : FS.LocalDef.Assign[FS.Typed] =>
+          val sym: Symbol[_] = assign.ref match {
+            case ref : Symbol.Ref.Resolved[_] => ref.sym
+            case _ =>
+              assert(false, "unresolved symbol reference in typed tree. a bug!")
+          }
+          val bodyBd: bd.ValueBundle = genExpr(assign.expr)
+          
+          val assignStmt: C.Statement = sym.dealias match {
+            case tpt : FS.Typed[_] =>
+              tpt.code match {
+                case bundle : bd.VariableBundle =>
+                  defn.assignVar(bundle.varDef, bodyBd.getExpr)
+                case bundle =>
+                  throw CodeGenError(s"unexpected code bundle ${tpt.code} of assigned symbol")
+              }
+            case _ => assert(false, "symbol refers to untyped tree")
+          }
+          
+          bd.PureBlockBundle(bodyBd.getBlock :+ assignStmt)
+      }
+      
+      val localDefs = blockExpr.defs
+      
+      // assign placeholder recursive code bundle for each lambda binding
+      localDefs foreach goRecLocalDef
+      
+      // translate local definitions
+      val cBlockBundles = localDefs map genLocalDef
+      
+      // translated block
+      val block1 = cBlockBundles flatMap { x => x.extractBlock }
+      
+      // translate the final expression
+      val exprBundle: bd.ValueBundle = genExpr(blockExpr.expr)
+      
+      bd.BlockBundle(
+        expr = exprBundle.getExpr,
+        block = block1 ++ exprBundle.getBlock
+      )
     }
-    
-    val localDefs = blockExpr.defs
-    
-    // assign placeholder recursive code bundle for each lambda binding
-    localDefs foreach goRecLocalDef
-    
-    ???
   }
 
   def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
