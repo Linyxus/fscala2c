@@ -79,7 +79,7 @@ object Trees {
     *
     * It is also used to represent class constructor parameters.
     */
-  case class LambdaParam(sym: Symbol[LambdaParam], var tpe: Type)
+  case class LambdaParam(sym: Symbol[LambdaParam], var tpe: Type, var code: bd.CodeBundle = bd.NoCode)
 
   /** Block expressions.
     */
