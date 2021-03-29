@@ -98,7 +98,6 @@ object CodeBundles {
                            block: C.Block,
                            envStructDef: C.StructDef,
                            funcDef: C.FuncDef,
-                           funcTypeDef: C.TypeAliasDef
                           ) extends LambdaBundle {
     override def getExpr = expr
     override def getBlock = block
@@ -180,5 +179,7 @@ object CodeBundles {
     override def getTp = tpe
     override def getDef = Some(aliasDef)
   }
+  
+  case class VariableBundle(varDef: C.VariableDef, expr: Option[C.Expr], block: C.Block) extends CodeBundle
 
 }
