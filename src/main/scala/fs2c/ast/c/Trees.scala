@@ -218,7 +218,7 @@ object Trees {
     }
   }
 
-  case class VariableDef(sym: Symbol[VariableDef], tp: Type) extends Binding {
+  case class VariableDef(sym: Symbol[VariableDef], tp: Type, expr: Option[Expr] = None) extends Binding {
     override type ThisType = VariableDef
 
     override def getSym = sym

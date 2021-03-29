@@ -180,6 +180,6 @@ object CodeBundles {
     override def getDef = Some(aliasDef)
   }
   
-  case class VariableBundle(varDef: C.VariableDef, expr: Option[C.Expr], block: C.Block) extends CodeBundle
+  case class VariableBundle(varDef: C.VariableDef, block: C.Block) extends CodeBundle
 
 }
