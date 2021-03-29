@@ -55,7 +55,7 @@ object CodeBundles {
     * ```
     * The resulted expression in the bundle will be `t`, which is a temp variable.
     */
-  case class BlockBundle(expr: C.Expr, block: C.Block) extends CodeBundle with ValueBundle {
+  case class BlockBundle(expr: C.Expr, block: C.Block) extends ValueBundle {
     override def getExpr = expr
     override def getBlock = block
   }
