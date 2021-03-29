@@ -139,8 +139,29 @@ object Trees {
       res
     }
   }
+  
+  sealed trait Binding {
+    type ThisType <: Binding
+    def getSym: Symbol[ThisType]
+    def getType: Type
+  }
 
-  case class FuncParam(sym: Symbol[FuncParam], tp: Type)
+  case class FuncParam(sym: Symbol[FuncParam], tp: Type) extends Binding {
+    override type ThisType = FuncParam
+
+    override def getSym = sym
+    
+    override def getType = tp
+  }
+  
+  object FuncParam {
+    def makeFuncParam(name: String, tp: Type): FuncParam = {
+      val res = FuncParam(Symbol(name, null), tp)
+      res.sym.dealias = res
+      
+      res
+    }
+  }
 
   type Block = List[Statement]
 
@@ -151,8 +172,8 @@ object Trees {
     case If(cond: Expr, thenBody: Block, elseBody: Option[Block])
     case While(cond: Expr, body: Block)
     case Eval(e: Expr)
-    case AssignVar(d: Symbol[VariableDef], expr: Expr)
-    case AssignMember(d: Symbol[StructMember], expr: Expr)
+    case AssignVar(d: Binding, expr: Expr)
+    case AssignMember(v: Binding, d: Symbol[StructMember], expr: Expr)
     case Def(d: VariableDef)
   }
 
@@ -166,7 +187,15 @@ object Trees {
     }
   }
 
-  case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition
+  case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition {
+    def tp: StructType = StructType(sym)
+    
+    def ensureFind(name: String): StructMember = members find { m => m.sym.name == name } match {
+      case None =>
+        assert(false, s"can not find $name")
+      case Some(m) => m
+    }
+  }
 
   object StructDef {
     def makeStructDef(name: String, memberDefs: List[(String, Type)]): StructDef = {
@@ -189,7 +218,13 @@ object Trees {
     }
   }
 
-  case class VariableDef(sym: Symbol[VariableDef], tp: Type)
+  case class VariableDef(sym: Symbol[VariableDef], tp: Type) extends Binding {
+    override type ThisType = VariableDef
+
+    override def getSym = sym
+
+    override def getType = tp
+  }
 
   object VariableDef {
     def makeVariableDef(name: String, tp: Type): VariableDef = {
