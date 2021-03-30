@@ -73,5 +73,24 @@ object printing {
     val voidType: Printing[C.VoidType.type] = new Printing[C.VoidType.type] {
       def print(t: C.VoidType.type)(using printer: Printer) = printer.print("void")
     }
+
+    given expr: Printing[C.Expr] = new Printing[C.Expr] {
+      def print(t: C.Expr)(using printer: Printer) = ???
+    }
+
+    val binOpExpr: Printing[C.BinOpExpr] = new Printing[C.BinOpExpr] {
+      def print(t: C.BinOpExpr)(using printer: Printer) = {
+        printer.inParen { expr.print(t.e1) }
+        printer.print(s" ${t.op} ")
+        printer.inParen { expr.print(t.e2) }
+      }
+    }
+
+    val unaryOpExpr: Printing[C.UnaryOpExpr] = new Printing[C.UnaryOpExpr] {
+      def print(t: C.UnaryOpExpr)(using printer: Printer) = {
+        printer.print(s" ${t.op} ")
+        printer.inParen { expr.print(t.e) }
+      }
+    }
   }
 }
