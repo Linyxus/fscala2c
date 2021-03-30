@@ -74,7 +74,7 @@ object Trees {
   case class UnaryOpExpr(op: UnaryOpType, e: Expr) extends Expr
 
   enum UnaryOpType {
-    case +
+    case -
     case !
   }
 
