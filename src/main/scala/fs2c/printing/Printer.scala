@@ -65,9 +65,16 @@ class Printer(val tabSize: Int = 2) {
     */
   def inBlock[T](body: => T): T = {
     print("{")
-    var res = indenting { body }
+    var res = indenting { newLine(); body }
     println("}")
     
+    res
+  }
+
+  def inParen[T](body: => T): T = {
+    print("(")
+    val res = body
+    print(")")
     res
   }
   
