@@ -121,10 +121,7 @@ class TestCodeGen {
       FuncType(FuncType(VoidType, List(IntType)), List(DoubleType, CharType)) -> "void (*) (int) (*) (double, char)",
     )
     
-    tests foreach { (i, o) => assertEquals(o, {
-        given Printing[C.Type] = cType
-        i.show
-      }) 
+    tests foreach { (i, o) => assertEquals(o, i.show) 
     }
   }
 }
