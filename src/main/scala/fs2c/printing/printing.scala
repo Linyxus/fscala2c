@@ -9,7 +9,7 @@ object printing {
   import Printer.{*, given}
   
   object c {
-    val cType: Printing[C.Type] = new Printing[C.Type] {
+    given cType: Printing[C.Type] = new Printing[C.Type] {
       def print(t: C.Type)(using printer: Printer) = t match {
         case t: CBT => baseType.print(t)
         case t: C.FuncType => funcType.print(t)
@@ -20,7 +20,7 @@ object printing {
       }
     }
     
-    given baseType: Printing[CBT] = new Printing[CBT] {
+    val baseType: Printing[CBT] = new Printing[CBT] {
       def print(t: CBT)(using printer: Printer) = t match {
         case CBT.IntType => printer.print("int")
         case CBT.DoubleType => printer.print("double")
@@ -28,7 +28,7 @@ object printing {
       }
     }
 
-    given funcType: Printing[C.FuncType] = new Printing[C.FuncType] {
+    val funcType: Printing[C.FuncType] = new Printing[C.FuncType] {
       def print(t: C.FuncType)(using printer: Printer) = t match {
         case C.FuncType(retType, paramTypes) =>
           cType.print(retType)
@@ -46,18 +46,18 @@ object printing {
       }
     }
     
-    given structType: Printing[C.StructType] = new Printing[C.StructType] {
+    val structType: Printing[C.StructType] = new Printing[C.StructType] {
       def print(t: C.StructType)(using printer: Printer) = {
         val str = s"struct ${t.structSym.name} *"
         printer.print(str)
       }
     }
 
-    given aliasType: Printing[C.AliasType] = new Printing[C.AliasType] {
+    val aliasType: Printing[C.AliasType] = new Printing[C.AliasType] {
       def print(t: C.AliasType)(using printer: Printer) = printer.print(t.aliasSym.name)
     }
 
-    given pointerType: Printing[C.PointerType] = new Printing[C.PointerType] {
+    val pointerType: Printing[C.PointerType] = new Printing[C.PointerType] {
       def print(t: C.PointerType)(using printer: Printer) = {
         printer.print("(")
         cType.print(t.dealiasType)
@@ -66,7 +66,7 @@ object printing {
       }
     }
 
-    given voidType: Printing[C.VoidType.type] = new Printing[C.VoidType.type] {
+    val voidType: Printing[C.VoidType.type] = new Printing[C.VoidType.type] {
       def print(t: C.VoidType.type)(using printer: Printer) = printer.print("void")
     }
   }
