@@ -1,5 +1,7 @@
 package fs2c.codegen
 
+import scala.language.implicitConversions
+
 import fs2c.io.ScalaSource
 import fs2c.parser.ScalaParser
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType, Tokenizer}
@@ -103,5 +105,26 @@ class TestCodeGen {
         |""".stripMargin
     val e = typedString(source)
     genExpr(e)
+  }
+  
+  @Test def printSimpleTypes: Unit = {
+    import C.BaseType.*
+    import C.*
+    import fs2c.printing.Printer.{*, given}
+    import fs2c.printing.printing.c
+    import c.{*, given}
+    
+    val tests = Seq(
+      IntType -> "int",
+      DoubleType -> "double",
+      CharType -> "char",
+      FuncType(FuncType(VoidType, List(IntType)), List(DoubleType, CharType)) -> "void (*) (int) (*) (double, char)",
+    )
+    
+    tests foreach { (i, o) => assertEquals(o, {
+        given Printing[C.Type] = cType
+        i.show
+      }) 
+    }
   }
 }
