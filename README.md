@@ -1,4 +1,6 @@
 # fscala2c
+ [![SBT test](https://github.com/Linyxus/fscala2c/actions/workflows/ci.yml/badge.svg)](https://github.com/Linyxus/fscala2c/actions/workflows/ci.yml)
+
  A Featherweight Scala to C compiler.
  
  Compiler course project at BUPT.
