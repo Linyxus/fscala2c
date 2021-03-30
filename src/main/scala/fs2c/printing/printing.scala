@@ -5,9 +5,13 @@ import scala.language.implicitConversions
 import fs2c.ast.c.{ Trees => C }
 import C.{ BaseType => CBT }
 
+/** Printing instances for datatypes.
+  */
 object printing {
   import Printer.{*, given}
   
+  /** Printing instances for C-related datatypes.
+    */
   object c {
     given cType: Printing[C.Type] = new Printing[C.Type] {
       def print(t: C.Type)(using printer: Printer) = t match {

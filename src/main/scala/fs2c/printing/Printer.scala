@@ -2,6 +2,10 @@ package fs2c.printing
 
 import scala.language.implicitConversions
 
+/** Printer for pretty-printing ASTs into code.
+  * 
+  * @param tabSize The size of the indenting tab.
+  */
 class Printer(val tabSize: Int = 2) {
   /** Current indent level.
     */
@@ -67,18 +71,26 @@ class Printer(val tabSize: Int = 2) {
     res
   }
   
+  /** Extract the result of the printer.
+    */
   def result: String = outputed.result()
 }
 
 object Printer {
+  /** A datatype is showable if it can be pretty-printed into a String.
+    */
   trait Showable {
     def show: String
   }
   
+  /** A datatype has a printing instance to print it with a [[Printer]].
+    */
   trait Printing[T] {
     def print(t: T)(using Printer): Unit
   }
   
+  /** Any datatype that can be printed with a [[Printer]] can also be shown.
+    */
   given toShowable[T](using printing: Printing[T]): Conversion[T, Showable] with
     def apply(t: T): Showable = new Showable {
       def show = {
