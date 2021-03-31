@@ -37,6 +37,14 @@ class TestCodeGen {
     
     res
   }
+  
+  def genExprAndDef(expr: FS.tpd.Expr): (bd.ValueBundle, List[C.Definition]) = {
+    val codegen = new CodeGen
+    val res = codegen.genExpr(expr)
+
+    res -> codegen.ctx.generatedDefs
+  }
+    
 
   def genType(tpe: FST.Type): bd.TypeBundle = (new CodeGen).genType(tpe)
   
@@ -134,5 +142,17 @@ class TestCodeGen {
     )
     
     tests foreach { (i, o) => assertEquals(o, genExpr(typedString(i)).getExpr.show) }
+  }
+  
+  @Test def printFuncDef: Unit = {
+    val e = typedString(
+      """() => (x : Int, y : Int) => {
+        |  val mult = (a : Int, b : Int) => 2 * a * b
+        |  mult
+        |}
+        |""".stripMargin)
+    val (_, defs) = genExprAndDef(e)
+    println(defs)
+    defs.reverse foreach { d => d.show }
   }
 }

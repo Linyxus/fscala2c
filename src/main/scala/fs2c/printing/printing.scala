@@ -75,9 +75,9 @@ object printing {
     }
 
     /** Showing an expression.
-      * 
+      *
       * Binding level of expressions.
-      * 
+      *
       * -1 : Starting
       * 0  : &&, ||
       * 1  : ==, !=, >, <, >=, <=
@@ -105,23 +105,23 @@ object printing {
         C.BinOpType./ -> 3,
         C.BinOpType.^ -> 4,
       )
-      
+
       // unary operator priority
       def uopPrioriy: Map[C.UnaryOpType, Int] = Map(
         C.UnaryOpType.- -> 10,
         C.UnaryOpType.! -> 10
       )
-      
+
       val selectAndApplyLevel: Int = 15
       val identLevel: Int = 20
-      
+
       def go(expr: C.Expr, currentLevel: Int): String = expr match {
         case C.BinOpExpr(op, e1, e2) =>
           val nextLevel = bopPriority(op)
           val s1 = go(e1, nextLevel)
           val s2 = go(e2, nextLevel)
           val s = s"$s1 $op $s2"
-          
+
           if nextLevel < currentLevel then
             s"($s)"
           else
@@ -129,19 +129,19 @@ object printing {
         case C.UnaryOpExpr(op, e) =>
           val nextLevel = uopPrioriy(op)
           val s = s"$op ${go(e, nextLevel)}"
-          
+
           if nextLevel < currentLevel then
             s"($s)"
           else
             s
         case C.CallFunc(func, params) =>
           val sf = go(func, currentLevel = selectAndApplyLevel)
-          val sparams = params map { x => go(x, currentLevel = -1) } 
-          
+          val sparams = params map { x => go(x, currentLevel = -1) }
+
           s"$sf(${sparams mkString ", "})"
         case C.SelectExpr(expr, designator) =>
           val s = go(expr, currentLevel = selectAndApplyLevel)
-          
+
           s"$s.$designator"
         case C.IdentifierExpr(sym) =>
           sym.name
@@ -150,20 +150,21 @@ object printing {
           if value then "1" else "0"
         case C.FloatExpr(value) => value.toString
       }
-      
+
       go(expr, -1)
     }
 
     given expr: Printing[C.Expr] = new Printing[C.Expr] {
       def print(t: C.Expr)(using printer: Printer) = printer.print(showExpr(t))
     }
-    
+
     given definition: Printing[C.Definition] = new Printing[C.Definition] {
       def print(t: C.Definition)(using printer: Printer) = t match {
         case t: C.FuncDef => funcDef.print(t)
+        case t: C.TypeAliasDef => typeAliasDef.print(t)
       }
     }
-    
+
     val funcDef: Printing[C.FuncDef] = new Printing[C.FuncDef] {
       def print(t: C.FuncDef)(using printer: Printer) = t match {
         case C.FuncDef(sym, _retType, params, block) =>
@@ -192,10 +193,29 @@ object printing {
       }
     }
     
+    val typeAliasDef: Printing[C.TypeAliasDef] = new Printing[C.TypeAliasDef] {
+      def print(t: C.TypeAliasDef)(using printer: Printer) = {
+        val dealias = t.dealias
+        val name = t.sym.name
+        printer.print("typedef ")
+        dealias match {
+          case C.FuncType(retType, paramTypes) =>
+            cType.print(retType)
+            printer.print(" ")
+            printer.inParen { printer.print(s"$name *") }
+            printer.inParen { printer.printSepBy(paramTypes) { tp => cType.print(tp) } }
+            printer.println(";")
+          case tp =>
+            cType.print(tp)
+            printer.println(s" $name;")
+        }
+      }
+    }
+
     def printBlock(block: C.Block, openLine: Boolean = true)(using printer: Printer): Unit = printer.inBlock(openLine) {
       block foreach printStmt
     }
-    
+
     def printStmt(stmt: C.Statement)(using printer: Printer) = stmt match {
       case C.Statement.Return(expr) =>
         val s = expr match {

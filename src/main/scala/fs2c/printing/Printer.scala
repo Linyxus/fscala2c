@@ -80,6 +80,13 @@ class Printer(val tabSize: Int = 2) {
     res
   }
   
+  def printSepBy[X](xs: List[X], sep: String = ", ")(func: X => Unit): Unit = xs match {
+    case Nil =>
+    case x :: xs =>
+      func(x)
+      xs foreach { x => print(sep); func(x) }
+  }
+  
   /** Extract the result of the printer.
     */
   def result: String = outputed.result()
