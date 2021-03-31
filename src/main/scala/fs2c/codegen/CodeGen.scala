@@ -64,7 +64,8 @@ class CodeGen {
     * @return Type alias definition.
     */
   def makeAliasDef(name: String, dealias: C.Type): C.TypeAliasDef = outDef {
-    C.TypeAliasDef.makeTypeAliasDef(name, dealias)
+    val res = C.TypeAliasDef.makeTypeAliasDef(name, dealias)
+    res
   }
 
   /** Make and output a function definition.
@@ -119,11 +120,10 @@ class CodeGen {
   def maybeAliasFuncType(funcType: C.FuncType, aliasName: String): C.TypeAliasDef =
     ctx.genFuncCache.get(funcType) match {
       case Some(alias) => alias
-      case None => outDef {
+      case None => 
         val res = makeAliasDef(aliasName, funcType)
         ctx.genFuncCache = ctx.genFuncCache.updated(funcType, res)
         res
-      }
     }
 
   /** Generate C code for Scala expressions.
