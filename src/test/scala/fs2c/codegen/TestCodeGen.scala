@@ -1,6 +1,9 @@
 package fs2c.codegen
 
 import scala.language.implicitConversions
+import fs2c.printing.Printer.{*, given}
+import fs2c.printing.printing.c
+import c.{*, given}
 
 import fs2c.io.ScalaSource
 import fs2c.parser.ScalaParser
@@ -131,9 +134,6 @@ class TestCodeGen {
 
   import C.BaseType.*
   import C.*
-  import fs2c.printing.Printer.{*, given}
-  import fs2c.printing.printing.c
-  import c.{*, given}
 
   @Test def printSimpleTypes: Unit = {
     val tests = Seq(
