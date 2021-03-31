@@ -128,7 +128,7 @@ class CodeGen {
 
   /** Generate C code for Scala expressions.
     */
-  def genExpr(expr: tpd.Expr): bd.ValueBundle = expr.tree match {
+  def genExpr(expr: tpd.Expr, lambdaName: Option[String] = None): bd.ValueBundle = expr.tree match {
     case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
@@ -136,7 +136,7 @@ class CodeGen {
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
     case _ : FS.BlockExpr[FS.Typed] => genBlockExpr(expr.asInstanceOf)
-    case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf)
+    case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf, lambdaName = lambdaName)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
@@ -281,7 +281,7 @@ class CodeGen {
             case _ => maybeMangleName(bind.sym.name)
           }
 
-          val bundle: bd.ValueBundle = genExpr(bind.body)
+          val bundle: bd.ValueBundle = genExpr(bind.body, lambdaName = Some(name + "_lambda"))
 
           val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe).getTp)
 
