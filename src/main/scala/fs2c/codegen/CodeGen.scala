@@ -151,21 +151,29 @@ class CodeGen {
   
   def genIdentifierExpr(expr: tpd.IdentifierExpr): bd.PureExprBundle = expr.assignCode { t =>
     t.sym match {
-      case resolved : Symbol.Ref.Resolved[_] => resolved.sym.dealias match {
-        case lambdaParam: FS.LambdaParam =>
-          lambdaParam.code match {
-            case bundle : bd.ValueBundle => bd.PureExprBundle(bundle.getExpr)
-            case _ => assert(false, s"unexpected code bundle for lambda param: ${lambdaParam.code}")
-          }
-        case tpt : FS.Typed[_] => tpt.code match {
-          case bundle : bd.VariableBundle =>
-            bd.PureExprBundle(C.IdentifierExpr(bundle.varDef.sym))
-          case _ =>
-            throw CodeGenError(s"unsupported referenced typed tree: $tpt with generated code ${tpt.code}")
+      case resolved : Symbol.Ref.Resolved[_] => 
+        val sym = resolved.sym
+        
+        ctx.refClosureEnv(sym) match {
+          case None =>
+          case Some(expr) => return bd.PureExprBundle(expr)
         }
-        case x =>
-          throw CodeGenError(s"unsupported reference identifier: ${t.sym} with reference ${resolved.sym.dealias}")
-      }
+        
+        sym.dealias match {
+          case lambdaParam: FS.LambdaParam =>
+            lambdaParam.code match {
+              case bundle : bd.ValueBundle => bd.PureExprBundle(bundle.getExpr)
+              case _ => assert(false, s"unexpected code bundle for lambda param: ${lambdaParam.code}")
+            }
+          case tpt : FS.Typed[_] => tpt.code match {
+            case bundle : bd.VariableBundle =>
+              bd.PureExprBundle(C.IdentifierExpr(bundle.varDef.sym))
+            case _ =>
+              throw CodeGenError(s"unsupported referenced typed tree: $tpt with generated code ${tpt.code}")
+          }
+          case x =>
+            throw CodeGenError(s"unsupported reference identifier: ${t.sym} with reference ${resolved.sym.dealias}")
+        }
       case _ =>
         assert(false, "encounter unresolved symbol in code generator, this is a bug.")
     }
