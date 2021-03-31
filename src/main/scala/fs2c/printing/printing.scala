@@ -162,6 +162,7 @@ object printing {
       def print(t: C.Definition)(using printer: Printer) = t match {
         case t: C.FuncDef => funcDef.print(t)
         case t: C.TypeAliasDef => typeAliasDef.print(t)
+        case t: C.StructDef => structDef.print(t)
       }
     }
 
@@ -209,6 +210,22 @@ object printing {
             cType.print(tp)
             printer.println(s" $name;")
         }
+      }
+    }
+    
+    val structDef: Printing[C.StructDef] = new Printing[C.StructDef] {
+      def print(t: C.StructDef)(using printer: Printer) = t match { 
+        case C.StructDef(sym, members) =>
+          def printStructMember(structMember: C.StructMember) = structMember match { 
+            case C.StructMember(sym, tp, struct) =>
+              cType.print(tp)
+              printer.println(s" ${sym.name};")
+          }
+          
+          printer.print(s"struct ${sym.name} ")
+          printer.inBlock(endLine = true) {
+            members foreach printStructMember
+          }
       }
     }
 
