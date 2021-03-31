@@ -70,7 +70,7 @@ object Trees {
   /** Lambda expressions.
     */
   case class LambdaExpr[F[_]](params: List[Symbol[LambdaParam]], tpe: Option[Type], body: F[Expr[F]]) extends Expr[F] {
-    def assignType(tpe: Type, body: tpd.Expr): tpd.LambdaExpr = setFreeNames(body.freeNames) {
+    def assignType(tpe: Type, body: tpd.Expr): tpd.LambdaExpr = setFreeNames(body.freeNames filterNot { n => params contains n }) {
       Typed(tree = LambdaExpr(params, tpe = this.tpe, body = body), tpe = tpe)
     }
   }
