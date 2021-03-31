@@ -16,15 +16,25 @@ class CodeGen {
   /** Context for C code generator.
     */
   val ctx = new CodeGenContext
-  
+
+  /** Preloaded standard definitions.
+    */
   val stdLib = new StdLibrary(this)
 
+  /** Mangle name by adding postfix.
+    */
   def mangle(name: String): String = Unique.uniqueCName(name)
 
+  /** Generate a fresh anonymous function name.
+    */
   def freshAnonFuncName: String = Unique.uniqueCName("anon_func")
-  
+
+  /** Generate a fresh anonymous function type name.
+    */
   def freshAnonFuncTypeName: String = Unique.uniqueCName("anon_func_type")
-  
+
+  /** Generate a fresh variable name.
+    */
   def freshVarName: String = Unique.uniqueCName("temp")
 
   /** Output definition. Record the definition and return it as it is.
@@ -56,7 +66,9 @@ class CodeGen {
   def makeAliasDef(name: String, dealias: C.Type): C.TypeAliasDef = outDef {
     C.TypeAliasDef.makeTypeAliasDef(name, dealias)
   }
-  
+
+  /** Make and output a function definition.
+    */
   def makeFuncDef(name: String, valueType: C.Type, params: List[C.FuncParam], body: C.Block): C.FuncDef = outDef {
     C.FuncDef.makeFuncDef(name, valueType, params, body)
   }
@@ -148,7 +160,10 @@ class CodeGen {
     val code = bd.PureExprBundle(C.BoolExpr(t.value))
     code
   }
-  
+
+  /** Generate code for a Scala identifier. It will extract the corresponding C definition of
+    * the referred Scala identifier. Closure environment will also be considered.
+    */
   def genIdentifierExpr(expr: tpd.IdentifierExpr): bd.PureExprBundle = expr.assignCode { t =>
     t.sym match {
       case resolved : Symbol.Ref.Resolved[_] => 
@@ -179,6 +194,8 @@ class CodeGen {
     }
   }
 
+  /** Generate code for a binary expression.
+    */
   def genBinaryOpExpr(expr: tpd.BinOpExpr): bd.ValueBundle = expr.assignCode { case FS.BinOpExpr(op, e1, e2) =>
     val cop = sbOp2cbOp(op)
     val bd1 = genExpr(e1)
@@ -234,13 +251,18 @@ class CodeGen {
       block = tempDef ++ condBlock :+ ifStmt
     )
   }
-  
+
+  /** Mangle `name` if now we are not at top level (to prevent possible naming conflicts), and do nothing if we are
+    * at the top level.
+    */
   def maybeMangleName(name: String): String =
     if ctx.isTopLevel then
       name
     else
       mangle(name)
-  
+
+  /** Generate code for block expression.
+    */
   def genBlockExpr(expr: tpd.BlockExpr): bd.BlockBundle = ctx.innerLevel {
     expr.assignCode { case blockExpr : FS.BlockExpr[FS.Typed] =>
       def goRecLocalDef(localDef: tpd.LocalDef): Unit =
@@ -314,6 +336,13 @@ class CodeGen {
     }
   }
 
+  /** Generate code for lambda expressions. It will create a closure to lift a lambda expression with local references
+    * to top level, while will generate a simple function definition if otherwise.
+    * 
+    * @param expr
+    * @param lambdaName Optional name. Create a new name for anonymous function if not given.
+    * @return
+    */
   def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
     case lambda : FS.LambdaExpr[FS.Typed] =>
       val funcName = lambdaName getOrElse freshAnonFuncName
@@ -425,7 +454,12 @@ class CodeGen {
           )
       }
   }
-  
+
+  /** Translate a Scala [[fs2c.ast.fs.Trees.LambdaParam]] to C [[fs2c.ast.c.Trees.FuncParam]].
+    * 
+    * @param param
+    * @return
+    */
   def genLambdaParam(param: FS.LambdaParam): C.FuncParam = {
     val res = param match { case FS.LambdaParam(sym, tp, _) =>
       val cTp: C.Type = genType(tp).getTp
@@ -441,11 +475,15 @@ class CodeGen {
     res
   }
 
+  /** Create a closure environment for function with local references.
+    */
   def createClosureEnv(env: List[(String, C.Type)], funcName: String): C.StructDef = makeStructDef(
     name = funcName + "_env",
     memberDefs = env
   )
-  
+
+  /** Compute escaped variables from a free name list.
+    */
   def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = {
     def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind]]): List[Symbol[tpd.LocalDefBind]] = xs match {
       case Nil => acc
