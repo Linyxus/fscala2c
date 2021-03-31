@@ -63,9 +63,7 @@ object printing {
 
     val pointerType: Printing[C.PointerType] = new Printing[C.PointerType] {
       def print(t: C.PointerType)(using printer: Printer) = {
-        printer.print("(")
         cType.print(t.dealiasType)
-        printer.print(")")
         printer.print(" *")
       }
     }
