@@ -102,6 +102,27 @@ class TestCodeGen {
     tests foreach { i => genExpr(typedString(i)) }
   }
   
+  @Test def closureLambda: Unit = {
+    import C.BaseType.*
+    import C.*
+    import fs2c.printing.Printer.{*, given}
+    import fs2c.printing.printing.c
+    import c.{*, given}
+    
+    val e = typedString(
+      """{
+        |  val makeAdder = (n : Int) => {
+        |    val adder = (x : Int) => x + n
+        |    adder
+        |  }
+        |  
+        |  makeAdder
+        |}
+        |""".stripMargin)
+    val (expr, defs) = genExprAndDef(e)
+    defs.reverse foreach { d => d.show }
+  }
+  
   @Test def blockExpr: Unit = {
     val source =
       """{
