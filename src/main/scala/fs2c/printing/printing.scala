@@ -221,9 +221,10 @@ object printing {
           }
           
           printer.print(s"struct ${sym.name} ")
-          printer.inBlock(endLine = true) {
+          printer.inBlock(endLine = false) {
             members foreach printStructMember
           }
+          printer.println(";")
       }
     }
 
