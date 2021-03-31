@@ -106,14 +106,14 @@ class TestCodeGen {
     val e = typedString(source)
     genExpr(e)
   }
-  
+
+  import C.BaseType.*
+  import C.*
+  import fs2c.printing.Printer.{*, given}
+  import fs2c.printing.printing.c
+  import c.{*, given}
+
   @Test def printSimpleTypes: Unit = {
-    import C.BaseType.*
-    import C.*
-    import fs2c.printing.Printer.{*, given}
-    import fs2c.printing.printing.c
-    import c.{*, given}
-    
     val tests = Seq(
       IntType -> "int",
       DoubleType -> "double",
@@ -123,5 +123,16 @@ class TestCodeGen {
     
     tests foreach { (i, o) => assertEquals(o, i.show) 
     }
+  }
+  
+  @Test def printSimpleExpr: Unit = {
+    val tests = List(
+      "1 + 2 * 3" -> "1 + 2 * 3",
+      "(1 + 2) * 3" -> "(1 + 2) * 3",
+      "(1 + 2 ^ 3) * 3" -> "(1 + 2 ^ 3) * 3",
+      "1 > 2 && False" -> "1 > 2 && 0",
+    )
+    
+    tests foreach { (i, o) => assertEquals(o, genExpr(typedString(i)).getExpr.show) }
   }
 }

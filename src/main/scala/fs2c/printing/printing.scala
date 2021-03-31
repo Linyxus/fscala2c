@@ -120,7 +120,7 @@ object printing {
           val nextLevel = bopPriority(op)
           val s1 = go(e1, nextLevel)
           val s2 = go(e2, nextLevel)
-          val s = s"$s1 $op $s1"
+          val s = s"$s1 $op $s2"
           
           if nextLevel < currentLevel then
             s"($s)"
