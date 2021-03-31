@@ -142,7 +142,7 @@ object printing {
         case C.SelectExpr(expr, designator) =>
           val s = go(expr, currentLevel = selectAndApplyLevel)
 
-          s"$s.$designator"
+          s"$s->${designator.name}"
         case C.IdentifierExpr(sym) =>
           sym.name
         case C.IntExpr(value) => value.toString
