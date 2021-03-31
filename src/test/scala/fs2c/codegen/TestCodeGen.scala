@@ -103,12 +103,6 @@ class TestCodeGen {
   }
   
   @Test def closureLambda: Unit = {
-    import C.BaseType.*
-    import C.*
-    import fs2c.printing.Printer.{*, given}
-    import fs2c.printing.printing.c
-    import c.{*, given}
-    
     val e = typedString(
       """{
         |  val makeAdder = (n : Int) => {
@@ -120,7 +114,6 @@ class TestCodeGen {
         |}
         |""".stripMargin)
     val (expr, defs) = genExprAndDef(e)
-    defs.reverse foreach { d => d.show }
   }
   
   @Test def blockExpr: Unit = {
@@ -173,7 +166,6 @@ class TestCodeGen {
         |}
         |""".stripMargin)
     val (_, defs) = genExprAndDef(e)
-    println(defs)
     defs.reverse foreach { d => d.show }
   }
 }
