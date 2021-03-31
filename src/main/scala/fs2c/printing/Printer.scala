@@ -63,10 +63,12 @@ class Printer(val tabSize: Int = 2) {
 
   /** Output text blocks in braces.
     */
-  def inBlock[T](body: => T): T = {
+  def inBlock[T](endLine: Boolean = true)(body: => T): T = {
     print("{")
     var res = indenting { newLine(); body }
-    println("}")
+    print("}")
+    if endLine then
+      newLine()
     
     res
   }

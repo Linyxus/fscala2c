@@ -157,5 +157,80 @@ object printing {
     given expr: Printing[C.Expr] = new Printing[C.Expr] {
       def print(t: C.Expr)(using printer: Printer) = printer.print(showExpr(t))
     }
+    
+    given definition: Printing[C.Definition] = new Printing[C.Definition] {
+      def print(t: C.Definition)(using printer: Printer) = t match {
+        case t: C.FuncDef => funcDef.print(t)
+      }
+    }
+    
+    val funcDef: Printing[C.FuncDef] = new Printing[C.FuncDef] {
+      def print(t: C.FuncDef)(using printer: Printer) = t match {
+        case C.FuncDef(sym, _retType, params, block) =>
+          def printParam(param: C.FuncParam) = param match {
+            case C.FuncParam(sym, tp) =>
+              cType.print(tp)
+              printer.print(" ")
+              printer.print(sym.name)
+          }
+          // print return type
+          cType.print(_retType)
+          // print func name
+          printer.print(s" ${sym.name}(")
+          // print parameter list
+          params match {
+            case Nil =>
+            case param :: params =>
+              printParam(param)
+              params foreach { param =>
+                printer.print(", ")
+                printParam(param)
+              }
+          }
+          printer.print(") ")
+          printBlock(block, openLine = true)
+      }
+    }
+    
+    def printBlock(block: C.Block, openLine: Boolean = true)(using printer: Printer): Unit = printer.inBlock(openLine) {
+      block foreach printStmt
+    }
+    
+    def printStmt(stmt: C.Statement)(using printer: Printer) = stmt match {
+      case C.Statement.Return(expr) =>
+        val s = expr match {
+          case None => ""
+          case Some(expr) => " " + showExpr(expr)
+        }
+        printer.println("return" + s + ";")
+      case C.Statement.Break => printer.println("break;")
+      case C.Statement.Continue => printer.println("continue;")
+      case C.Statement.If(cond, tBody, fBody) =>
+        printer.print(s"if (${showExpr(cond)}) ")
+        printBlock(tBody, openLine = false)
+        fBody match {
+          case None => printer.newLine()
+          case Some(fBody) =>
+            printBlock(fBody, openLine = true)
+        }
+      case C.Statement.Eval(expr) =>
+        printer.println(s"${showExpr(expr)};")
+      case C.Statement.AssignVar(d, expr) =>
+        val name = d.getSym.name
+        printer.println(s"$name = ${showExpr(expr)};")
+      case C.Statement.AssignMember(d, designator, expr) =>
+        val name = d.getSym.name
+        printer.println(s"$name.${designator.name} = ${showExpr(expr)};")
+      case C.Statement.Def(C.VariableDef(sym, tp, expr)) =>
+        val name = sym.name
+        cType.print(tp)
+        printer.print(s" $name")
+        expr match {
+          case None =>
+          case Some(expr) =>
+            printer.print(s" = ${showExpr(expr)}")
+        }
+        printer.println(";")
+    }
   }
 }
