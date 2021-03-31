@@ -319,7 +319,7 @@ class CodeGen {
       val cParams: List[C.FuncParam] = lambda.params map { sym => genLambdaParam(sym.dealias) }
       
       // compute escaped variables
-      val escaped: List[Symbol[tpd.LocalDefBind]] = escapedVars(expr.freeNames)
+      val escaped: List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = escapedVars(expr.freeNames)
 
       escaped match {
         case Nil =>
@@ -336,7 +336,10 @@ class CodeGen {
           bd.SimpleFuncBundle(identExpr, funcDef)
         case escaped =>
           val envMembers = escaped map { sym =>
-            sym.name -> genType(sym.dealias.tpe).getTp
+            sym.name -> genType(sym.dealias match {
+              case p : FS.LambdaParam => p.tpe
+              case p : tpd.LocalDefBind => p.tpe
+            }).getTp
           }
           val funcEnv = createClosureEnv(envMembers, funcName)
           
@@ -344,18 +347,28 @@ class CodeGen {
             val (tempVar, varBlock) = defn.localVariable(freshVarName, funcEnv.tp)
             
             val assignBlock = escaped map { sym =>
-              val tptBind: tpd.LocalDefBind = sym.dealias
-              tptBind.code match {
-                case bd.NoCode =>
-                  throw CodeGenError(s"code $tptBind has not been generated; can not forward-reference")
-                case bd : bd.VariableBundle =>
-                  val name = tptBind.tree.sym.name
+              sym.dealias match {
+                case lambdaParam : FS.LambdaParam =>
+                  val name = lambdaParam.sym.name
                   val cMember = funcEnv.members find { m => m.sym.name == name } match {
                     case None =>
                       assert(false, "escaped variable should be found in closure env")
                     case Some(x) => x
                   }
-                  defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
+                  defn.assignMember(tempVar.dealias, cMember.sym, lambdaParam.code.asInstanceOf[bd.PureExprBundle].expr)
+                case tptBind : tpd.LocalDefBind =>
+                  tptBind.code match {
+                    case bd.NoCode =>
+                      throw CodeGenError(s"code $tptBind has not been generated; can not forward-reference")
+                    case bd : bd.VariableBundle =>
+                      val name = tptBind.tree.sym.name
+                      val cMember = funcEnv.members find { m => m.sym.name == name } match {
+                        case None =>
+                          assert(false, "escaped variable should be found in closure env")
+                        case Some(x) => x
+                      }
+                      defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
+                  }
               }
             }
             
@@ -425,15 +438,16 @@ class CodeGen {
     memberDefs = env
   )
   
-  def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind]] = {
+  def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = {
     def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind]]): List[Symbol[tpd.LocalDefBind]] = xs match {
-      case Nil => Nil
+      case Nil => acc
       case x :: xs => x.dealias match {
         case tpt : FS.Typed[_] => tpt.tree match {
           case localDef: FS.LocalDef.Bind[_] if !localDef.isLambdaBind =>
             recur(xs, x.asInstanceOf :: acc)
           case _ => recur(xs, acc)
         }
+        case lambdaParam: FS.LambdaParam => recur(xs, x.asInstanceOf :: acc)
         case _ => recur(xs, acc)
       }
     }
@@ -446,5 +460,5 @@ class CodeGen {
 object CodeGen {
 
   case class CodeGenError(msg: String) extends Exception(s"Code generation error: $msg")
-  
+
 }
