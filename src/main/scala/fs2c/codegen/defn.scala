@@ -12,8 +12,8 @@ object defn {
 
   /** Generate a local variable definition with type `tp` and `name`.
     */
-  def localVariable(name: String, tp: C.Type): (Symbol[C.VariableDef], C.Block) = {
-    val d: C.VariableDef = name :: tp
+  def localVariable(name: String, tp: C.Type, expr: Option[C.Expr] = None): (Symbol[C.VariableDef], C.Block) = {
+    val d: C.VariableDef = C.VariableDef.makeVariableDef(name, tp, expr)
     val block = List(C.Statement.Def(d))
     
     (d.sym, block)

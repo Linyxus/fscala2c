@@ -227,9 +227,9 @@ object Trees {
   }
 
   object VariableDef {
-    def makeVariableDef(name: String, tp: Type): VariableDef = {
+    def makeVariableDef(name: String, tp: Type, expr: Option[Expr] = None): VariableDef = {
       val sym: Symbol[VariableDef] = Symbol(name, null)
-      val d = VariableDef(sym, tp)
+      val d = VariableDef(sym, tp, expr)
       sym.dealias = d
       d
     }
