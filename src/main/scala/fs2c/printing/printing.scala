@@ -156,6 +156,12 @@ object printing {
             s"sizeof(${tp.show})"
         }
         case C.GroundFunc(name, _) => name
+        case C.CoercionExpr(tp, expr) =>
+          s"(${tp.show}) ${showExpr(expr)}" match {
+            case s =>
+              if currentLevel == -1 then s
+              else s"($s)"
+          }
       }
 
       go(expr, -1)
@@ -266,7 +272,7 @@ object printing {
       case C.Statement.AssignMember(d, designator, expr) =>
         val name = d.getSym.name
         printer.println(s"$name->${designator.name} = ${showExpr(expr)};")
-      case C.Statement.Def(C.VariableDef(sym, tp, expr)) =>
+      case C.Statement.Def(C.VariableDef(sym, tp, expr, _)) =>
         val name = sym.name
         cType.print(tp)
         printer.print(s" $name")
