@@ -1,5 +1,6 @@
 package fs2c.ast.c
 
+import fs2c.codegen.{ CodeBundles => bd }
 import fs2c.ast.Symbol
 import Symbol._
 
@@ -124,6 +125,8 @@ object Trees {
   case class IdentifierExpr[T](sym: Symbol[T]) extends Expr
   
   case class SelectExpr(expr: Expr, designator: Symbol[StructMember]) extends Expr
+  
+  case class CoercionExpr(tp: Type, expr: Expr) extends Expr
 
   /** Definitions in the C language.
     */
@@ -218,7 +221,7 @@ object Trees {
     }
   }
 
-  case class VariableDef(sym: Symbol[VariableDef], tp: Type, expr: Option[Expr] = None) extends Binding {
+  case class VariableDef(sym: Symbol[VariableDef], tp: Type, expr: Option[Expr] = None, var associatedBundle: Option[bd.ValueBundle] = None) extends Binding {
     override type ThisType = VariableDef
 
     override def getSym = sym
