@@ -9,7 +9,7 @@ class CodeGenContext {
   /** All generated C definitions.
     */
   var generatedDefs: List[C.Definition] = Nil
-  
+
   /** Cache for all generated type alias for C function type.
     */
   var genFuncCache: Map[C.FuncType, C.TypeAliasDef] = Map.empty
@@ -81,5 +81,14 @@ class CodeGenContext {
     myClosureEnv = origEnv
     
     res
+  }
+  
+  private var myIncluded: List[String] = Nil
+  
+  def included: List[String] = myIncluded
+  
+  def addHeaders(files: List[String]): Unit = {
+    myIncluded = myIncluded ++ files
+    myIncluded = myIncluded.distinct
   }
 }

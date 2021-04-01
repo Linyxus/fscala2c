@@ -44,6 +44,19 @@ class CodeGen {
     d
   }
 
+  /** Declare the usage of a ground function by adding its headers into included header list.
+    * 
+    * @param func The ground function to use.
+    * @return The used ground function, returned as it is.
+    */
+  def useGroundFunc(func: C.GroundFunc): C.GroundFunc = {
+    val includes = func.header
+    ctx.addHeaders(includes)
+    func
+  }
+  
+  def useMalloc: C.GroundFunc = useGroundFunc(defn.GroundFuncs.malloc)
+
   /** Make a structure definition.
     * 
     * @param name The struct name.
