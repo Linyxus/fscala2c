@@ -35,20 +35,23 @@ class CodeGenContext {
   
   /** Closure-conversion */
   protected var myClosureEnvParam: C.FuncParam = null
+  protected var myClosureEnvVar: C.VariableDef = null
   protected var myClosureEnv: Map[Symbol[_], Symbol[C.StructMember]] = Map.empty
-  
+
   def hasClosureEnv: Boolean = myClosureEnv ne null
   
   def getClosureEnvParam: C.FuncParam = { 
     assert(myClosureEnvParam ne null, "current closure should not be null")
     myClosureEnvParam
   }
+  
+  def setClosureEnvVar(envVar: C.VariableDef): Unit = myClosureEnvVar = envVar
 
   def refClosureEnv(sym: Symbol[_]): Option[C.Expr] =
     if !hasClosureEnv then
       None
     else myClosureEnv get sym map { sym =>
-      C.SelectExpr(C.IdentifierExpr(myClosureEnvParam.sym), sym)
+      C.SelectExpr(C.IdentifierExpr(myClosureEnvVar.sym), sym)
     }
     
   private def initClosure(origSyms: List[Symbol[_]], closureEnv: C.StructDef): (C.FuncParam, Map[Symbol[_], Symbol[C.StructMember]]) = {
@@ -64,7 +67,7 @@ class CodeGenContext {
         }
       }
     }
-    val param = C.FuncParam.makeFuncParam("func_env", C.StructType(closureEnv.sym))
+    val param = C.FuncParam.makeFuncParam("func_env", defn.VoidPointer)
     
     (param, env)
   }
