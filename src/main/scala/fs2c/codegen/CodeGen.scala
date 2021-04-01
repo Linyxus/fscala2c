@@ -44,6 +44,19 @@ class CodeGen {
     d
   }
 
+  def localAllocDef(name: String, tp: C.StructType): (Symbol[C.VariableDef], C.Block) = {
+    val expr = useMalloc $$ C.SizeOf(tp)
+    
+    defn.localVariable(name, tp, Some(expr))
+  }
+  
+  def maybeAllocLocalDef(name: String, tp: C.Type): (Symbol[C.VariableDef], C.Block) = {
+    tp match {
+      case tp: C.StructType => localAllocDef(name, tp)
+      case tp => defn.localVariable(name, tp)
+    }
+  }
+
   /** Declare the usage of a ground function by adding its headers into included header list.
     * 
     * @param func The ground function to use.
@@ -400,7 +413,7 @@ class CodeGen {
           val funcEnv = createClosureEnv(envMembers, funcName)
           
           def initClosureEnv: (C.Expr, C.Block) = {
-            val (tempVar, varBlock) = defn.localVariable(freshVarName, funcEnv.tp)
+            val (tempVar, varBlock) = maybeAllocLocalDef(freshVarName, funcEnv.tp)
             
             val assignBlock = escaped map { sym =>
               sym.dealias match {
@@ -434,7 +447,7 @@ class CodeGen {
           def initClosure(func: C.Expr, env: C.Expr): (C.Expr, C.Block) = {
             val closureDef: C.StructDef = stdLib.FuncClosure.load
             
-            val (tempVar, varDef) = defn.localVariable(s"${funcName}_closure", closureDef.tp)
+            val (tempVar, varDef) = maybeAllocLocalDef(s"${funcName}_closure", closureDef.tp)
             
             val block = varDef ++ List(
               defn.assignMember(tempVar.dealias, closureDef.ensureFind("func").sym, func),
