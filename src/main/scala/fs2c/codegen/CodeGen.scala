@@ -46,10 +46,10 @@ class CodeGen {
 
   def localAllocDef(name: String, tp: C.StructType): (Symbol[C.VariableDef], C.Block) = {
     val expr = useMalloc $$ C.SizeOf(tp)
-    
+
     defn.localVariable(name, tp, Some(expr))
   }
-  
+
   def maybeAllocLocalDef(name: String, tp: C.Type): (Symbol[C.VariableDef], C.Block) = {
     tp match {
       case tp: C.StructType => localAllocDef(name, tp)
@@ -136,7 +136,7 @@ class CodeGen {
     val tps = paramTypes map { t => genType(t, None).getTp }
     val vTp = genType(valueType, None).getTp
     
-    val d: C.TypeAliasDef = maybeAliasFuncType(defn.funcType(tps, vTp), name)
+    val d: C.TypeAliasDef = maybeAliasFuncType(defn.funcType(defn.VoidPointer :: tps, vTp), name)
     
     bd.AliasTypeBundle(C.AliasType(d.sym), d)
   }
@@ -169,6 +169,7 @@ class CodeGen {
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
     case _ : FS.BlockExpr[FS.Typed] => genBlockExpr(expr.asInstanceOf)
     case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf, lambdaName = lambdaName)
+    case _ : FS.ApplyExpr[FS.Typed] => genApplyExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
@@ -318,6 +319,8 @@ class CodeGen {
           val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe, lambdaValueType = true).getTp)
 
           val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
+          
+          varDef.dealias.associatedBundle = Some(bundle)
 
           bd.VariableBundle(
             varDef = varDef.dealias,
@@ -366,6 +369,37 @@ class CodeGen {
         block = block1 ++ exprBundle.getBlock
       )
     }
+  }
+  
+  def genApplyExpr(expr: tpd.ApplyExpr): bd.ValueBundle = expr.assignCode {
+    case apply: FS.ApplyExpr[FS.Typed] =>
+      def extractFunc(expr: tpd.Expr): bd.ClosureBundle = ???
+      
+      val funcBundle: bd.ValueBundle = genExpr(apply.func)
+      val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
+      
+      val funcExpr = funcBundle.getExpr
+      val funcBlock = funcBundle.getBlock
+      val argBlock = argsBundle flatMap { b => b.getBlock }
+      val argExpr = argsBundle map (_.getExpr)
+      
+      val selectFunc = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("func").sym)
+      val selectEnv = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("env").sym)
+      
+      val funcType: FST.LambdaType = apply.func.tpe match {
+        case tp: FST.LambdaType => tp
+        case _ => assert(false, "can not apply a non-lambda expr, this is cause by a bug in typer")
+      }
+      
+      val cFuncType = genLambdaType(funcType.paramTypes, funcType.valueType, None).tpe
+      val func = C.CoercionExpr(cFuncType, selectFunc)
+      
+      val callExpr = C.CallFunc(func, params = selectEnv :: argExpr)
+      
+      bd.BlockBundle(
+        expr = callExpr,
+        block = funcBlock ++ argBlock
+      )
   }
 
   /** Generate code for lambda expressions. It will create a closure to lift a lambda expression with local references
@@ -460,13 +494,19 @@ class CodeGen {
           val (funcExpr, funcDef) = ctx.inClosure(escaped, funcEnv) {
             // get the final function param
             val cParams2 = ctx.getClosureEnvParam :: cParams
+            val (envVar, tpEnvDef) = defn.localVariable(
+              "my_env",
+              C.StructType(funcEnv.sym),
+              Some(C.IdentifierExpr(ctx.getClosureEnvParam.sym))
+            )
+            ctx.setClosureEnvVar(envVar.dealias)
             val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
             val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
             val funcDef = makeFuncDef(
               funcName,
               cValueType,
               cParams2,
-              block
+              tpEnvDef ++ block
             )
             
             val identExpr = C.IdentifierExpr(funcDef.sym)
