@@ -442,7 +442,7 @@ class CodeGen {
             sym.name -> genType(sym.dealias match {
               case p : FS.LambdaParam => p.tpe
               case p : tpd.LocalDefBind => p.tpe
-            }).getTp
+            }, lambdaValueType = true).getTp
           }
           val funcEnv = createClosureEnv(envMembers, funcName)
           
@@ -561,7 +561,7 @@ class CodeGen {
       case Nil => acc
       case x :: xs => x.dealias match {
         case tpt : FS.Typed[_] => tpt.tree match {
-          case localDef: FS.LocalDef.Bind[_] if !localDef.isLambdaBind =>
+          case localDef: FS.LocalDef.Bind[_] =>
             recur(xs, x.asInstanceOf :: acc)
           case _ => recur(xs, acc)
         }
