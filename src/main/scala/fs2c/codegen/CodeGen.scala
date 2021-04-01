@@ -94,7 +94,7 @@ class CodeGen {
     *                  See [[CodeGen.genLambdaType]].
     * @return Generated C code bundle for the given type.
     */
-  def genType(tp: FST.Type, aliasName: Option[String] = None): bd.TypeBundle = tp.assignCode {
+  def genType(tp: FST.Type, aliasName: Option[String] = None, lambdaValueType: Boolean = false): bd.TypeBundle = tp.assignCode {
     tp match {
       case FST.GroundType.IntType => bd.SimpleTypeBundle {
         C.BaseType.IntType
@@ -105,8 +105,14 @@ class CodeGen {
       case FST.GroundType.BooleanType => bd.SimpleTypeBundle {
         C.BaseType.IntType
       }
+      case _ : FST.LambdaType if lambdaValueType => lambdaClosureType
       case FST.LambdaType(paramTypes, valueType) => genLambdaType(paramTypes, valueType, aliasName)
     }
+  }
+  
+  def lambdaClosureType: bd.SimpleTypeBundle = {
+    val structDef = stdLib.FuncClosure.load
+    bd.SimpleTypeBundle { C.StructType(structDef.sym) }
   }
 
   /** Generate C code bundle for a LambdaType in Scala.
@@ -296,7 +302,7 @@ class CodeGen {
 
           val bundle: bd.ValueBundle = genExpr(bind.body, lambdaName = Some(name + "_lambda"))
 
-          val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe).getTp)
+          val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe, lambdaValueType = true).getTp)
 
           val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
 
@@ -363,7 +369,7 @@ class CodeGen {
       // generate function return type
       val lambdaType: FST.LambdaType = expr.tpe.asInstanceOf
       val valueType = lambdaType.valueType
-      val cValueType: C.Type = genType(valueType).getTp
+      val cValueType: C.Type = genType(valueType, lambdaValueType = true).getTp
 
       // generate parameter definitions
       val cParams: List[C.FuncParam] = lambda.params map { sym => genLambdaParam(sym.dealias) }
@@ -372,7 +378,7 @@ class CodeGen {
       val escaped: List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = escapedVars(expr.freeNames)
 
       escaped match {
-        case Nil =>
+        case Nil if false =>
           val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
           val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
           val funcDef = makeFuncDef(
@@ -475,7 +481,7 @@ class CodeGen {
     */
   def genLambdaParam(param: FS.LambdaParam): C.FuncParam = {
     val res = param match { case FS.LambdaParam(sym, tp, _) =>
-      val cTp: C.Type = genType(tp).getTp
+      val cTp: C.Type = genType(tp, lambdaValueType = true).getTp
       
       val res = C.FuncParam(Symbol(sym.name, null), cTp)
       res.sym.dealias = res
