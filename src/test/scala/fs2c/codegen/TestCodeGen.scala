@@ -112,8 +112,8 @@ class TestCodeGen {
         |    val adder = (x : Int) => x + n
         |    adder
         |  }
-        |  
-        |  makeAdder
+        |  val addOne = makeAdder(1)
+        |  addOne
         |}
         |""".stripMargin)
     val (expr, defs) = genExprAndDef(e)
@@ -163,6 +163,22 @@ class TestCodeGen {
       """() => (x : Int, y : Int) => {
         |  val mult = (a : Int, b : Int) => 2 * a * b
         |  mult
+        |}
+        |""".stripMargin)
+    val (_, defs) = genExprAndDef(e)
+    defs.reverse foreach { d => d.show }
+  }
+  
+  @Test def printLambdaRelated: Unit = {
+    val e = typedString(
+      """
+        |{
+        |  val main = () => {
+        |    val apply = (func : Int => Int, i : Int) => func(i)
+        |    val sq = (i : Int) => i * i
+        |    apply(sq, 10)
+        |  }
+        |  0
         |}
         |""".stripMargin)
     val (_, defs) = genExprAndDef(e)
