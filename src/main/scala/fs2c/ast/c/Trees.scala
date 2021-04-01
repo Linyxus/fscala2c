@@ -122,16 +122,32 @@ object Trees {
     override def toString: String = s"$value"
   }
 
+  /** Identifier expression referring a C [[Symbol]].
+    */
   case class IdentifierExpr[T](sym: Symbol[T]) extends Expr
-  
+
+  /** Select expression that selects a member from a C struct.
+    * 
+    * @param expr The expression to be selected.
+    * @param designator The symbol of the member to select.
+    */
   case class SelectExpr(expr: Expr, designator: Symbol[StructMember]) extends Expr
-  
+
+  /** Coercion expression in C.
+    */
   case class CoercionExpr(tp: Type, expr: Expr) extends Expr
 
   /** Definitions in the C language.
     */
   trait Definition
 
+  /** Function definition in C.
+    * 
+    * @param sym The bound symbol of the function.
+    * @param _retType
+    * @param params
+    * @param block
+    */
   case class FuncDef(sym: Symbol[FuncDef], _retType: Type, params: List[FuncParam], block: Block) extends Definition, Func
   
   object FuncDef {
