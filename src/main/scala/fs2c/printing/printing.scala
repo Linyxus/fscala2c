@@ -50,6 +50,8 @@ object printing {
       }
     }
     
+    def showPlainStructType(t: C.StructType): String = s"struct ${t.structSym.name}"
+    
     val structType: Printing[C.StructType] = new Printing[C.StructType] {
       def print(t: C.StructType)(using printer: Printer) = {
         val str = s"struct ${t.structSym.name} *"
@@ -147,6 +149,13 @@ object printing {
         case C.BoolExpr(value) =>
           if value then "1" else "0"
         case C.FloatExpr(value) => value.toString
+        case C.SizeOf(tp) => tp match {
+          case tp: C.StructType =>
+            s"sizeof(${showPlainStructType(tp)})"
+          case tp =>
+            s"sizeof(${tp.show})"
+        }
+        case C.GroundFunc(name, _) => name
       }
 
       go(expr, -1)
@@ -256,7 +265,7 @@ object printing {
         printer.println(s"$name = ${showExpr(expr)};")
       case C.Statement.AssignMember(d, designator, expr) =>
         val name = d.getSym.name
-        printer.println(s"$name.${designator.name} = ${showExpr(expr)};")
+        printer.println(s"$name->${designator.name} = ${showExpr(expr)};")
       case C.Statement.Def(C.VariableDef(sym, tp, expr)) =>
         val name = sym.name
         cType.print(tp)
