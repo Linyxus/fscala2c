@@ -314,18 +314,31 @@ class CodeGen {
             case _ => maybeMangleName(bind.sym.name)
           }
 
-          val bundle: bd.ValueBundle = genExpr(bind.body, lambdaName = Some(name + "_lambda"))
+          genExpr(bind.body, lambdaName = Some(name + "_lambda")) match {
+            case bundle: bd.ClosureBundle =>
+              val (varDef, varBlock) =
+                defn.localVariable(
+                  name = name,
+                  tp = genType(localDef.tpe, lambdaValueType = true).getTp,
+                  expr = Some(bundle.getExpr)
+                )
 
-          val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe, lambdaValueType = true).getTp)
+              bd.VariableBundle(
+                varDef = varDef.dealias,
+                block = bundle.getBlock ++ varBlock
+              )
+            case bundle =>
+              val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe, lambdaValueType = true).getTp)
 
-          val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
+              val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
 
-          varDef.dealias.associatedBundle = Some(bundle)
+              varDef.dealias.associatedBundle = Some(bundle)
 
-          bd.VariableBundle(
-            varDef = varDef.dealias,
-            block = (bundle.getBlock ++ varBlock) :+ assignStmt
-          )
+              bd.VariableBundle(
+                varDef = varDef.dealias,
+                block = (bundle.getBlock ++ varBlock) :+ assignStmt
+              )
+          }
         case eval : FS.LocalDef.Eval[FS.Typed] =>
           genExpr(eval.expr)
         case assign : FS.LocalDef.Assign[FS.Typed] =>
