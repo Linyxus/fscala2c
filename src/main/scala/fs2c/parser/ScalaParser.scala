@@ -296,7 +296,37 @@ class ScalaParser {
     block
   }
 
-  def localDef: Parser[untpd.LocalDef] = localDefBind | localDefAssign | localDefEval
+  def localDef: Parser[untpd.LocalDef] = localDefBind | localDefAssign | localDefEval | localDefDef
+
+  def localDefDef: Parser[untpd.LocalDef] = {
+    val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
+    ("def" ~ identifier ~ param.sepBy(",").wrappedBy("(", ")") ~ "=" ~ exprParser) <| { case _ ~ name ~ params ~ _ ~ body =>
+      val funcName = name match {
+        case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name
+      }
+      scopeCtx.locateScope()
+      val funcParams = params map {
+        case (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(name)), tp) =>
+          if scopeCtx.findSymHere(name).isDefined then
+            throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
+          else {
+            val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(name, null), tp)
+            lambdaParam.sym.dealias = lambdaParam
+            scopeCtx.addSymbol(lambdaParam.sym)
+            lambdaParam.sym
+          }
+      }
+      val lambda = Untyped(Trees.LambdaExpr(funcParams, None, body))
+      if scopeCtx.findSym(funcName).isDefined then
+        throw SyntaxError(Some(name), s"duplicated value name in local definition: $funcName")
+      else {
+        val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(funcName, null), false, None, lambda))
+        bind.tree.sym.dealias = bind
+        scopeCtx.addSymbol(bind.tree.sym)
+        bind
+      }
+    }
+  }
 
   def localDefBind: Parser[untpd.LocalDef] = {
     val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }

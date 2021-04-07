@@ -176,7 +176,37 @@ class TestScalaParser {
     
     tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
   }
-  
+
+  @Test def localDefDef: Unit = {
+    val tests = List(
+      """{
+        |  val x = 1
+        |  def addX(n: Int) = x + n
+        |
+        |  addX(x * 2)
+        |}
+        |""".stripMargin,
+      """{
+        |  def odd(n: Int) =
+        |    if n == 0 then
+        |      false
+        |    else
+        |      !even(n - 1)
+        |
+        |  def even(n: Int) =
+        |    if n == 0 then
+        |      true
+        |    else
+        |      !odd(n - 1)
+        |
+        |  even(2) && !odd(2)
+        |}
+        |""".stripMargin,
+    )
+
+    tests foreach { x => assertParseSuccess((new ScalaParser).exprParser, x) }
+  }
+
   @Test def main: Unit = {
     val tests = List(
       """class Foo {
