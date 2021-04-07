@@ -208,4 +208,24 @@ class TestCodeGen {
     val (_, defs) = genExprAndDef(e)
     defs.reverse foreach { d => println(d.show) }
   }
+
+  @Test def printLambdaRec2: Unit = {
+    val e = typedString(
+      """
+        |{
+        |  val main = () => {
+        |    def sum(n : Int) =
+        |      if n == 0 then
+        |        0
+        |      else
+        |        n + sum(n - 1)
+        |
+        |    sum(10)
+        |  }
+        |  0
+        |}
+        |""".stripMargin)
+    val (_, defs) = genExprAndDef(e)
+    defs.reverse foreach { d => println(d.show) }
+  }
 }
