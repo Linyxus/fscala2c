@@ -132,7 +132,7 @@ class CodeGen {
     */
   def genLambdaType(paramTypes: List[FST.Type], valueType: FST.Type, aliasName: Option[String]): bd.AliasTypeBundle = {
     val name = aliasName getOrElse freshAnonFuncTypeName
-    
+
     val tps = paramTypes map { t => genType(t, None).getTp }
     val vTp = genType(valueType, None).getTp
     
@@ -319,7 +319,7 @@ class CodeGen {
           val (varDef, varBlock) = defn.localVariable(name, genType(localDef.tpe, lambdaValueType = true).getTp)
 
           val assignStmt = defn.assignVar(varDef.dealias, bundle.getExpr)
-          
+
           varDef.dealias.associatedBundle = Some(bundle)
 
           bd.VariableBundle(
@@ -370,32 +370,32 @@ class CodeGen {
       )
     }
   }
-  
+
   def genApplyExpr(expr: tpd.ApplyExpr): bd.ValueBundle = expr.assignCode {
     case apply: FS.ApplyExpr[FS.Typed] =>
       def extractFunc(expr: tpd.Expr): bd.ClosureBundle = ???
-      
+
       val funcBundle: bd.ValueBundle = genExpr(apply.func)
       val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
-      
+
       val funcExpr = funcBundle.getExpr
       val funcBlock = funcBundle.getBlock
       val argBlock = argsBundle flatMap { b => b.getBlock }
       val argExpr = argsBundle map (_.getExpr)
-      
+
       val selectFunc = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("func").sym)
       val selectEnv = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("env").sym)
-      
+
       val funcType: FST.LambdaType = apply.func.tpe match {
         case tp: FST.LambdaType => tp
         case _ => assert(false, "can not apply a non-lambda expr, this is cause by a bug in typer")
       }
-      
+
       val cFuncType = genLambdaType(funcType.paramTypes, funcType.valueType, None).tpe
       val func = C.CoercionExpr(cFuncType, selectFunc)
-      
+
       val callExpr = C.CallFunc(func, params = selectEnv :: argExpr)
-      
+
       bd.BlockBundle(
         expr = callExpr,
         block = funcBlock ++ argBlock
@@ -471,6 +471,14 @@ class CodeGen {
                         case Some(x) => x
                       }
                       defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
+                    case bd : bd.RecBundle[_] =>
+                      val name = tptBind.tree.sym.name
+                      val cMember = funcEnv.members find { m => m.sym.name == name } match {
+                        case None =>
+                          assert(false, "escaped variable should be found in closure env")
+                        case Some(x) => x
+                      }
+                      defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.sym))
                   }
               }
             }

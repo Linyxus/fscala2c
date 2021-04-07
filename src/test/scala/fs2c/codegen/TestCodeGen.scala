@@ -184,4 +184,28 @@ class TestCodeGen {
     val (_, defs) = genExprAndDef(e)
     defs.reverse foreach { d => d.show }
   }
+  
+  @Test def printLambdaRec: Unit = {
+    val e = typedString(
+      """
+        |{
+        |  val main = () => {
+        |    val odd = (n : Int) =>
+        |      if n == 0 then
+        |        false
+        |      else
+        |        even(n - 1)
+        |    val even = (n : Int) =>
+        |      if n == 0 then
+        |        true
+        |      else
+        |        odd(n - 1)
+        |    even(0)
+        |  }
+        |  0
+        |}
+        |""".stripMargin)
+    val (_, defs) = genExprAndDef(e)
+    defs.reverse foreach { d => println(d.show) }
+  }
 }
