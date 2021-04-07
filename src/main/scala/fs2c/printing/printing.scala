@@ -216,7 +216,7 @@ object printing {
           case C.FuncType(retType, paramTypes) =>
             cType.print(retType)
             printer.print(" ")
-            printer.inParen { printer.print(s"$name *") }
+            printer.inParen { printer.print(s"* $name") }
             printer.inParen { printer.printSepBy(paramTypes) { tp => cType.print(tp) } }
             printer.println(";")
           case tp =>
@@ -262,6 +262,7 @@ object printing {
         fBody match {
           case None => printer.newLine()
           case Some(fBody) =>
+            printer.print(" else ")
             printBlock(fBody, openLine = true)
         }
       case C.Statement.Eval(expr) =>
