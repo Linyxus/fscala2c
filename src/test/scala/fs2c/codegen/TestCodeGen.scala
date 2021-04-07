@@ -190,12 +190,12 @@ class TestCodeGen {
       """
         |{
         |  val main = () => {
-        |    val odd = (n : Int) =>
+        |    def odd(n : Int) =
         |      if n == 0 then
         |        false
         |      else
         |        even(n - 1)
-        |    val even = (n : Int) =>
+        |    def even(n : Int) =
         |      if n == 0 then
         |        true
         |      else
