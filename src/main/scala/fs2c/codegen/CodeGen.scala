@@ -363,10 +363,16 @@ class CodeGen {
 
       // translate the final expression
       val exprBundle: bd.ValueBundle = genExpr(blockExpr.expr)
+      
+      val (defBlock, otherBlock) =
+        ((block1 ++ exprBundle.getBlock).groupBy {
+          case _: C.Statement.Def => true
+          case _ => false
+        }) match { case m => (m(true), m(false)) }
 
       bd.BlockBundle(
         expr = exprBundle.getExpr,
-        block = block1 ++ exprBundle.getBlock
+        block = defBlock ++ otherBlock
       )
     }
   }
