@@ -169,6 +169,7 @@ class CodeGen {
     * @return
     */
   def genClassDef(clsDef: tpd.ClassDef): bd.ClassBundle = clsDef assignCode { case FS.ClassDef(sym, params, _, members) =>
+    clsDef.assignCode { _ => bd.ClassRecBundle(Symbol(sym.name + "_struct", null), null) }
     val structDef = genClassStructDef(sym, members)
     clsDef assignCode { _ => bd.ClassRecBundle(structDef.sym, Symbol("init_" + clsDef.tree.sym.name, null)) }
 
