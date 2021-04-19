@@ -2,7 +2,9 @@ package fs2c
 
 import fs2c.io.ScalaSource
 import fs2c.ast.fs.Trees.{tpd, untpd}
-
+import fs2c.typer.Types
+import fs2c.ast.c.{Trees => C}
+import fs2c.codegen.{CodeGen, CodePrinter, CodeBundles => bd}
 import parser.ScalaParser
 import typer.Typer
 
@@ -33,8 +35,52 @@ class Compiler {
   
   def typedFile(path: String): List[tpd.ClassDef] =
     typedClassDefs(parseFile(path))
+
+  def genClassDefs(defs: List[tpd.ClassDef]): (List[C.Definition], List[String]) = {
+    val foundMain = defs.find { d =>
+      val clsDef = d.tree
+      clsDef.sym.name == "Main" && { clsDef.params.isEmpty } && {
+        clsDef.members exists { m =>
+          m.tree.sym.name == "main" && {
+            m.tree.body.tpe match {
+              case Types.LambdaType(Nil, _) => true
+              case _ => false
+            }
+          }
+        }
+      }
+    }
+
+    foundMain match {
+      case None =>
+        throw Compiler.CompileError(s"can not extract Main.main method")
+      case Some(mainClass) =>
+        val codegen = new CodeGen
+        defs foreach { d => codegen.genClassDef(d) }
+        mainClass.code match {
+          case bundle: bd.ClassBundle =>
+            val structDef = bundle.structDef
+            codegen.makeMainFunc(structDef, bundle.initDef, {
+              val mainFunc = mainClass.tree.members find { m => m.tree.sym.name == "main" }
+              mainFunc.get.tpe match {
+                case t: Types.LambdaType => t
+                case _ => assert(false, "main function should be a lambda")
+              }
+            })
+            (codegen.ctx.generatedDefs.reverse, codegen.ctx.included)
+          case _ =>
+            assert(false, "code not generated for main class")
+        }
+    }
+  }
+
+  def outputCode(ds: List[C.Definition], included: List[String]): String = {
+    val printer = new CodePrinter(ds, included)
+    printer.sourceContent
+  }
 }
 
 object Compiler {
   case class ParseError(errMsg: String) extends Exception(errMsg)
+  case class CompileError(errMsg: String) extends Exception(errMsg)
 }

@@ -100,6 +100,25 @@ class CodeGen {
     C.FuncDef.makeFuncDef(name, valueType, params, body)
   }
 
+  def makeMainFunc(mainStruct: C.StructDef, initFunc: C.FuncDef, mainFuncType: FST.LambdaType): C.FuncDef =
+    makeFuncDef(
+      "main", C.BaseType.IntType, Nil, {
+        val (localDef, localBlock) =
+          defn.localVariable("app", C.StructType(mainStruct.sym), Some(initFunc.$$()))
+        val app = C.IdentifierExpr(localDef)
+        val mem = mainStruct.ensureFind("main")
+        val funcExpr = C.SelectExpr(app, mem.sym)
+        val cFuncType = genType(mainFuncType).getTp
+        val selectFunc = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("func").sym)
+        val selectEnv = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("env").sym)
+        val func = C.CoercionExpr(cFuncType, selectFunc)
+        val runAppMain = C.CallFunc(func, List(selectEnv))
+        val runStmt = C.Statement.Eval(runAppMain)
+        val retStmt = C.Statement.Return(Some(C.IntExpr(0)))
+        localBlock ++ List(runStmt, retStmt)
+      }
+    )
+
   /** Generate C type for Scala type.
     * 
     * @param tp The input Scala type.
@@ -536,7 +555,7 @@ class CodeGen {
         ((block1 ++ exprBundle.getBlock).groupBy {
           case _: C.Statement.Def => true
           case _ => false
-        }) match { case m => (m(true), m(false)) }
+        }) match { case m => (m.get(true).getOrElse(Nil), m.get(false).getOrElse(Nil)) }
 
       bd.BlockBundle(
         expr = exprBundle.getExpr,
