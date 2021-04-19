@@ -243,7 +243,6 @@ class TestCodeGen {
         |}
         |""".stripMargin)
     val (_, defs) = genExprAndDef(e)
-    defs.reverse foreach { d => println(d.show) }
   }
 
   @Test def printSimpleClass: Unit = {
@@ -262,6 +261,5 @@ class TestCodeGen {
     )
 
     val (_, ds) = genClassDef(d)
-    ds.reverse foreach { d => println(d.show) }
   }
 }
