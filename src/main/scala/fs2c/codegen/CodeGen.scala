@@ -120,6 +120,11 @@ class CodeGen {
       }
       case _ : FST.LambdaType if lambdaValueType => lambdaClosureType
       case FST.LambdaType(paramTypes, valueType) => genLambdaType(paramTypes, valueType, aliasName)
+      case clsDef: FS.ClassDef[FS.Typed] => clsDef.sym.dealias.code match {
+        case bundle: bd.ClassBundle => bd.SimpleTypeBundle(C.StructType(bundle.structDef.sym))
+        case bundle: bd.ClassRecBundle => bd.SimpleTypeBundle(C.StructType(bundle.structSym))
+      }
+      case tvar: FST.ClassTypeVariable => genType(tvar.classDef.tree)
     }
   }
   
@@ -164,7 +169,10 @@ class CodeGen {
     * @return
     */
   def genClassDef(clsDef: tpd.ClassDef): bd.ClassBundle = clsDef assignCode { case FS.ClassDef(sym, params, _, members) =>
-    ???
+    val structDef = genClassStructDef(sym, members)
+    clsDef assignCode { _ => bd.ClassRecBundle(structDef.sym, Symbol("init_" + clsDef.tree.sym.name, null)) }
+
+    bd.ClassBundle(structDef, genClassInit(sym, structDef, params, members))
   }
 
   def genClassStructDef(sym: Symbol[_], members: List[tpd.MemberDef]): C.StructDef = {
@@ -182,15 +190,51 @@ class CodeGen {
       m assignCode { m =>
         val name = m.sym.name
         val cMem = res.ensureFind(name)
-        bd.PureExprBundle(C.IdentifierExpr(cMem.sym))
+        bd.MemberBundle(cMem, res)
       }
     }
 
     res
   }
 
-  def genClassMethod(sym: Symbol[_],
-                     memberName: String, lambda: tpd.LambdaExpr,
+  def genClassInit(sym: Symbol[tpd.ClassDef],
+                   structDef: C.StructDef,
+                   params: List[Symbol[FS.LambdaParam]],
+                   members: List[tpd.MemberDef]): C.FuncDef = {
+    val (structValue, structBlock) =
+      defn.localVariable(mangle("res"), C.StructType(structDef.sym), Some(defn.allocStruct(structDef)))
+
+    val cParams: List[C.FuncParam] = params map { param =>
+      val p = param.dealias
+      val cp = genLambdaParam(p)
+      p.code = bd.PureExprBundle(C.IdentifierExpr(cp.sym))
+      cp
+    }
+
+    val initBlock = members flatMap { member =>
+      val memberName = member.tree match {
+        case member: FS.MemberDef[_] => member.sym.name
+      }
+      val bundle: bd.ValueBundle = member.tree match { case FS.MemberDef(sym, _, _, _, body) =>
+          body.tree match {
+            case lambda: FS.LambdaExpr[_] =>
+              genClassMethod(sym, body.asInstanceOf, structDef, C.IdentifierExpr(structValue))
+            case _ => genExpr(body)
+          }
+      }
+      val assign = defn.assignMember(structValue.dealias, structDef.ensureFind(memberName).sym, bundle.getExpr)
+
+      bundle.getBlock :+ assign
+    }
+
+    makeFuncDef(
+      "init_" + sym.name, C.StructType(structDef.sym),
+      cParams,
+      structBlock ++ initBlock :+ C.Statement.Return(Some(C.IdentifierExpr(structValue)))
+    )
+  }
+
+  def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr,
                      structDef: C.StructDef, structValue: C.IdentifierExpr[C.VariableDef]): bd.ClosureBundle = {
     val escaped = lambda.freeNames filter { sym =>
       sym.dealias match {
@@ -205,7 +249,11 @@ class CodeGen {
     // filter lambda free names
     lambda.freeNames = escaped
 
-    genLambdaExpr(lambda, lambdaName = Some(s"${sym.name}_${memberName}"), self = Some((structDef, structValue))).asInstanceOf
+    genLambdaExpr(
+      lambda,
+      lambdaName = Some(s"${structDef.sym.name}_${sym.name}"),
+      self = Some((structDef, structValue))
+    )
   }
 
   /** Generate C code for Scala expressions.
@@ -266,6 +314,11 @@ class CodeGen {
           case tpt : FS.Typed[_] => tpt.code match {
             case bundle : bd.VariableBundle =>
               bd.PureExprBundle(C.IdentifierExpr(bundle.varDef.sym))
+            case bundle : bd.MemberBundle =>
+              ctx.refClosureSelf(bundle.memberDef.sym) match {
+                case None => assert(false, "referencing a class member, but do not have self in context")
+                case Some(expr) => bd.PureExprBundle(expr)
+              }
             case _ =>
               throw CodeGenError(s"unsupported referenced typed tree: $tpt with generated code ${tpt.code}")
           }
@@ -479,7 +532,7 @@ class CodeGen {
     * @return
     */
   def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None,
-                    self: Option[(C.StructDef, C.IdentifierExpr[C.VariableDef])] = None): bd.ValueBundle = expr.assignCode {
+                    self: Option[(C.StructDef, C.IdentifierExpr[C.VariableDef])] = None): bd.ClosureBundle = expr.assignCode {
     case lambda : FS.LambdaExpr[FS.Typed] =>
       val funcName = lambdaName getOrElse freshAnonFuncName
 
@@ -507,6 +560,7 @@ class CodeGen {
           val identExpr = C.IdentifierExpr(funcDef.sym)
 
           bd.SimpleFuncBundle(identExpr, funcDef)
+          ???
         case escaped =>
           var envMembers = escaped map { sym =>
             sym.name -> genType(sym.dealias match {
@@ -561,7 +615,7 @@ class CodeGen {
             val assignSelfBlock = self match {
               case None => Nil
               case Some((selfDef, self)) =>
-                List(defn.assignMember(self.sym.dealias, funcEnv.ensureFind(selfName).sym, self))
+                List(defn.assignMember(tempVar.dealias, funcEnv.ensureFind(selfName).sym, self))
             }
 
             C.IdentifierExpr(tempVar) -> (varBlock ++ assignBlock ++ assignSelfBlock)
@@ -653,7 +707,7 @@ class CodeGen {
   /** Compute escaped variables from a free name list.
     */
   def escapedVars(freeNames: List[Symbol[_]]): List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = {
-    def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind]]): List[Symbol[tpd.LocalDefBind]] = xs match {
+    def recur(xs: List[Symbol[_]], acc: List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]]): List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = xs match {
       case Nil => acc
       case x :: xs => x.dealias match {
         case tpt : FS.Typed[_] => tpt.tree match {
@@ -661,12 +715,16 @@ class CodeGen {
             recur(xs, x.asInstanceOf :: acc)
           case _ => recur(xs, acc)
         }
-        case lambdaParam: FS.LambdaParam => recur(xs, x.asInstanceOf :: acc)
-        case _ => recur(xs, acc)
+        case lambdaParam: FS.LambdaParam =>
+          val newAcc: List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = x.asInstanceOf :: acc
+          recur(xs, newAcc)
+        case _ =>
+          recur(xs, acc)
       }
     }
     
-    recur(freeNames, Nil).distinctBy(eq)
+    val res = recur(freeNames, Nil)
+    res.distinctBy(_.name)
   }
   
 }

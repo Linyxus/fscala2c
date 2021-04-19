@@ -79,11 +79,7 @@ class CodeGenContext {
     if !hasClosureSelf then
       None
     else {
-      val self = refClosureEnv(myClosureSelf) match {
-        case None =>
-          assert(false, "can not find self from closure env, but it should be found")
-        case Some(self) => self
-      }
+      val self = C.SelectExpr(C.IdentifierExpr(myClosureEnvVar.sym), myClosureSelf)
 
       Some(C.SelectExpr(self, myClosureSelfDef.ensureFind(sym.name).sym))
     }
@@ -97,13 +93,13 @@ class CodeGenContext {
   private def initClosure(origSyms: List[Symbol[_]], closureEnv: C.StructDef): (C.FuncParam, Map[Symbol[_], Symbol[C.StructMember]]) = {
     val origMapping: Map[String, Symbol[_]] = Map.from { origSyms map { sym => sym.name -> sym } }
     val env: Map[Symbol[_], Symbol[C.StructMember]] = Map.from { 
-      closureEnv.members map { m => 
+      closureEnv.members flatMap { m =>
         val name = m.sym.name
         origMapping get name match {
           case None =>
-            assert(false, "name in closure env should be found in escaped variables")
+            None
           case Some(s) =>
-            s -> m.sym
+            Some(s -> m.sym)
         }
       }
     }

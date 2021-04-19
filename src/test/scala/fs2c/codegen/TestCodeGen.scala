@@ -61,7 +61,13 @@ class TestCodeGen {
     
 
   def genType(tpe: FST.Type): bd.TypeBundle = (new CodeGen).genType(tpe)
-  
+
+  def genClassDef(clsDef: FS.tpd.ClassDef): (bd.ClassBundle, List[C.Definition]) = {
+    val codegen = new CodeGen
+
+    codegen.genClassDef(clsDef) -> codegen.ctx.generatedDefs
+  }
+
   @Test def simpleExpr: Unit = {
     val tests = List(
       (
@@ -246,9 +252,12 @@ class TestCodeGen {
         |  val x = x0
         |  val y = y0
         |
-        |  val f = (z: Int) => x + y + z
+        |  val f = (z: Int) => x + y + z + x0 + y0
+        |  val g = (that: Point) => that
         |}""".stripMargin
     )
-    d.tree.members foreach println
+
+    val (_, ds) = genClassDef(d)
+    ds.reverse foreach { d => println(d.show) }
   }
 }

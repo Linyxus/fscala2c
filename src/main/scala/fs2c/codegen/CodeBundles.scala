@@ -29,6 +29,8 @@ object CodeBundles {
     override def getBlock = Nil
   }
 
+  case class ClassRecBundle(structSym: Symbol[C.StructDef], initSym: Symbol[C.FuncDef]) extends CodeBundle
+
   /** Bundle of code consisting purely of a expression.
     * 
     * Translating simple arithmetic and logical expression, function application and selection
@@ -162,7 +164,7 @@ object CodeBundles {
     * }
     * ```
     */
-  case class ClassBundle(structDef: C.StructDef, initDef: C.FuncDef, methodsDef: List[C.FuncDef]) extends CodeBundle
+  case class ClassBundle(structDef: C.StructDef, initDef: C.FuncDef) extends CodeBundle
 
   /** Code bundle produced when generating code for Scala types.
     */
@@ -194,6 +196,8 @@ object CodeBundles {
   case class VariableBundle(varDef: C.VariableDef, block: C.Block) extends CodeBundle, HasBlock {
     override def extractBlock = block
   }
+
+  case class MemberBundle(memberDef: C.StructMember, structDef: C.StructDef) extends CodeBundle
 
   case class PureBlockBundle(block: C.Block) extends CodeBundle, HasBlock {
     override def extractBlock = block

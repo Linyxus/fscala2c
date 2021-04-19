@@ -25,7 +25,7 @@ object defn {
   def assignMember(v: C.Binding, d: Symbol[C.StructMember], expr: C.Expr): C.Statement =
     v.getType match {
       case C.StructType(structSym) =>
-        assert(structSym eq d.dealias.struct, "the designator should have the same struct type with the variable")
+        assert(structSym eq d.dealias.struct, s"the designator should have the same struct type with the variable: $structSym and ${d.dealias.struct}")
         C.Statement.AssignMember(v, d, expr)
       case _ =>
         assert(false, "variable should be a struct")
