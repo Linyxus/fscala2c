@@ -223,7 +223,7 @@ class TestCodeGen {
         |}
         |""".stripMargin)
     val (_, defs) = genExprAndDef(e)
-    defs.reverse foreach { d => println(d.show) }
+//    defs.reverse foreach { d => println(d.show) }
   }
 
   @Test def printLambdaRec2: Unit = {
@@ -263,6 +263,6 @@ class TestCodeGen {
     val (_, gen) = genClassDef(d)
 
     val printer = new CodePrinter(gen.ctx.generatedDefs.reverse, gen.ctx.included)
-    println(printer.sourceContent)
+//    println(printer.sourceContent)
   }
 }

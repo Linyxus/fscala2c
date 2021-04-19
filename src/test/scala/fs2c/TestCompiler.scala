@@ -20,7 +20,7 @@ class TestCompiler {
     val compiler = new Compiler
     val ds = compiler.typedFile("tests/point.scala")
     val (cds, inc) = compiler.genClassDefs(ds)
-    println(compiler.outputCode(cds, inc))
+    compiler.outputCode(cds, inc)
   }
 
 }
