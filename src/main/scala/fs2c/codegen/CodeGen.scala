@@ -189,7 +189,9 @@ class CodeGen {
     res
   }
 
-  def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr, structDef: C.StructDef, structValue: C.IdentifierExpr[C.VariableDef]): bd.ClosureBundle = {
+  def genClassMethod(sym: Symbol[_],
+                     memberName: String, lambda: tpd.LambdaExpr,
+                     structDef: C.StructDef, structValue: C.IdentifierExpr[C.VariableDef]): bd.ClosureBundle = {
     val escaped = lambda.freeNames filter { sym =>
       sym.dealias match {
         case tpt: FS.Typed[_] => tpt.tree match {
@@ -200,9 +202,10 @@ class CodeGen {
       }
     }
 
-    val envSelfMem = mangle("self") -> C.StructType(structDef.sym)
+    // filter lambda free names
+    lambda.freeNames = escaped
 
-    ???
+    genLambdaExpr(lambda, lambdaName = Some(s"${sym.name}_${memberName}"), self = Some((structDef, structValue))).asInstanceOf
   }
 
   /** Generate C code for Scala expressions.
