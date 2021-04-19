@@ -268,6 +268,8 @@ class CodeGen {
     case _ : FS.BlockExpr[FS.Typed] => genBlockExpr(expr.asInstanceOf)
     case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf, lambdaName = lambdaName)
     case _ : FS.ApplyExpr[FS.Typed] => genApplyExpr(expr.asInstanceOf)
+    case _ : FS.SelectExpr[FS.Typed] => genSelectExpr(expr.asInstanceOf)
+    case _ : FS.NewExpr[FS.Typed] => genNewExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
@@ -327,6 +329,38 @@ class CodeGen {
         }
       case _ =>
         assert(false, "encounter unresolved symbol in code generator, this is a bug.")
+    }
+  }
+
+  def genSelectExpr(expr: tpd.SelectExpr): bd.PureExprBundle = expr assignCode { case FS.SelectExpr(expr, designator) =>
+    expr.tpe match {
+      case clsDef: FS.ClassDef[FS.Typed] =>
+        val structDef: C.StructDef = clsDef.sym.dealias.code match {
+          case bundle: bd.ClassRecBundle =>
+            bundle.structSym.dealias
+          case bundle: bd.ClassBundle =>
+            bundle.structDef
+        }
+        val mem = structDef.ensureFind(designator)
+        val cExpr = genExpr(expr).getExpr
+        bd.PureExprBundle(C.SelectExpr(cExpr, mem.sym))
+      case _ => assert(false, "selecting from a non-class value; this is a bug in typer!")
+    }
+  }
+
+  def genNewExpr(expr: tpd.NewExpr): bd.ValueBundle = expr assignCode { case FS.NewExpr(ref, params) =>
+    ref match {
+      case Symbol.Ref.Resolved(sym) => sym.dealias match {
+        case tpt: FS.Typed[_] =>
+          val initFunc = tpt.code match {
+            case bundle: bd.ClassRecBundle => C.IdentifierExpr(bundle.initSym)
+            case bundle: bd.ClassBundle => C.IdentifierExpr(bundle.initDef.sym)
+          }
+          val paramBundles: List[bd.ValueBundle] = params map { x => genExpr(x) }
+          val block = paramBundles flatMap { b => b.getBlock }
+          bd.BlockBundle(C.CallFunc(initFunc, paramBundles map { x => x.getExpr }), block)
+      }
+      case _ => assert(false, "unresolved symbol at codegen phase")
     }
   }
 
@@ -726,7 +760,6 @@ class CodeGen {
     val res = recur(freeNames, Nil)
     res.distinctBy(_.name)
   }
-  
 }
 
 object CodeGen {

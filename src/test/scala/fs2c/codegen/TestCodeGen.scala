@@ -252,8 +252,8 @@ class TestCodeGen {
         |  val x = x0
         |  val y = y0
         |
-        |  val f = (z: Int) => x + y + z + x0 + y0
-        |  val g = (that: Point) => that
+        |  val g = (that: Point) => that.x + that.y
+        |  val dup = (that: Point) => new Point(that.x, that.y)
         |}""".stripMargin
     )
 
