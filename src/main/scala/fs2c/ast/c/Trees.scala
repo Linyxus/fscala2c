@@ -139,7 +139,7 @@ object Trees {
 
   /** Definitions in the C language.
     */
-  trait Definition
+  sealed trait Definition
 
   /** Function definition in C.
     * 

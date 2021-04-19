@@ -14,7 +14,7 @@ import fs2c.tools.packratc.scala_token._
 import fs2c.ast.fs.{Trees => FS}
 import fs2c.ast.c.{Trees => C}
 import fs2c.typer.{ Typer, Types => FST }
-import fs2c.codegen.{ CodeBundles => bd }
+import fs2c.codegen.{ CodeBundles => bd, CodePrinter }
 
 import org.junit.Assert._
 import org.junit.Test
@@ -62,10 +62,10 @@ class TestCodeGen {
 
   def genType(tpe: FST.Type): bd.TypeBundle = (new CodeGen).genType(tpe)
 
-  def genClassDef(clsDef: FS.tpd.ClassDef): (bd.ClassBundle, List[C.Definition]) = {
+  def genClassDef(clsDef: FS.tpd.ClassDef): (bd.ClassBundle, CodeGen) = {
     val codegen = new CodeGen
 
-    codegen.genClassDef(clsDef) -> codegen.ctx.generatedDefs
+    codegen.genClassDef(clsDef) -> codegen
   }
 
   @Test def simpleExpr: Unit = {
@@ -260,6 +260,9 @@ class TestCodeGen {
         |}""".stripMargin
     )
 
-    val (_, ds) = genClassDef(d)
+    val (_, gen) = genClassDef(d)
+
+    val printer = new CodePrinter(gen.ctx.generatedDefs.reverse, gen.ctx.included)
+    println(printer.sourceContent)
   }
 }
