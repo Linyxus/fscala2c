@@ -164,7 +164,7 @@ object CodeBundles {
     */
   case class ClassBundle(structDef: C.StructDef, initDef: C.FuncDef, methodsDef: List[C.FuncDef]) extends CodeBundle
 
-  /** Code bundle produced when generatin code for Scala types.
+  /** Code bundle produced when generating code for Scala types.
     */
   trait TypeBundle extends CodeBundle {
     def getTp: C.Type
