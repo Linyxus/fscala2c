@@ -158,6 +158,39 @@ class CodeGen {
         res
     }
 
+  /** Generate C code for Scala class definition.
+    *
+    * @param clsDef
+    * @return
+    */
+  def genClassDef(clsDef: tpd.ClassDef): bd.ClassBundle = clsDef assignCode { case FS.ClassDef(sym, params, _, members) =>
+    ???
+  }
+
+  def genClassStructDef(sym: Symbol[_], members: List[tpd.MemberDef]): C.StructDef = {
+    val res = makeStructDef(
+      name = sym.name + "_struct",
+      memberDefs = members map { m =>
+        val name = m.tree.sym.name
+        val tp = genType(m.tpe, lambdaValueType = true)
+        name -> tp.getTp
+      }
+    )
+
+    // assign generated struct member to typed tree
+    members foreach { m =>
+      m assignCode { m =>
+        val name = m.sym.name
+        val cMem = res.ensureFind(name)
+        bd.PureExprBundle(C.IdentifierExpr(cMem.sym))
+      }
+    }
+
+    res
+  }
+
+  def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr): bd.ClosureBundle = ???
+
   /** Generate C code for Scala expressions.
     */
   def genExpr(expr: tpd.Expr, lambdaName: Option[String] = None): bd.ValueBundle = expr.tree match {
