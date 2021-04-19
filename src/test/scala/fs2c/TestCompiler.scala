@@ -16,4 +16,11 @@ class TestCompiler {
     sources foreach { s => compiler.typedFile(s) }
   }
 
+  @Test def codegen: Unit = {
+    val compiler = new Compiler
+    val ds = compiler.typedFile("tests/point.scala")
+    val (cds, inc) = compiler.genClassDefs(ds)
+    println(compiler.outputCode(cds, inc))
+  }
+
 }
