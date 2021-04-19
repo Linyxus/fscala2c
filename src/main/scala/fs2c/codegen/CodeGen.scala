@@ -212,27 +212,29 @@ class CodeGen {
       cp
     }
 
-    val initBlock = members flatMap { member =>
-      val memberName = member.tree match {
-        case member: FS.MemberDef[_] => member.sym.name
-      }
-      val bundle: bd.ValueBundle = member.tree match { case FS.MemberDef(sym, _, _, _, body) =>
+    ctx.withSelfLocal(structValue, structDef) {
+      val initBlock = members flatMap { member =>
+        val memberName = member.tree match {
+          case member: FS.MemberDef[_] => member.sym.name
+        }
+        val bundle: bd.ValueBundle = member.tree match { case FS.MemberDef(sym, _, _, _, body) =>
           body.tree match {
             case lambda: FS.LambdaExpr[_] =>
               genClassMethod(sym, body.asInstanceOf, structDef, C.IdentifierExpr(structValue))
             case _ => genExpr(body)
           }
+        }
+        val assign = defn.assignMember(structValue.dealias, structDef.ensureFind(memberName).sym, bundle.getExpr)
+
+        bundle.getBlock :+ assign
       }
-      val assign = defn.assignMember(structValue.dealias, structDef.ensureFind(memberName).sym, bundle.getExpr)
 
-      bundle.getBlock :+ assign
+      makeFuncDef(
+        "init_" + sym.name, C.StructType(structDef.sym),
+        cParams,
+        structBlock ++ initBlock :+ C.Statement.Return(Some(C.IdentifierExpr(structValue)))
+      )
     }
-
-    makeFuncDef(
-      "init_" + sym.name, C.StructType(structDef.sym),
-      cParams,
-      structBlock ++ initBlock :+ C.Statement.Return(Some(C.IdentifierExpr(structValue)))
-    )
   }
 
   def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr,
@@ -319,7 +321,11 @@ class CodeGen {
               bd.PureExprBundle(C.IdentifierExpr(bundle.varDef.sym))
             case bundle : bd.MemberBundle =>
               ctx.refClosureSelf(bundle.memberDef.sym) match {
-                case None => assert(false, "referencing a class member, but do not have self in context")
+                case None => ctx.refSelf(bundle.memberDef.sym) match {
+                  case None =>
+                    assert(false, "referencing a class member, but do not have self in context")
+                  case Some(expr) => bd.PureExprBundle(expr)
+                }
                 case Some(expr) => bd.PureExprBundle(expr)
               }
             case _ =>
@@ -345,7 +351,18 @@ class CodeGen {
         val mem = structDef.ensureFind(designator)
         val cExpr = genExpr(expr).getExpr
         bd.PureExprBundle(C.SelectExpr(cExpr, mem.sym))
-      case _ => assert(false, "selecting from a non-class value; this is a bug in typer!")
+      case tvar: FST.ClassTypeVariable =>
+        val clsDef = tvar.classDef.tree
+        val structDef: C.StructDef = clsDef.sym.dealias.code match {
+          case bundle: bd.ClassRecBundle =>
+            bundle.structSym.dealias
+          case bundle: bd.ClassBundle =>
+            bundle.structDef
+        }
+        val mem = structDef.ensureFind(designator)
+        val cExpr = genExpr(expr).getExpr
+        bd.PureExprBundle(C.SelectExpr(cExpr, mem.sym))
+      case _ => assert(false, s"selecting from a non-class value with type ${expr.tpe}; this is a bug in typer!")
     }
   }
 

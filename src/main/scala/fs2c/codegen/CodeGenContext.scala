@@ -143,6 +143,31 @@ class CodeGenContext {
     res
   }
 
+  private var mySelfLocalVar: Symbol[C.VariableDef] = null
+  private var mySelfStructDef: C.StructDef = null
+
+  def hasSelfLocalVar: Boolean = mySelfLocalVar ne null
+
+  def refSelf(member: Symbol[_]): Option[C.Expr] =
+    if !hasSelfLocalVar then
+      None
+    else {
+      val mem = mySelfStructDef.ensureFind(member.name)
+      Some(C.SelectExpr(C.IdentifierExpr(mySelfLocalVar), mem.sym))
+    }
+
+  def withSelfLocal[T](self: Symbol[C.VariableDef], structDef: C.StructDef)(body: => T): T = {
+    val (origVar, origDef) = (mySelfLocalVar, mySelfStructDef)
+    mySelfLocalVar = self
+    mySelfStructDef = structDef
+
+    val res = body
+    mySelfLocalVar = origVar
+    mySelfStructDef = origDef
+
+    res
+  }
+
   private var myIncluded: List[String] = Nil
 
   /** Get the list of included header files.

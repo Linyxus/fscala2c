@@ -251,9 +251,13 @@ class TestCodeGen {
       """class Point(x0: Int, y0: Int) {
         |  val x = x0
         |  val y = y0
-        |
-        |  val g = (that: Point) => that.x + that.y
-        |  val dup = (that: Point) => new Point(that.x, that.y)
+        |  val origin = new Point(0, 0)
+        |  val mid = (other: Point) => {
+        |    val mx = (x + other.x) / 2
+        |    val my = (y + other.y) / 2
+        |    new Point(mx, my)
+        |  }
+        |  val midOrigin = mid(origin)
         |}""".stripMargin
     )
 
