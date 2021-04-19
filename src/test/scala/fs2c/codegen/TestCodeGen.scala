@@ -30,10 +30,21 @@ class TestCodeGen {
     }
   }
 
+  def forceParseStringDef(source: String): FS.untpd.ClassDef =
+    ScalaParser.parseString((new ScalaParser).classDefParser, source) match {
+      case Left(value) =>
+        assert(false, value.toString)
+      case Right(value) => value._1
+    }
+
   def typedExpr(e: FS.untpd.Expr): FS.tpd.Expr = (new Typer).typedExpr(e)
-  
+
+  def typedClassDef(clsDef: FS.untpd.ClassDef): FS.tpd.ClassDef = (new Typer).typedClassDef(clsDef)
+
   def typedString(source: String): FS.tpd.Expr = typedExpr(forceParseString(source))
-  
+
+  def typedStringDef(source: String): FS.tpd.ClassDef = typedClassDef(forceParseStringDef(source))
+
   def genExpr(expr: FS.tpd.Expr): bd.ValueBundle = {
     val codegen = new CodeGen
     val res = codegen.genExpr(expr)
@@ -227,5 +238,17 @@ class TestCodeGen {
         |""".stripMargin)
     val (_, defs) = genExprAndDef(e)
     defs.reverse foreach { d => println(d.show) }
+  }
+
+  @Test def printSimpleClass: Unit = {
+    val d = typedStringDef(
+      """class Point(x0: Int, y0: Int) {
+        |  val x = x0
+        |  val y = y0
+        |
+        |  val f = (z: Int) => x + y + z
+        |}""".stripMargin
+    )
+    d.tree.members foreach println
   }
 }
