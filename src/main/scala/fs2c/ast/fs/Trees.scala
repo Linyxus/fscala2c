@@ -60,7 +60,7 @@ object Trees {
       res
     }
 
-    override def toString(): String = s"${sym.name}"
+//    override def toString(): String = s"${sym.name}"
   }
 
   /** Tree for expressions
