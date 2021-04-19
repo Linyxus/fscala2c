@@ -189,7 +189,21 @@ class CodeGen {
     res
   }
 
-  def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr): bd.ClosureBundle = ???
+  def genClassMethod(sym: Symbol[_], lambda: tpd.LambdaExpr, structDef: C.StructDef, structValue: C.IdentifierExpr[C.VariableDef]): bd.ClosureBundle = {
+    val escaped = lambda.freeNames filter { sym =>
+      sym.dealias match {
+        case tpt: FS.Typed[_] => tpt.tree match {
+          case t: FS.MemberDef[_] => false
+          case _ => true
+        }
+        case _ => true
+      }
+    }
+
+    val envSelfMem = mangle("self") -> C.StructType(structDef.sym)
+
+    ???
+  }
 
   /** Generate C code for Scala expressions.
     */
@@ -461,10 +475,11 @@ class CodeGen {
     * @param lambdaName Optional name. Create a new name for anonymous function if not given.
     * @return
     */
-  def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None): bd.ValueBundle = expr.assignCode {
+  def genLambdaExpr(expr: tpd.LambdaExpr, lambdaName: Option[String] = None,
+                    self: Option[(C.StructDef, C.IdentifierExpr[C.VariableDef])] = None): bd.ValueBundle = expr.assignCode {
     case lambda : FS.LambdaExpr[FS.Typed] =>
       val funcName = lambdaName getOrElse freshAnonFuncName
-      
+
       // generate function return type
       val lambdaType: FST.LambdaType = expr.tpe.asInstanceOf
       val valueType = lambdaType.valueType
@@ -472,7 +487,7 @@ class CodeGen {
 
       // generate parameter definitions
       val cParams: List[C.FuncParam] = lambda.params map { sym => genLambdaParam(sym.dealias) }
-      
+
       // compute escaped variables
       val escaped: List[Symbol[tpd.LocalDefBind] | Symbol[FS.LambdaParam]] = escapedVars(expr.freeNames)
 
@@ -487,20 +502,25 @@ class CodeGen {
             block
           )
           val identExpr = C.IdentifierExpr(funcDef.sym)
-          
+
           bd.SimpleFuncBundle(identExpr, funcDef)
         case escaped =>
-          val envMembers = escaped map { sym =>
+          var envMembers = escaped map { sym =>
             sym.name -> genType(sym.dealias match {
               case p : FS.LambdaParam => p.tpe
               case p : tpd.LocalDefBind => p.tpe
             }, lambdaValueType = true).getTp
           }
+          var selfName = ""
+          self foreach { (selfDef, self) =>
+            selfName = mangle("self")
+            envMembers = (selfName -> C.StructType(selfDef.sym)) :: envMembers
+          }
           val funcEnv = createClosureEnv(envMembers, funcName)
-          
+
           def initClosureEnv: (C.Expr, C.Block) = {
             val (tempVar, varBlock) = maybeAllocLocalDef(freshVarName, funcEnv.tp)
-            
+
             val assignBlock = escaped map { sym =>
               sym.dealias match {
                 case lambdaParam : FS.LambdaParam =>
@@ -534,50 +554,63 @@ class CodeGen {
                   }
               }
             }
-            
-            C.IdentifierExpr(tempVar) -> (varBlock ++ assignBlock)
+
+            val assignSelfBlock = self match {
+              case None => Nil
+              case Some((selfDef, self)) =>
+                List(defn.assignMember(self.sym.dealias, funcEnv.ensureFind(selfName).sym, self))
+            }
+
+            C.IdentifierExpr(tempVar) -> (varBlock ++ assignBlock ++ assignSelfBlock)
           }
 
           def initClosure(func: C.Expr, env: C.Expr): (C.Expr, C.Block) = {
             val closureDef: C.StructDef = stdLib.FuncClosure.load
-            
+
             val (tempVar, varDef) = maybeAllocLocalDef(s"${funcName}_closure", closureDef.tp)
-            
+
             val block = varDef ++ List(
               defn.assignMember(tempVar.dealias, closureDef.ensureFind("func").sym, func),
               defn.assignMember(tempVar.dealias, closureDef.ensureFind("env").sym, env),
             )
-            
+
               C.IdentifierExpr(tempVar) -> block
           }
-          
+
           val (funcExpr, funcDef) = ctx.inClosure(escaped, funcEnv) {
-            // get the final function param
-            val cParams2 = ctx.getClosureEnvParam :: cParams
-            val (envVar, tpEnvDef) = defn.localVariable(
-              "my_env",
-              C.StructType(funcEnv.sym),
-              Some(C.IdentifierExpr(ctx.getClosureEnvParam.sym))
-            )
-            ctx.setClosureEnvVar(envVar.dealias)
-            val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
-            val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
-            val funcDef = makeFuncDef(
-              funcName,
-              cValueType,
-              cParams2,
-              tpEnvDef ++ block
-            )
-            
-            val identExpr = C.IdentifierExpr(funcDef.sym)
-            
-            (identExpr, funcDef)
+            def selfWrapper[T](body: => T) = self match {
+              case None => body
+              case Some((selfDef, self)) => ctx.withSelf(funcEnv.ensureFind(selfName).sym, selfDef)(body)
+            }
+
+            def res =
+              // get the final function param
+              val cParams2 = ctx.getClosureEnvParam :: cParams
+              val (envVar, tpEnvDef) = defn.localVariable(
+                "my_env",
+                C.StructType(funcEnv.sym),
+                Some(C.IdentifierExpr(ctx.getClosureEnvParam.sym))
+              )
+              ctx.setClosureEnvVar(envVar.dealias)
+              val bodyBundle: bd.ValueBundle = genExpr(lambda.body)
+              val block = bodyBundle.getBlock :+ C.Statement.Return(Some(bodyBundle.getExpr))
+              val funcDef = makeFuncDef(
+                funcName,
+                cValueType,
+                cParams2,
+                tpEnvDef ++ block
+              )
+
+              val identExpr = C.IdentifierExpr(funcDef.sym)
+
+              (identExpr, funcDef)
+            selfWrapper { res }
           }
-          
+
           val (envExpr, envBlock) = initClosureEnv
-          
+
           val (finalExpr, closureBlock) = initClosure(funcExpr, envExpr)
-          
+
           bd.ClosureBundle(
             expr = finalExpr,
             block = envBlock ++ closureBlock,

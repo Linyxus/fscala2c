@@ -43,10 +43,14 @@ class CodeGenContext {
   protected var myClosureEnvParam: C.FuncParam = null
   protected var myClosureEnvVar: C.VariableDef = null
   protected var myClosureEnv: Map[Symbol[_], Symbol[C.StructMember]] = Map.empty
+  protected var myClosureSelf: Symbol[C.StructMember] = null
+  protected var myClosureSelfDef: C.StructDef = null
 
   /** Checks whether we have a closure.
     */
   def hasClosureEnv: Boolean = myClosureEnv ne null
+
+  def hasClosureSelf: Boolean = hasClosureEnv && (myClosureSelf ne null) && (myClosureSelfDef ne null)
 
   /** Get the env parameter associated with the function closure.
     */
@@ -69,6 +73,19 @@ class CodeGenContext {
       None
     else myClosureEnv get sym map { sym =>
       C.SelectExpr(C.IdentifierExpr(myClosureEnvVar.sym), sym)
+    }
+
+  def refClosureSelf(sym: Symbol[_]): Option[C.Expr] =
+    if !hasClosureSelf then
+      None
+    else {
+      val self = refClosureEnv(myClosureSelf) match {
+        case None =>
+          assert(false, "can not find self from closure env, but it should be found")
+        case Some(self) => self
+      }
+
+      Some(C.SelectExpr(self, myClosureSelfDef.ensureFind(sym.name).sym))
     }
 
   /** Initialize the closure with a list of escaped symbols.
@@ -114,6 +131,19 @@ class CodeGenContext {
     myClosureEnvParam = origP
     myClosureEnv = origEnv
     
+    res
+  }
+
+  def withSelf[T](self: Symbol[C.StructMember], selfDef: C.StructDef)(body: => T): T = {
+    val (origSelf, origDef) = (myClosureSelf, myClosureSelfDef)
+    myClosureSelf = self
+    myClosureSelfDef = selfDef
+
+    val res = body
+
+    myClosureSelf = origSelf
+    myClosureSelfDef = origDef
+
     res
   }
 
