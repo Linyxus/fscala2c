@@ -18,14 +18,22 @@ class Tokenizer(val source: ScalaSource) {
 
   var start: Int = 0
   var current: Int = 0
-  var newLineProduced: Boolean = true
-  
+
+  /** Indention-based statement syntax in block expressions.
+    */
+
+  /** Records whether new line character has been produced.
+    */
+  private var newLineProduced: Boolean = true
   /** Indention level stack.
     */
-  var indentLevels: List[Int] = List(0)
+  private var indentLevels: List[Int] = List(0)
+  /** Records whether the block opens a new indention level.
+    */
+  private var newLevelProduced: List[Boolean] = Nil
   /** Is about to start a new indention level.
     */
-  var blockStarting: Boolean = false
+  private var blockStarting: Boolean = false
 
   def content: String = source.content
 
@@ -43,9 +51,32 @@ class Tokenizer(val source: ScalaSource) {
     x
   }
 
+  /** If there exists new lines between the current token and the left brace,
+    * then a new indention level should be opened. Otherwise, do nothing.
+    *
+    * In both conditions, [[newLevelProduced]] will be updated to record
+    * whether the current pair of brace has opened a new indention level.
+    */
+  def maybeStartLevel(): Unit = {
+    newLevelProduced = crossLineEnd :: newLevelProduced
+    if crossLineEnd then
+      startBlock()
+  }
+
+  def maybeEndLevel(): Unit = {
+    newLevelProduced match {
+      case newLevel :: prev =>
+        if newLevel then endBlock()
+        newLevelProduced = prev
+      case Nil =>
+        throw TokenizerError("Unexpected `}` character")
+    }
+  }
+
   def startBlock(): Unit = {
     indentLevels = currentIndentLevel :: indentLevels
     blockStarting = false
+    newLineProduced = true  // silencing the first newline token
   }
 
   def prepareStartBlock(): Unit =
@@ -115,7 +146,9 @@ class Tokenizer(val source: ScalaSource) {
       true
     }
 
-  var crossLineEnd = false
+  /** Records whether a line end is encountered while skipping spaces between tokens.
+    */
+  private var crossLineEnd = false
 
   /** Skip one space character, or a section of comment.
     */
@@ -211,15 +244,21 @@ class Tokenizer(val source: ScalaSource) {
   def nextToken: ScalaToken = {
     skipSpaces()
     start = current
-    if blockStarting then startBlock()
+    if blockStarting then maybeStartLevel()
     if eof then
       makeToken(EndOfSource)
     else maybeProduceNewLine match {
       case Some(tk) => tk
       case None => makeToken {
         forward match {
-          case '{' => LeftBrace
-          case '}' => RightBrace
+          case '{' =>
+            // prepare to start a new indention level
+            prepareStartBlock()
+            LeftBrace
+          case '}' =>
+            // end the current indention level if exists
+            maybeEndLevel()
+            RightBrace
           case '[' => LeftBracket
           case ']' => RightBracket
           case '(' => LeftParen
@@ -256,12 +295,12 @@ class Tokenizer(val source: ScalaSource) {
   }
 
   def allTokens: List[ScalaToken] = nextToken match {
-    case t@ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
+    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
     case t => t :: allTokens
   }
 
   def allTokensLazy: LazyList[ScalaToken] = nextToken match {
-    case t@ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
+    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
     case t => t #:: allTokensLazy
   }
 }
