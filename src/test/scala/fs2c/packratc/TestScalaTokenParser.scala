@@ -98,7 +98,7 @@ class TestScalaTokenParser {
     case class Lines(lines: List[List[String]]) {
       override def toString: String = lines map { xs => s"(${xs mkString " "})" } mkString ""
     }
-    val block = "{" ~ blockStart ~ NL ~ line.many ~ "}" ~ blockEnd <| { case _ ~ lines ~ _ ~ _ =>
+    val block = "{" ~ line.many ~ "}" <| { case _ ~ lines ~ _  =>
       Lines(lines).toString
     }
     

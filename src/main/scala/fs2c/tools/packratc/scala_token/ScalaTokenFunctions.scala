@@ -71,14 +71,6 @@ trait ScalaTokenFunctions {
     desc = Some(s"$expected")
   ) is s"token of type $expected"
 
-  /** Mark the start of a block; parse nothing.
-    */
-  def blockStart: Parser[Unit] = general.blockStart
-
-  /** Mark the end of a block; parse nothing.
-    */
-  def blockEnd: Parser[Unit] = general.blockEnd
-
   extension[X] (p: Parser[X]) {
     /** Parse a list of `p` seperated by `sep`.
       */

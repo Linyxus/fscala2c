@@ -94,6 +94,53 @@ enum ScalaTokenType {
 
   case Error(msg: String)
 
+  def show: String = this match {
+    case LeftBrace => "{"
+    case RightBrace => "}"
+    case LeftBracket => "["
+    case RightBracket => "]"
+    case LeftParen => "("
+    case RightParen => ")"
+    case KeywordVal => "val"
+    case KeywordVar => "var"
+    case KeywordDef => "def"
+    case Equal => "="
+    case Colon => ":"
+    case Comma => ","
+    case Dot => "."
+    case BigRightArrow => "=>"
+    case KeywordNew => "new"
+    case KeywordClass => "class"
+    case KeywordExtends => "extends"
+    case Identifier(name: String) => s"@$name"
+    case LiteralInt(value: Int) => value.toString
+    case LiteralFloat(value: Double) => value.toString
+    case LiteralBoolean(value: Boolean) => if value then "True" else "False"
+    case LiteralString(value: String) => value
+    case Semicolon => ";"
+    case KeywordIf => "if"
+    case KeywordThen => "then"
+    case KeywordElse => "else"
+    case KeywordWhile => "while"
+    case KeywordDo => "do"
+    case Plus => "+"
+    case Minus => "-"
+    case Asterisk => "*"
+    case Slash => "/"
+    case Caret => "^"
+    case DoubleAmpersand => "&&"
+    case DoubleVerticalBar => "||"
+    case GreaterThan => ">"
+    case LessThan => "<"
+    case GreaterThanEqual => ">="
+    case LessThanEqual => "<="
+    case BangEqual => "!="
+    case EqualEqual => "=="
+    case Bang => "!"
+    case NewLine => "<newline>"
+    case EndOfSource => "<eof>"
+    case Error(msg: String) => s"error($msg)"
+  }
 }
 
 case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenType) {
@@ -106,4 +153,6 @@ case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenTy
   }
 
   override def toString: String = s"\n$showInSource $tokenType\n"
+
+  def show: String = tokenType.show
 }

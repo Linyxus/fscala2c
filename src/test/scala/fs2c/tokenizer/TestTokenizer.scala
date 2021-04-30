@@ -21,4 +21,24 @@ class TestTokenizer {
       tokens map (_.tokenType)
     )
   }
+
+  @Test def logicalNewLine: Unit = {
+    val tests = List(
+      """val a = b
+        |  + c""".stripMargin -> "val @a = @b + @c <eof>",
+      """val a = { b }""" -> "val @a = { @b } <eof>",
+      """val a = {
+        |  val t = 2
+        |    * a
+        |  t + 1
+        |}""".stripMargin -> "val @a = { val @t = 2 * @a <newline> @t + 1 <newline> } <eof>",
+    )
+
+    tests foreach { (i, e) =>
+      val source = ScalaSource("test", i)
+      val tokens = Tokenizer.tokenize(source)
+      val o = tokens map (_.show) mkString " "
+      assertEquals(e, o)
+    }
+  }
 }
