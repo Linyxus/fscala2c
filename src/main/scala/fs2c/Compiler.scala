@@ -17,7 +17,7 @@ class Compiler {
   /** Creates a [[ScalaSource]] instance from given file path.
     */
   def loadFile(path: String): ScalaSource =
-    ScalaSource.fromPath(path)
+    ScalaSource(path)
 
   /** Parses a file.
     */

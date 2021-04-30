@@ -37,27 +37,27 @@ trait ScalaTokenFunctions {
   /** Parse an identifier.
     */
   def identifier: Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, _: ScalaTokenType.Identifier) => true
+    case ScalaToken(_: ScalaTokenType.Identifier) => true
     case _ => false
   } ?? "identifier"
   
   def literalInt: Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, _ : ScalaTokenType.LiteralInt) => true
+    case ScalaToken(_ : ScalaTokenType.LiteralInt) => true
     case _ => false
   } ?? "integer literal"
   
   def literalFloat: Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, _ : ScalaTokenType.LiteralFloat) => true
+    case ScalaToken(_ : ScalaTokenType.LiteralFloat) => true
     case _ => false
   } ?? "float literal"
   
   def literalBoolean: Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, _ : ScalaTokenType.LiteralBoolean) => true
+    case ScalaToken(_ : ScalaTokenType.LiteralBoolean) => true
     case _ => false
   } ?? "boolean literal"
   
   def symbol(name: String): Parser[ScalaToken] = satisfy {
-    case ScalaToken(_, _, ScalaTokenType.Identifier(s)) if s == name => true
+    case ScalaToken(ScalaTokenType.Identifier(s)) if s == name => true
     case _ => false
   } ?? s"symbol($name)"
 
@@ -65,7 +65,7 @@ trait ScalaTokenFunctions {
     */
   def tokenOfType(expected: ScalaTokenType): Parser[ScalaToken] = satisfy(
     {
-      case ScalaToken(_, _, tokenType) if tokenType == expected => true
+      case ScalaToken(tokenType) if tokenType == expected => true
       case _ => false
     },
     desc = Some(s"$expected")

@@ -23,7 +23,7 @@ class TestScalaTokenParser {
   }
   
   def tokenizerFromStr(sourceStr: String): Tokenizer = {
-    new Tokenizer(ScalaSource("test", sourceStr))
+    new Tokenizer(ScalaSource.testSource(sourceStr))
   }
   
   def parseOnStr[X](parser: Parser[X], sourceStr: String): Result[X] = {
@@ -56,7 +56,7 @@ class TestScalaTokenParser {
     }
   }
   @Test def simpleExpr: Unit = {
-    lazy val symb: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) } | {
+    lazy val symb: Parser[Expr] = (identifier <| { case ScalaToken(Identifier(name)) => Expr.Symbol(name) } | {
       ("(" ~ expr ~ ")") <| { case _ ~ e ~ _ => e }
     }) is "symbol or (expr)"
     lazy val factor: Parser[Expr] = { symb ~ ("*" ~ symb).many } <| { case x ~ xs =>
@@ -93,7 +93,7 @@ class TestScalaTokenParser {
   }
   
   @Test def indentBlock: Unit = {
-    val term = identifier <| { case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name }
+    val term = identifier <| { case ScalaToken(ScalaTokenType.Identifier(name)) => name }
     val line = (term.some <| { case x ~ xs => x :: xs }) << { NL | EOF }
     case class Lines(lines: List[List[String]]) {
       override def toString: String = lines map { xs => s"(${xs mkString " "})" } mkString ""
@@ -137,7 +137,7 @@ class TestScalaTokenParser {
     
     lazy val expr: Parser[Expr] = makeExprParser(table, term)
     
-    lazy val term: Parser[Expr] = (identifier <| { case ScalaToken(_, _, Identifier(name)) => Expr.Symbol(name) }) or
+    lazy val term: Parser[Expr] = (identifier <| { case ScalaToken(Identifier(name)) => Expr.Symbol(name) }) or
       expr.wrappedBy("(", ")")
     
     def testSuccess(input: String, expect: String): Unit = {

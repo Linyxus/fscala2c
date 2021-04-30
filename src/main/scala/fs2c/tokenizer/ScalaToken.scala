@@ -1,6 +1,6 @@
 package fs2c.tokenizer
 
-import fs2c.io.SourcePos
+import fs2c.io.{Positional, SourcePos}
 
 enum ScalaTokenType {
 
@@ -143,16 +143,10 @@ enum ScalaTokenType {
   }
 }
 
-case class ScalaToken(sourcePos: SourcePos, length: Int, tokenType: ScalaTokenType) {
-  def showInSource: String = {
-    val (lineNum, linePos, lineStr) = sourcePos.extractLine
-    val header = s" $lineNum | "
-    val signSpace = " ".repeat(header.length + linePos)
-    val sign = "^".repeat(if length <= 0 then 1 else length)
-    s"$header$lineStr\n$signSpace$sign"
-  }
+case class ScalaToken(tokenType: ScalaTokenType) extends Positional {
+  override type This = ScalaToken
 
-  override def toString: String = s"\n$showInSource $tokenType\n"
+  def showToken: String = tokenType.show
 
-  def show: String = tokenType.show
+  def showInSource: String = s"${pos.showInSourceLine} $showToken"
 }

@@ -1,28 +1,31 @@
 package fs2c.io
 
-case class SourcePos(source: ScalaSource, pos: Int) {
-  def extractLine: (Int, Int, String) = {
-    if pos > source.content.length then
-      (-1, -1, "")
-    else {
-      var lineStart = 0
-      var current = 0
-      var lineNum = 0
-      var linePos = 0
-      while (current < pos && current < source.content.length) do {
-        if source.content(current) == '\n' then {
-          lineStart = current + 1
-          linePos = -1
-          lineNum += 1
-        }
-        current += 1
-        linePos += 1
-      }
-      while current < source.content.length && source.content(current) != '\n' do
-        current += 1
-      val lineEnd = current
-      if linePos == -1 then linePos = 0
-      (lineNum, linePos, source.content.substring(lineStart, lineEnd))
-    }
+case class SourcePos(source: ScalaSource, line: Int, col: Int) {
+  def lineStr: String = source.lines(line)
+}
+
+case class SourcePosSpan(start: SourcePos, length: Int) {
+  lazy val showInSourceLine: String = {
+    val lineNum = start.line
+    val linePos = start.col
+    val lineStr = start.lineStr
+
+    val header = s" ${lineNum + 1} | "
+    val signSpace = " ".repeat(header.length + linePos)
+    val sign = "^".repeat(if length <= 0 then 1 else length)
+    s"$header$lineStr\n$signSpace$sign"
+  }
+}
+
+trait Positional {
+  type This >: this.type
+
+  private var myPos: SourcePosSpan = null
+
+  def pos: SourcePosSpan = myPos
+
+  def withPos(newPos: => SourcePosSpan): This = {
+    myPos = newPos
+    this
   }
 }

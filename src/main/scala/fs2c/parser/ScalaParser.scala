@@ -49,7 +49,7 @@ class ScalaParser {
     val body: Parser[List[untpd.MemberDef]] =
       (bodyBegin ~ member.many ~ bodyEnd) <| { case _ ~ ls ~ _ => ls}
     val param: Parser[(ScalaToken, String, Type)] =
-      (identifier ~ ":" ~ typeParser) <| { case (t @ ScalaToken(_, _, ScalaTokenType.Identifier(symName))) ~ _ ~ tpe =>
+      (identifier ~ ":" ~ typeParser) <| { case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ _ ~ tpe =>
         (t, symName, tpe)
       }
     val paramList: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
@@ -70,13 +70,13 @@ class ScalaParser {
         }
     }
     val inheritance: Parser[Option[Symbol.Ref]] = { ("extends" >> identifier) <| { 
-      case tk @ ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
+      case tk @ ScalaToken(ScalaTokenType.Identifier(symName)) =>
         tryResolveSymbol(symName)
       } 
     }.optional
 
     ("class" ~ identifier ~ paramList ~ inheritance ~ body) <| {
-      case _ ~ (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
+      case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
         if scopeCtx.findSymHere(symName).isDefined then
           throw SyntaxError(Some(tk), "duplicated class name: $symName")
         else {
@@ -89,10 +89,10 @@ class ScalaParser {
   }
   
   def memberDef: Parser[untpd.MemberDef] = {
-    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
+    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(t) => t }
     val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
     (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| {
-      case bindKw ~ (t @ ScalaToken(_, _, ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
+      case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
         val mutable = bindKw match {
           case ScalaTokenType.KeywordVal => false
           case ScalaTokenType.KeywordVar => true
@@ -186,7 +186,7 @@ class ScalaParser {
       case None => Nil
       case Some(xs) => xs
     }
-    ("new" ~ identifier ~ params) <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(symName)) ~ params =>
+    ("new" ~ identifier ~ params) <| { case _ ~ ScalaToken(ScalaTokenType.Identifier(symName)) ~ params =>
       Untyped(Trees.NewExpr(Symbol.Ref.Unresolved(symName), params))
     }
   }
@@ -202,7 +202,7 @@ class ScalaParser {
     */
   def applyAndSelectExpr: Parser[untpd.Expr] = {
     def selP: Parser[untpd.Expr => untpd.Expr] = 
-      { "." ~ identifier } <| { case _ ~ ScalaToken(_, _, ScalaTokenType.Identifier(member)) =>
+      { "." ~ identifier } <| { case _ ~ ScalaToken(ScalaTokenType.Identifier(member)) =>
         e => Untyped(Trees.SelectExpr(e, member))
       }
     def applyP: Parser[untpd.Expr => untpd.Expr] =
@@ -226,19 +226,19 @@ class ScalaParser {
   /** Parses a integer literal.
     */
   def literalIntExpr: Parser[untpd.Expr] = literalInt <| {
-    case ScalaToken(_, _, ScalaTokenType.LiteralInt(value)) => Untyped(Trees.LiteralIntExpr(value))
+    case ScalaToken(ScalaTokenType.LiteralInt(value)) => Untyped(Trees.LiteralIntExpr(value))
   }
 
   /** Parses a floating number literal.
     */
   def literalFloatExpr: Parser[untpd.Expr] = literalFloat <| {
-    case ScalaToken(_, _, ScalaTokenType.LiteralFloat(value)) => Untyped(Trees.LiteralFloatExpr(value))
+    case ScalaToken(ScalaTokenType.LiteralFloat(value)) => Untyped(Trees.LiteralFloatExpr(value))
   }
 
   /** Parses a boolean literal.
     */
   def literalBooleanExpr: Parser[untpd.Expr] = literalBoolean <| {
-    case ScalaToken(_, _, ScalaTokenType.LiteralBoolean(value)) => Untyped(Trees.LiteralBooleanExpr(value))
+    case ScalaToken(ScalaTokenType.LiteralBoolean(value)) => Untyped(Trees.LiteralBooleanExpr(value))
   }
 
   /** Parser for lambda expressions.
@@ -250,7 +250,7 @@ class ScalaParser {
       scopeCtx.locateScope()
       def recur(ps: List[(ScalaToken, Type)]): List[Symbol[Trees.LambdaParam]] = ps match {
         case Nil => Nil
-        case (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(name)), tpe) :: ps =>
+        case (tk @ ScalaToken(ScalaTokenType.Identifier(name)), tpe) :: ps =>
           if scopeCtx.findSymHere(name).isDefined then
             throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
           else {
@@ -302,11 +302,11 @@ class ScalaParser {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
     ("def" ~ identifier ~ param.sepBy(",").wrappedBy("(", ")") ~ "=" ~ exprParser) <| { case _ ~ name ~ params ~ _ ~ body =>
       val funcName = name match {
-        case ScalaToken(_, _, ScalaTokenType.Identifier(name)) => name
+        case ScalaToken(ScalaTokenType.Identifier(name)) => name
       }
       scopeCtx.locateScope()
       val funcParams = params map {
-        case (tk @ ScalaToken(_, _, ScalaTokenType.Identifier(name)), tp) =>
+        case (tk @ ScalaToken(ScalaTokenType.Identifier(name)), tp) =>
           if scopeCtx.findSymHere(name).isDefined then
             throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
           else {
@@ -329,10 +329,10 @@ class ScalaParser {
   }
 
   def localDefBind: Parser[untpd.LocalDef] = {
-    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(_, _, t) => t }
+    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(t) => t }
     val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
     (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| { 
-      case bindKw ~ (t @ ScalaToken(_, _, ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
+      case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
         val mutable = bindKw match {
           case ScalaTokenType.KeywordVal => false
           case ScalaTokenType.KeywordVar => true
@@ -351,7 +351,7 @@ class ScalaParser {
   }
   
   def localDefAssign: Parser[untpd.LocalDef] = {
-    (identifier ~ "=" ~ exprParser) <| { case t@ScalaToken(_, _, ScalaTokenType.Identifier(symName)) ~ _ ~ expr =>
+    (identifier ~ "=" ~ exprParser) <| { case t@ScalaToken(ScalaTokenType.Identifier(symName)) ~ _ ~ expr =>
       Untyped(Trees.LocalDef.Assign(tryResolveSymbol(symName), expr))
     }
   }
@@ -369,7 +369,7 @@ class ScalaParser {
     */
   def identifierExpr: Parser[untpd.IdentifierExpr] = {
     identifier <| {
-      case ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
+      case ScalaToken(ScalaTokenType.Identifier(symName)) =>
         scopeCtx.findSym(symName) match {
           case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
           case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym)))
@@ -413,7 +413,7 @@ class ScalaParser {
     }
   
   def symbolType: Parser[Types.SymbolType] = identifier <| {
-    case ScalaToken(_, _, ScalaTokenType.Identifier(symName)) =>
+    case ScalaToken(ScalaTokenType.Identifier(symName)) =>
       SymbolType(tryResolveSymbol(symName))
   }
 }
@@ -426,7 +426,7 @@ object ScalaParser {
   
   /** --- debug --- */
   def parseString[X](p: Parser[X], str: String): Result[X] = {
-    val tokenizer = new Tokenizer(new ScalaSource("test", str))
+    val tokenizer = new Tokenizer(ScalaSource.testSource(str))
     parseWithTokenizer(p, tokenizer)
   }
   

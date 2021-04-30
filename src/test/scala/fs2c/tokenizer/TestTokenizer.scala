@@ -8,13 +8,13 @@ import ScalaTokenType._
 
 class TestTokenizer {
   @Test def operators: Unit = {
-    val source = ScalaSource("test", "+-*/^")
+    val source = ScalaSource.testSource("+-*/^")
     val tokens = Tokenizer.tokenize(source)
     assertEquals(List(Plus, Minus, Asterisk, Slash, Caret, EndOfSource), tokens map (_.tokenType))
   }
   
   @Test def newLine: Unit = {
-    val source = ScalaSource("test", "hello\n  world\nhello\nworld")
+    val source = ScalaSource.testSource("hello\n  world\nhello\nworld")
     val tokens = Tokenizer.tokenize(source)
     assertEquals(
       List(Identifier("hello"), Identifier("world"), NewLine, Identifier("hello"), NewLine, Identifier("world"), EndOfSource), 
@@ -35,9 +35,9 @@ class TestTokenizer {
     )
 
     tests foreach { (i, e) =>
-      val source = ScalaSource("test", i)
+      val source = ScalaSource.testSource(i)
       val tokens = Tokenizer.tokenize(source)
-      val o = tokens map (_.show) mkString " "
+      val o = tokens map (_.showToken) mkString " "
       assertEquals(e, o)
     }
   }

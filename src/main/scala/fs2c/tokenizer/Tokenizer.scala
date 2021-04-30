@@ -1,6 +1,6 @@
 package fs2c.tokenizer
 
-import fs2c.io.{ScalaSource, SourcePos}
+import fs2c.io.{ScalaSource, SourcePos, SourcePosSpan}
 import fs2c.tools.fp.syntax._
 import OptionSyntax._
 import ScalaTokenType._
@@ -89,8 +89,11 @@ class Tokenizer(val source: ScalaSource) {
     case _ :: xs => xs
   }
 
+  private def currentPosSpan: SourcePosSpan =
+    SourcePosSpan(source.locatePos(start), current - start)
+
   def makeToken(tokenType: ScalaTokenType): ScalaToken =
-    ScalaToken(SourcePos(source, start), current - start, tokenType)
+    ScalaToken(tokenType).withPos(currentPosSpan)
 
   def maybeProduceNewLine: Option[ScalaToken] = {
     if !newLineProduced && crossLineEnd && currentIndentLevel <= blockIndentLevel then {
@@ -295,12 +298,12 @@ class Tokenizer(val source: ScalaSource) {
   }
 
   def allTokens: List[ScalaToken] = nextToken match {
-    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => List(t)
+    case t @ ScalaToken(ScalaTokenType.EndOfSource) => List(t)
     case t => t :: allTokens
   }
 
   def allTokensLazy: LazyList[ScalaToken] = nextToken match {
-    case t @ ScalaToken(_, _, ScalaTokenType.EndOfSource) => LazyList(t)
+    case t @ ScalaToken(ScalaTokenType.EndOfSource) => LazyList(t)
     case t => t #:: allTokensLazy
   }
 }
