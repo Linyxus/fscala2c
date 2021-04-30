@@ -19,24 +19,24 @@
 
  ## Roadmap
  
- - [X] Tokenizer
+ - [X] Tokenizer (:construction: being refactored)
  
- - [X] packratc: Packrat Parser Combinator library
+ - [X] packratc: Packrat Parser Combinator library (:construction: being refactored)
  
- - [X] Parser: tokens --> Featherweight Scala raw AST
+ - [X] Parser: tokens --> Featherweight Scala raw AST (:construction: being refactored)
  
  - [X] Typer: Raw AST --> Typed AST (Scala Core IR)
    - [X] Local type inference for expressions
    - [X] Hindley-Milner type inference for recursive definition group in block expressions
    - [X] Hindley-Milner type inference for recursive class definition
  
- - [ ] Optimize typed AST (optimization is so boring; let's do this later)
+ - [ ] **(CANCELLED)** Optimize typed AST (optimization is so boring; let's do this later)
  
- - [ ] Typed AST --> C AST (C Core IR)
+ - [X] Typed AST --> C AST (C Core IR)
  
- - [ ] Optimize C AST
+ - [ ] **(CANCELLED)** Optimize C AST
  
- - [ ] C AST --> C source code
+ - [X] C AST --> C source code
 
  ## References
 
