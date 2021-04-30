@@ -44,8 +44,8 @@ class ScalaParser {
     */
   def classDefParser: Parser[untpd.ClassDef] = {
     val member: Parser[untpd.MemberDef] = memberDef << NL
-    val bodyBegin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => t }
-    val bodyEnd: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => scopeCtx.relocateScope(); t }
+    val bodyBegin: Parser[ScalaToken] = "{"
+    val bodyEnd: Parser[ScalaToken] = "}" <| { t => scopeCtx.relocateScope(); t }
     val body: Parser[List[untpd.MemberDef]] =
       (bodyBegin ~ member.many ~ bodyEnd) <| { case _ ~ ls ~ _ => ls}
     val param: Parser[(ScalaToken, String, Type)] =
@@ -276,8 +276,8 @@ class ScalaParser {
     */
   def blockExpr: Parser[untpd.BlockExpr] = {
     val line: Parser[untpd.LocalDef] = localDef << NL
-    val begin: Parser[ScalaToken] = ("{" ~ blockStart ~ NL) <| { case t ~ _ ~ _ => scopeCtx.locateScope(); t }
-    val end: Parser[ScalaToken] = ("}" ~ blockEnd) <| { case t ~ _ => scopeCtx.relocateScope(); t }
+    val begin: Parser[ScalaToken] = "{" <| { t => scopeCtx.locateScope(); t }
+    val end: Parser[ScalaToken] = "}" <| { t => scopeCtx.relocateScope(); t }
     val block: Parser[untpd.BlockExpr] = 
       (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
         ls match {
