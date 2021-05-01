@@ -149,6 +149,7 @@ object printing {
         case C.BoolExpr(value) =>
           if value then "1" else "0"
         case C.FloatExpr(value) => value.toString
+        case C.StringExpr(value) => s"\"$value\""
         case C.SizeOf(tp) => tp match {
           case tp: C.StructType =>
             s"sizeof(${showPlainStructType(tp)})"
@@ -162,6 +163,7 @@ object printing {
               if currentLevel == -1 then s
               else s"($s)"
           }
+        case C.AddressExpr(e) => go(e, currentLevel)
       }
 
       go(expr, -1)
