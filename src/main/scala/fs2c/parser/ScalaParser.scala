@@ -1,7 +1,7 @@
 package fs2c.parser
 
 import scala.language.implicitConversions
-import fs2c.io.ScalaSource
+import fs2c.io.{ScalaSource, Positional}
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType, Tokenizer}
 import fs2c.tools.packratc.scala_token.ScalaTokenParser.{given, _}
 import fs2c.tools.packratc.scala_token.*
@@ -23,10 +23,13 @@ class ScalaParser {
 
   /** Records syntax error while parsing.
     *
-    * @param token The token where this error is found.
     * @param msg The error message.
     */
-  case class SyntaxError(token: Option[ScalaToken], msg: String) extends Exception(msg)
+  case class SyntaxError(msg: String) extends Exception with Positional {
+    override type This = SyntaxError
+
+    override def toString: String = showInSourceLine ++ s"\nSyntax error: $msg"
+  }
   
   val scopeCtx: ScopeContext = new ScopeContext
   
@@ -60,7 +63,7 @@ class ScalaParser {
         scopeCtx.locateScope()
         xs map { case (t, symName, tpe) =>
           if scopeCtx.findSymHere(symName).isDefined then
-            throw SyntaxError(Some(t), s"duplicated parameter name in class definition: $symName")
+            throw SyntaxError(s"duplicated parameter name in class definition: $symName").withPos(t.pos)
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(symName, null), tpe)
             lambdaParam.sym.dealias = lambdaParam
@@ -78,7 +81,7 @@ class ScalaParser {
     ("class" ~ identifier ~ paramList ~ inheritance ~ body) <| {
       case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
         if scopeCtx.findSymHere(symName).isDefined then
-          throw SyntaxError(Some(tk), "duplicated class name: $symName")
+          throw SyntaxError("duplicated class name: $symName").withPos(tk.pos)
         else {
           val ret: untpd.ClassDef = Untyped(Trees.ClassDef(Symbol(symName, null), params, parent, members))
           ret.tree.sym.dealias = ret
@@ -100,7 +103,7 @@ class ScalaParser {
         }
 
         if scopeCtx.findSymHere(name).isDefined then
-          throw SyntaxError(Some(t), s"duplicated member name in class definition: $name")
+          throw SyntaxError(s"duplicated member name in class definition: $name").withPos(t.pos)
         else {
           val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, mutable, tpe, body))
           member.tree.sym.dealias = member
@@ -252,7 +255,7 @@ class ScalaParser {
         case Nil => Nil
         case (tk @ ScalaToken(ScalaTokenType.Identifier(name)), tpe) :: ps =>
           if scopeCtx.findSymHere(name).isDefined then
-            throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
+            throw SyntaxError(s"duplicated parameter name in lambda definition: $name").withPos(tk.pos)
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(name, null), tpe)
             lambdaParam.sym.dealias = lambdaParam
@@ -281,14 +284,14 @@ class ScalaParser {
     val block: Parser[untpd.BlockExpr] = 
       (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
         ls match {
-          case Nil => throw SyntaxError(Some(endToken), s"Block expression should not be empty")
+          case Nil => throw SyntaxError(s"Block expression should not be empty").withPos(endToken.pos)
           case ls : List[untpd.LocalDef] =>
             val lastOne: Trees.LocalDef[Untyped] = ls.last.tree
             lastOne match {
               case eval: fs2c.ast.fs.Trees.LocalDef.Eval[Untyped] =>
                 Untyped(Trees.BlockExpr(ls.init, eval.expr))
               case _ =>
-                throw SyntaxError(Some(endToken), s"Expecting a expression at the end of a block.")
+                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(endToken.pos)
             }
         }
       }
@@ -308,7 +311,7 @@ class ScalaParser {
       val funcParams = params map {
         case (tk @ ScalaToken(ScalaTokenType.Identifier(name)), tp) =>
           if scopeCtx.findSymHere(name).isDefined then
-            throw SyntaxError(Some(tk), s"duplicated parameter name in lambda definition: $name")
+            throw SyntaxError(s"duplicated parameter name in lambda definition: $name").withPos(tk.pos)
           else {
             val lambdaParam: Trees.LambdaParam = Trees.LambdaParam(Symbol(name, null), tp)
             lambdaParam.sym.dealias = lambdaParam
@@ -318,7 +321,7 @@ class ScalaParser {
       }
       val lambda = Untyped(Trees.LambdaExpr(funcParams, None, body))
       if scopeCtx.findSym(funcName).isDefined then
-        throw SyntaxError(Some(name), s"duplicated value name in local definition: $funcName")
+        throw SyntaxError(s"duplicated value name in local definition: $funcName").withPos(name.pos)
       else {
         val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(funcName, null), false, None, lambda))
         bind.tree.sym.dealias = bind
@@ -340,7 +343,7 @@ class ScalaParser {
         }
 
         if scopeCtx.findSymHere(name).isDefined then
-          throw SyntaxError(Some(t), s"duplicated value name in local definition: $name")
+          throw SyntaxError(s"duplicated value name in local definition: $name").withPos(t.pos)
         else {
           val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
           bind.tree.sym.dealias = bind

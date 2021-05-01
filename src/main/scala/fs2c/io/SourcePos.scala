@@ -28,4 +28,13 @@ trait Positional {
     myPos = newPos
     this
   }
+
+  /** Show the positional element in the line.
+    *
+    * @return
+    */
+  def showInSourceLine: String = myPos match {
+    case null => "<no position>"
+    case pos => pos.showInSourceLine
+  }
 }
