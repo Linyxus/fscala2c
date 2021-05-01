@@ -6,8 +6,6 @@ class Main {
       fibonacci(n - 1) + fibonacci(n - 2)
 
   val main = () => {
-    val n = readInt()
-    val f = fibonacci(n)
-    printlnInt(f)
+    printlnInt(fibonacci(readInt()))
   }
 }
