@@ -119,6 +119,23 @@ class TestScalaTyper {
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
 
+  @Test def whileStatement: Unit = {
+    val tests = List(
+      """{
+        |  var x = 0
+        |  var y = 1.0
+        |  while x < 100 do {
+        |    y = y * 2.0
+        |    y
+        |  }
+        |
+        |  y * y
+        |}""".stripMargin -> FloatType
+    )
+
+    tests foreach { case (i, e) => assertTyped(i, e) }
+  }
+
   @Test def applyExpr: Unit = {
     val tests = List(
       (

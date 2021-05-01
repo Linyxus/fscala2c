@@ -419,6 +419,8 @@ class Typer {
         typedBind
       case eval @ Trees.LocalDef.Eval(expr) =>
         eval.assignTypeEval(typedExpr(expr))
+      case loop @ Trees.LocalDef.While(cond, body) =>
+        loop.assignTypeWhile(typedExpr(cond), typedExpr(body))
       case assign @ Trees.LocalDef.Assign(symRef, expr) => {
         val sym: Symbol[_] = symRef match {
           case Symbol.Ref.Resolved(sym) =>
