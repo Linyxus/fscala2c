@@ -166,9 +166,9 @@ class TestCodeGen {
   @Test def printSimpleTypes: Unit = {
     val tests = Seq(
       IntType -> "int",
-      DoubleType -> "double",
+      DoubleType -> "float",
       CharType -> "char",
-      FuncType(FuncType(VoidType, List(IntType)), List(DoubleType, CharType)) -> "void (*) (int) (*) (double, char)",
+      FuncType(FuncType(VoidType, List(IntType)), List(DoubleType, CharType)) -> "void (*) (int) (*) (float, char)",
     )
     
     tests foreach { (i, o) => assertEquals(o, i.show) 
@@ -185,7 +185,7 @@ class TestCodeGen {
     
     tests foreach { (i, o) => assertEquals(o, genExpr(typedString(i)).getExpr.show) }
   }
-  
+
   @Test def printFuncDef: Unit = {
     val e = typedString(
       """() => (x : Int, y : Int) => {
