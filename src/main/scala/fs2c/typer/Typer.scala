@@ -265,8 +265,11 @@ class Typer {
       case x : Trees.IfExpr[Untyped] => typedIfExpr(Untyped(x))
       case x : Trees.NewExpr[Untyped] => typedNewExpr(Untyped(x))
       case x : Trees.SelectExpr[Untyped] => typedSelectExpr(Untyped(x))
+      case x : Trees.GroundValue[Untyped] => typedGroundValue(Untyped(x))
     }
   }
+
+  def typedGroundValue(expr: untpd.GroundValue): tpd.GroundValue = expr.tree.typed
 
   /** Type lambda expressions.
     *

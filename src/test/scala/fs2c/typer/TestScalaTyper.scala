@@ -54,6 +54,14 @@ class TestScalaTyper {
     assertTyped("!(1 > 2 && 3 < 4)", BooleanType)
   }
 
+  @Test def groundValue: Unit = {
+    assertTyped("printInt", LambdaType(List(IntType), IntType))
+    assertTyped("printInt(1 + 1)", IntType)
+    assertTyped("readInt", LambdaType(Nil, IntType))
+    assertTyped("readInt()", IntType)
+    assertTyped("readInt() + 1", IntType)
+  }
+
   @Test def lambdaExpr: Unit = {
     assertTyped("(x : Int) => x", LambdaType(List(IntType), IntType))
     assertTyped("(x : Int, y : Int) => x + y + 2 * x * y", LambdaType(List(IntType, IntType), IntType))
