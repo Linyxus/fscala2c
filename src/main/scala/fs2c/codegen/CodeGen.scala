@@ -327,7 +327,7 @@ class CodeGen {
     t.sym match {
       case resolved : Symbol.Ref.Resolved[_] => 
         val sym = resolved.sym
-        
+
         ctx.refClosureEnv(sym) match {
           case None =>
           case Some(expr) => return bd.PureExprBundle(expr)
@@ -625,7 +625,7 @@ class CodeGen {
 
           val funcType: FST.LambdaType = apply.func.tpe match {
             case tp: FST.LambdaType => tp
-            case _ => assert(false, "can not apply a non-lambda expr, this is cause by a bug in typer")
+            case tp => assert(false, s"can not apply a non-lambda expr with type $tp, this is cause by a bug in typer")
           }
 
           val cFuncType = genLambdaType(funcType.paramTypes, funcType.valueType, None).tpe
@@ -703,35 +703,46 @@ class CodeGen {
             val (tempVar, varBlock) = maybeAllocLocalDef(freshVarName, funcEnv.tp)
 
             val assignBlock = escaped map { sym =>
-              sym.dealias match {
-                case lambdaParam : FS.LambdaParam =>
-                  val name = lambdaParam.sym.name
+              ctx.refClosureEnv(sym) match {
+                case Some(e) =>
+                  val name = sym.name
                   val cMember = funcEnv.members find { m => m.sym.name == name } match {
                     case None =>
                       assert(false, "escaped variable should be found in closure env")
                     case Some(x) => x
                   }
-                  defn.assignMember(tempVar.dealias, cMember.sym, lambdaParam.code.asInstanceOf[bd.PureExprBundle].expr)
-                case tptBind : tpd.LocalDefBind =>
-                  tptBind.code match {
-                    case bd.NoCode =>
-                      throw CodeGenError(s"code $tptBind has not been generated; can not forward-reference")
-                    case bd : bd.VariableBundle =>
-                      val name = tptBind.tree.sym.name
+                  defn.assignMember(tempVar.dealias, cMember.sym, e)
+                case _ =>
+                  sym.dealias match {
+                    case lambdaParam : FS.LambdaParam =>
+                      val name = lambdaParam.sym.name
                       val cMember = funcEnv.members find { m => m.sym.name == name } match {
                         case None =>
                           assert(false, "escaped variable should be found in closure env")
                         case Some(x) => x
                       }
-                      defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
-                    case bd : bd.RecBundle[_] =>
-                      val name = tptBind.tree.sym.name
-                      val cMember = funcEnv.members find { m => m.sym.name == name } match {
-                        case None =>
-                          assert(false, "escaped variable should be found in closure env")
-                        case Some(x) => x
+                      defn.assignMember(tempVar.dealias, cMember.sym, lambdaParam.code.asInstanceOf[bd.PureExprBundle].expr)
+                    case tptBind : tpd.LocalDefBind =>
+                      tptBind.code match {
+                        case bd.NoCode =>
+                          throw CodeGenError(s"code $tptBind has not been generated; can not forward-reference")
+                        case bd : bd.VariableBundle =>
+                          val name = tptBind.tree.sym.name
+                          val cMember = funcEnv.members find { m => m.sym.name == name } match {
+                            case None =>
+                              assert(false, "escaped variable should be found in closure env")
+                            case Some(x) => x
+                          }
+                          defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.varDef.sym))
+                        case bd : bd.RecBundle[_] =>
+                          val name = tptBind.tree.sym.name
+                          val cMember = funcEnv.members find { m => m.sym.name == name } match {
+                            case None =>
+                              assert(false, "escaped variable should be found in closure env")
+                            case Some(x) => x
+                          }
+                          defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.sym))
                       }
-                      defn.assignMember(tempVar.dealias, cMember.sym, C.IdentifierExpr(bd.sym))
                   }
               }
             }
