@@ -163,7 +163,7 @@ object printing {
               if currentLevel == -1 then s
               else s"($s)"
           }
-        case C.AddressExpr(e) => go(e, currentLevel)
+        case C.AddressExpr(e) => "&" ++ go(e, currentLevel)
       }
 
       go(expr, -1)
