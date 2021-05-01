@@ -7,7 +7,7 @@ import fs2c.tools.packratc.scala_token.ScalaTokenParser.{given, _}
 import fs2c.tools.packratc.scala_token.*
 import fs2c.tools.packratc.Parser.{~}
 import fs2c.ast.fs.Trees
-import Trees.{untpd, Untyped, Typed}
+import Trees.{untpd, Untyped, Typed, groundValueMap}
 import fs2c.ast.Symbol
 import fs2c.ast.Scopes._
 import fs2c.typer.Types
@@ -32,7 +32,7 @@ class ScalaParser {
   }
   
   val scopeCtx: ScopeContext = new ScopeContext
-  
+
   /** Entry parser to parse Featherweight Scala source.
     * 
     * A source file will consist of several [[Trees.ClassDef]]s.
@@ -370,12 +370,16 @@ class ScalaParser {
 
   /** Parser for identifiers in the expression.
     */
-  def identifierExpr: Parser[untpd.IdentifierExpr] = {
+  def identifierExpr: Parser[untpd.IdentifierExpr | untpd.GroundValue] = {
     identifier <| {
       case ScalaToken(ScalaTokenType.Identifier(symName)) =>
-        scopeCtx.findSym(symName) match {
-          case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
-          case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym)))
+        groundValueMap get symName match {
+          case Some(e) => e
+          case None =>
+            scopeCtx.findSym(symName) match {
+              case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
+              case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym)))
+            }
         }
     }
   }
