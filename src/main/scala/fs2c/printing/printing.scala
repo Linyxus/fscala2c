@@ -27,7 +27,7 @@ object printing {
     val baseType: Printing[CBT] = new Printing[CBT] {
       def print(t: CBT)(using printer: Printer) = t match {
         case CBT.IntType => printer.print("int")
-        case CBT.DoubleType => printer.print("double")
+        case CBT.DoubleType => printer.print("float")
         case CBT.CharType => printer.print("char")
       }
     }
