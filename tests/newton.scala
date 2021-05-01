@@ -17,9 +17,9 @@ class Main {
 
   val main = () => {
     val n = readFloat()
-    printFloat(n)
+    printlnFloat(n)
     val sq = squareRoot(n)
 
-    printFloat(sq)
+    printlnFloat(sq)
   }
 }

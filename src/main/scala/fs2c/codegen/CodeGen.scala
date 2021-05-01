@@ -580,19 +580,19 @@ class CodeGen {
 
   def genApplyExpr(expr: tpd.ApplyExpr): bd.ValueBundle = expr.assignCode {
     case apply: FS.ApplyExpr[FS.Typed] =>
-      def genReadFunc(cType: C.Type, fmtStr: String): bd.ValueBundle = {
+      def genReadFunc(cType: C.Type, fmtStr: String, newLine: Boolean = false): bd.ValueBundle = {
         val (tempVar, varDefBlock) = defn.localVariable(freshVarName, cType)
 
         bd.BlockBundle(
           expr = tempVar.cIdent,
           block =
             varDefBlock ++ List(
-              C.Statement.Eval(useScanf.appliedTo(C.StringExpr(fmtStr), tempVar.cIdent.addressExpr))
+              C.Statement.Eval(useScanf.appliedTo(C.StringExpr(fmtStr ++ { if newLine then "\\n" else "" }), tempVar.cIdent.addressExpr))
             )
         )
       }
 
-      def genPrintFunc(cType: C.Type, fmtStr: String): bd.ValueBundle = {
+      def genPrintFunc(cType: C.Type, fmtStr: String, newLine: Boolean = false): bd.ValueBundle = {
         val (tempVar, varDefBlock) = defn.localVariable(freshVarName, cType)
         val argBundle: bd.ValueBundle = genExpr(apply.args.head)
 
@@ -600,7 +600,7 @@ class CodeGen {
           expr = tempVar.cIdent,
           block = varDefBlock ++ argBundle.getBlock ++ List(
             defn.assignVar(tempVar.dealias, argBundle.getExpr),
-            C.Statement.Eval(usePrintf.appliedTo(C.StringExpr(fmtStr), tempVar.cIdent))
+            C.Statement.Eval(usePrintf.appliedTo(C.StringExpr(fmtStr ++ { if newLine then "\\n" else "" }), tempVar.cIdent))
           )
         )
       }
@@ -609,6 +609,8 @@ class CodeGen {
         case _: FS.ReadFloat[_] => genReadFunc(C.BaseType.DoubleType, "%f")
         case _: FS.PrintInt[_] => genPrintFunc(C.BaseType.IntType, "%d")
         case _: FS.PrintFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f")
+        case _: FS.PrintLnInt[_] => genPrintFunc(C.BaseType.IntType, "%d", newLine = true)
+        case _: FS.PrintLnFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f", newLine = true)
         case _ =>
           val funcBundle: bd.ValueBundle = genExpr(apply.func)
           val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }

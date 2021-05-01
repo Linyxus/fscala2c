@@ -219,6 +219,14 @@ object Trees {
     override def typed: TypedTree[PrintInt] = Typed(PrintInt(), tpe = LambdaType(List(GroundType.IntType), GroundType.IntType))
   }
 
+  case class PrintLnInt[F[_]]() extends GroundValue[F] {
+    override type This[F[_]] = PrintLnInt[F]
+
+    override def untyped: UntypedTree[PrintLnInt] = Untyped(PrintLnInt())
+
+    override def typed: TypedTree[PrintLnInt] = Typed(PrintLnInt(), tpe = LambdaType(List(GroundType.IntType), GroundType.IntType))
+  }
+
   /** Built-in function `printFloat : Float => Float`.
     *
     * @tparam F
@@ -231,11 +239,21 @@ object Trees {
     override def typed: TypedTree[PrintFloat] = Typed(PrintFloat(), tpe = LambdaType(List(GroundType.FloatType), GroundType.FloatType))
   }
 
+  case class PrintLnFloat[F[_]]() extends GroundValue[F] {
+    override type This[F[_]] = PrintLnFloat[F]
+
+    override def untyped: UntypedTree[PrintLnFloat] = Untyped(PrintLnFloat())
+
+    override def typed: TypedTree[PrintLnFloat] = Typed(PrintLnFloat(), tpe = LambdaType(List(GroundType.FloatType), GroundType.FloatType))
+  }
+
   val groundValueMap: Map[String, UntypedTree[GroundValue]] = Map(
     "readInt" -> ReadInt().untyped,
     "readFloat" -> ReadFloat().untyped,
     "printInt" -> PrintInt().untyped,
     "printFloat" -> PrintFloat().untyped,
+    "printlnInt" -> PrintLnInt().untyped,
+    "printlnFloat" -> PrintLnFloat().untyped,
   )
 
   /** Local definitions in block expressions.
