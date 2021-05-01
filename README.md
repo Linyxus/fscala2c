@@ -47,8 +47,7 @@
      if n <= 1 then
        callback(1)
      else {
-       val res = fibonacci(n - 1, (t1: Int) => fibonacci(n - 2, (t2: Int) => t1 + t2))
-       callback(res)
+       fibonacci(n - 1, (t1: Int) => fibonacci(n - 2, (t2: Int) => callback(t1 + t2)))
      }
 
    val identity = (x: Int) => x
