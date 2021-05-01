@@ -84,6 +84,23 @@ class CodeGenContext {
       Some(C.SelectExpr(self, myClosureSelfDef.ensureFind(sym.name).sym))
     }
 
+  def getClosureSelf: Option[C.Expr] =
+    if !hasClosureSelf then
+      None
+    else Some(C.SelectExpr(C.IdentifierExpr(myClosureEnvVar.sym), myClosureSelf))
+
+  def getSelfName: Option[String] =
+    if !hasClosureSelf then
+      None
+    else
+      Some(myClosureSelf.name)
+
+  def getSelfType: Option[C.Type] =
+    if !hasClosureSelf then
+      None
+    else
+      Some(C.StructType(mySelfStructDef.sym))
+
   /** Initialize the closure with a list of escaped symbols.
     * 
     * @param origSyms

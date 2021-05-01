@@ -161,7 +161,7 @@ class CodeGen {
   def genLambdaType(paramTypes: List[FST.Type], valueType: FST.Type, aliasName: Option[String]): bd.AliasTypeBundle = {
     val name = aliasName getOrElse freshAnonFuncTypeName
 
-    val tps = paramTypes map { t => genType(t, None).getTp }
+    val tps = paramTypes map { t => genType(t, None, lambdaValueType = false).getTp }
     val vTp = genType(valueType, None).getTp
     
     val d: C.TypeAliasDef = maybeAliasFuncType(defn.funcType(defn.VoidPointer :: tps, vTp), name)
@@ -685,9 +685,17 @@ class CodeGen {
             }, lambdaValueType = true).getTp
           }
           var selfName = ""
-          self foreach { (selfDef, self) =>
-            selfName = mangle("self")
-            envMembers = (selfName -> C.StructType(selfDef.sym)) :: envMembers
+          self match {
+            case Some((selfDef, self)) =>
+              selfName = mangle("self")
+              envMembers = (selfName -> C.StructType(selfDef.sym)) :: envMembers
+            case None => ctx.getClosureSelf match {
+              case Some(_) =>
+                val selfName = ctx.getSelfName.get
+                val selfType = ctx.getSelfType.get
+                envMembers = (selfName -> selfType) :: envMembers
+              case None =>
+            }
           }
           val funcEnv = createClosureEnv(envMembers, funcName)
 
@@ -729,6 +737,9 @@ class CodeGen {
             }
 
             val assignSelfBlock = self match {
+              case None if ctx.hasClosureSelf =>
+                val selfName = ctx.getSelfName.get
+                List(defn.assignMember(tempVar.dealias, funcEnv.ensureFind(selfName).sym, ctx.getClosureSelf.get))
               case None => Nil
               case Some((selfDef, self)) =>
                 List(defn.assignMember(tempVar.dealias, funcEnv.ensureFind(selfName).sym, self))
