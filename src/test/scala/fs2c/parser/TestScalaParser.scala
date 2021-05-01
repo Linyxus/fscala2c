@@ -95,6 +95,19 @@ class TestScalaParser {
         |}""".stripMargin)
   }
 
+  @Test def whileStatement: Unit = {
+    assertParseSuccess((new ScalaParser).blockExpr,
+      """{
+        |  var x = 0
+        |  while x < 100 do {
+        |    x = x + 1
+        |    x + 1
+        |  }
+        |  x
+        |}
+        |""".stripMargin)
+  }
+
   @Test def lambda: Unit = {
     assertParseSuccess((new ScalaParser).lambdaExpr,
       """(x : Int) => {

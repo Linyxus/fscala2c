@@ -221,6 +221,8 @@ class Tokenizer(val source: ScalaSource) {
     case "else" => Some(KeywordElse)
     case "new" => Some(KeywordNew)
     case "class" => Some(KeywordClass)
+    case "while" => Some(KeywordWhile)
+    case "do" => Some(KeywordDo)
     case "extends" => Some(KeywordExtends)
     case "True" => Some(LiteralBoolean(true))
     case "False" => Some(LiteralBoolean(false))

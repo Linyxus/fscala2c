@@ -245,6 +245,8 @@ object Trees {
     
     case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
 
+    case While[F[_]](cond: F[Expr[F]], body: F[Expr[F]]) extends LocalDef[F]
+
     def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
       case b : Bind[_] =>
         val bind: tpd.LocalDefBind =
@@ -290,6 +292,16 @@ object Trees {
                                       // in Types.scala
         )
       case _ => assert(false, s"can not call assignTypeAssign on $this")
+    }
+
+    def assignTypeWhile(cond: tpd.Expr, body: tpd.Expr): tpd.LocalDefWhile = this match {
+      case e : While[_] =>
+        Typed(
+          tpe = body.tpe,
+          tree = While(cond = cond, body = body),
+          freeNames = cond.freeNames ++ body.freeNames
+        )
+      case _ => assert(false, s"can not call assignTypeWhile on $this")
     }
   }
 
@@ -364,6 +376,7 @@ object Trees {
     type LocalDef = UntypedTree[Trees.LocalDef]
     type LocalDefBind = UntypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
+    type LocalDefWhile = UntypedTree[Trees.LocalDef.While]
     
     type ApplyExpr = UntypedTree[Trees.ApplyExpr]
     type SelectExpr = UntypedTree[Trees.SelectExpr]
@@ -397,6 +410,7 @@ object Trees {
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
     type LocalDefAssign = TypedTree[Trees.LocalDef.Assign]
+    type LocalDefWhile = TypedTree[Trees.LocalDef.While]
 
     type BinOpExpr = TypedTree[Trees.BinOpExpr]
     type UnaryOpExpr = TypedTree[Trees.UnaryOpExpr]
