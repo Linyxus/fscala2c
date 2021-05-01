@@ -19,8 +19,6 @@ object Main {
       )
     }
 
-    println(args.toList)
-
     OParser.parse(parser1, args, CompilerConfig()) match {
       case Some(CompilerConfig(sourcePath)) =>
         val compiler = new Compiler
