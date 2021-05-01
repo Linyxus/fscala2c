@@ -91,9 +91,10 @@ object Trees {
       }
     }
 
-    def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr = setFreeNames(
-      (defs.flatMap(_.freeNames) ++ expr.freeNames) filterNot { sym => boundSymbols(defs) contains sym }
-    ) {
+    def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr = setFreeNames {
+      val bound = boundSymbols(defs)
+      (defs.flatMap(_.freeNames) ++ expr.freeNames) filterNot { sym => bound contains sym }
+    } {
       Typed(tpe = tpe, tree = BlockExpr(defs, expr))
     }
   }
