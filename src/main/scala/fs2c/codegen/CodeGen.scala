@@ -442,7 +442,7 @@ class CodeGen {
   /** Generate C code for If expression.
     */
   def genIfExpr(expr: tpd.IfExpr): bd.BlockBundle = expr.assignCode { case FS.IfExpr(cond, et, ef) =>
-    val (tempVar, tempDef) = defn.localVariable(freshVarName, C.BaseType.IntType)
+    val (tempVar, tempDef) = defn.localVariable(freshVarName, genType(et.tpe).getTp)
     
     val bdCond = genExpr(cond)
     
