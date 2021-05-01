@@ -93,6 +93,17 @@ class TestCodeGen {
     )
     tests foreach { (i, o) => assertEquals(genExpr(typedString(i)).getExpr.toString, o) }
   }
+
+  @Test def ioBuiltin: Unit = {
+    val tests = List(
+      "readInt() + 1",
+      "readFloat() + 1.1",
+      "printInt(readInt() * 2)",
+      "printFloat(readFloat() * 2.0)",
+    )
+
+    tests foreach { i => genExpr(typedString(i)) }
+  }
   
   @Test def ifExpr: Unit = {
     val e = typedString("(if false then 1 else 0) * (if false then 3 else 2)")

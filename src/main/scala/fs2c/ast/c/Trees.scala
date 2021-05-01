@@ -92,13 +92,15 @@ object Trees {
     * Can either be a [[GroundFunc]] or a [[FuncDef]].
     */
   trait Func {
-    def $$ (es: Expr*): Expr = this match {
+    def appliedTo(es: Expr*): Expr = this match {
       case g : GroundFunc => CallFunc(g, es.toList)
       case f : FuncDef => CallFunc(IdentifierExpr(f.sym), es.toList)
     }
+    def $$ (es: Expr*): Expr = appliedTo(es: _*)
   }
 
   case class GroundFunc(name: String, header: List[String]) extends Func, Expr
+
 
   /** Literal expression.
     */
@@ -122,9 +124,21 @@ object Trees {
     override def toString: String = s"$value"
   }
 
+  case class StringExpr(value: String) extends Expr, LiteralExpr {
+    override def toString: String = s"\"$value\""
+  }
+
   /** Identifier expression referring a C [[Symbol]].
     */
-  case class IdentifierExpr[T](sym: Symbol[T]) extends Expr
+  case class IdentifierExpr[T](sym: Symbol[T]) extends Expr {
+    def addressExpr: AddressExpr[T] = AddressExpr(this)
+  }
+
+  extension[T] (sym: Symbol[T]) {
+    def cIdent: IdentifierExpr[T] = IdentifierExpr(sym)
+  }
+
+  case class AddressExpr[T](e: IdentifierExpr[T]) extends Expr
 
   /** Select expression that selects a member from a C struct.
     * 

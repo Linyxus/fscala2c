@@ -38,5 +38,7 @@ object defn {
     
   object GroundFuncs {
     val malloc = C.GroundFunc("malloc", List("stdlib.h"))
+    val scanf = C.GroundFunc("scanf", List("stdio.h"))
+    val printf = C.GroundFunc("printf", List("stdio.h"))
   }
 }

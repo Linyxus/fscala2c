@@ -70,6 +70,10 @@ class CodeGen {
   
   def useMalloc: C.GroundFunc = useGroundFunc(defn.GroundFuncs.malloc)
 
+  def useScanf: C.GroundFunc = useGroundFunc(defn.GroundFuncs.scanf)
+
+  def usePrintf: C.GroundFunc = useGroundFunc(defn.GroundFuncs.printf)
+
   /** Make a structure definition.
     * 
     * @param name The struct name.
@@ -566,33 +570,62 @@ class CodeGen {
 
   def genApplyExpr(expr: tpd.ApplyExpr): bd.ValueBundle = expr.assignCode {
     case apply: FS.ApplyExpr[FS.Typed] =>
-      def extractFunc(expr: tpd.Expr): bd.ClosureBundle = ???
+      def genReadFunc(cType: C.Type, fmtStr: String): bd.ValueBundle = {
+        val (tempVar, varDefBlock) = defn.localVariable(freshVarName, cType)
 
-      val funcBundle: bd.ValueBundle = genExpr(apply.func)
-      val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
-
-      val funcExpr = funcBundle.getExpr
-      val funcBlock = funcBundle.getBlock
-      val argBlock = argsBundle flatMap { b => b.getBlock }
-      val argExpr = argsBundle map (_.getExpr)
-
-      val selectFunc = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("func").sym)
-      val selectEnv = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("env").sym)
-
-      val funcType: FST.LambdaType = apply.func.tpe match {
-        case tp: FST.LambdaType => tp
-        case _ => assert(false, "can not apply a non-lambda expr, this is cause by a bug in typer")
+        bd.BlockBundle(
+          expr = tempVar.cIdent,
+          block =
+            varDefBlock ++ List(
+              C.Statement.Eval(useScanf.appliedTo(C.StringExpr(fmtStr), tempVar.cIdent.addressExpr))
+            )
+        )
       }
 
-      val cFuncType = genLambdaType(funcType.paramTypes, funcType.valueType, None).tpe
-      val func = C.CoercionExpr(cFuncType, selectFunc)
+      def genPrintFunc(cType: C.Type, fmtStr: String): bd.ValueBundle = {
+        val (tempVar, varDefBlock) = defn.localVariable(freshVarName, cType)
+        val argBundle: bd.ValueBundle = genExpr(apply.args.head)
 
-      val callExpr = C.CallFunc(func, params = selectEnv :: argExpr)
+        bd.BlockBundle(
+          expr = tempVar.cIdent,
+          block = varDefBlock ++ argBundle.getBlock ++ List(
+            defn.assignVar(tempVar.dealias, argBundle.getExpr),
+            C.Statement.Eval(usePrintf.appliedTo(C.StringExpr(fmtStr), tempVar.cIdent))
+          )
+        )
+      }
+      apply.func.tree match {
+        case _: FS.ReadInt[_] => genReadFunc(C.BaseType.IntType, "%d")
+        case _: FS.ReadFloat[_] => genReadFunc(C.BaseType.DoubleType, "%f")
+        case _: FS.PrintInt[_] => genPrintFunc(C.BaseType.IntType, "%d")
+        case _: FS.PrintFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f")
+        case _ =>
+          val funcBundle: bd.ValueBundle = genExpr(apply.func)
+          val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
 
-      bd.BlockBundle(
-        expr = callExpr,
-        block = funcBlock ++ argBlock
-      )
+          val funcExpr = funcBundle.getExpr
+          val funcBlock = funcBundle.getBlock
+          val argBlock = argsBundle flatMap { b => b.getBlock }
+          val argExpr = argsBundle map (_.getExpr)
+
+          val selectFunc = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("func").sym)
+          val selectEnv = C.SelectExpr(funcExpr, stdLib.FuncClosure.load.ensureFind("env").sym)
+
+          val funcType: FST.LambdaType = apply.func.tpe match {
+            case tp: FST.LambdaType => tp
+            case _ => assert(false, "can not apply a non-lambda expr, this is cause by a bug in typer")
+          }
+
+          val cFuncType = genLambdaType(funcType.paramTypes, funcType.valueType, None).tpe
+          val func = C.CoercionExpr(cFuncType, selectFunc)
+
+          val callExpr = C.CallFunc(func, params = selectEnv :: argExpr)
+
+          bd.BlockBundle(
+            expr = callExpr,
+            block = funcBlock ++ argBlock
+          )
+      }
   }
 
   /** Generate code for lambda expressions. It will create a closure to lift a lambda expression with local references
