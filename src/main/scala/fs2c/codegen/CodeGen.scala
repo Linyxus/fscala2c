@@ -519,6 +519,16 @@ class CodeGen {
           }
         case eval : FS.LocalDef.Eval[FS.Typed] =>
           genExpr(eval.expr)
+        case wh : FS.LocalDef.While[FS.Typed] =>
+          val condBundle: bd.ValueBundle = genExpr(wh.cond)
+          val bodyBundle: bd.ValueBundle = genExpr(wh.body)
+
+          bd.PureBlockBundle(
+            block = condBundle.getBlock ++ List(C.Statement.While(
+              cond = condBundle.getExpr,
+              body = bodyBundle.getBlock ++ condBundle.getBlock
+            ))
+          )
         case assign : FS.LocalDef.Assign[FS.Typed] =>
           val sym: Symbol[_] = assign.ref match {
             case ref : Symbol.Ref.Resolved[_] => ref.sym

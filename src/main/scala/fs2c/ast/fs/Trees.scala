@@ -84,8 +84,15 @@ object Trees {
   /** Block expressions.
     */
   case class BlockExpr[F[_]](defs: List[F[LocalDef[F]]], expr: F[Expr[F]]) extends Expr[F] {
+    def boundSymbols(tpdDefs: List[tpd.LocalDef]): List[Symbol[tpd.LocalDefBind]] = tpdDefs flatMap { d =>
+      d.tree match {
+        case bind: Trees.LocalDef.Bind[Typed] => Some(bind.sym)
+        case _ => None
+      }
+    }
+
     def assignType(tpe: Type, defs: List[tpd.LocalDef], expr: tpd.Expr): tpd.BlockExpr = setFreeNames(
-      defs.flatMap(_.freeNames) ++ expr.freeNames
+      (defs.flatMap(_.freeNames) ++ expr.freeNames) filterNot { sym => boundSymbols(defs) contains sym }
     ) {
       Typed(tpe = tpe, tree = BlockExpr(defs, expr))
     }

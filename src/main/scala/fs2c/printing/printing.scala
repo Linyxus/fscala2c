@@ -267,6 +267,9 @@ object printing {
             printer.print(" else ")
             printBlock(fBody, openLine = true)
         }
+      case C.Statement.While(cond, body) =>
+        printer.print(s"while (${showExpr(cond)}) ")
+        printBlock(body, openLine = true)
       case C.Statement.Eval(expr) =>
         printer.println(s"${showExpr(expr)};")
       case C.Statement.AssignVar(d, expr) =>
