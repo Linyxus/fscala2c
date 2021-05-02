@@ -7,9 +7,12 @@ class Main {
   }
 
   val main = () => {
+    print("> ")
     val n = readInt()
-    printlnInt(n)
     val s = sum(n, (x: Int) => x)
+    print("sum(")
+    printInt(n)
+    print(") = ")
     printlnInt(s)
   }
 }
