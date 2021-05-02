@@ -2,6 +2,12 @@ package fs2c.io
 
 case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
   def lineStr: String = source.lines(line)
+
+  def -- (other: SourcePos): SourcePosSpan = {
+    assert(source == other.source, "Source position should be spanned over the same source.")
+    assert(other.idx - idx >= 0, "Source position should be spanned from before to after.")
+    SourcePosSpan(this, other.idx - idx)
+  }
 }
 
 case class SourcePosSpan(start: SourcePos, length: Int) {
