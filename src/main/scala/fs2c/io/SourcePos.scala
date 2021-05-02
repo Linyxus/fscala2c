@@ -3,14 +3,15 @@ package fs2c.io
 case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
   def lineStr: String = source.lines(line)
 
-  def -- (other: SourcePos): SourcePosSpan = {
-    assert(source == other.source, "Source position should be spanned over the same source.")
-    assert(other.idx - idx >= 0, "Source position should be spanned from before to after.")
-    SourcePosSpan(this, other.idx - idx)
-  }
 }
 
 case class SourcePosSpan(start: SourcePos, length: Int) {
+  def -- (other: SourcePosSpan): SourcePosSpan = {
+    assert(start.source == other.start.source, "Source position should be spanned over the same source.")
+    assert(other.start.idx + length - start.idx >= 0, "Source position should be spanned from before to after.")
+    SourcePosSpan(start, other.start.idx + length - start.idx)
+  }
+
   lazy val showInSourceLine: String = {
     val lineNum = start.line
     val linePos = start.col
@@ -35,6 +36,10 @@ trait Positional {
     this
   }
 
+  def withPos(other: Positional): PosSelf =
+//    assert(other.myPos ne null, "inheriting position from an unpositioned Positional element: other")
+    withPos(other.myPos)
+
   /** Show the positional element in the line.
     *
     * @return
@@ -42,5 +47,12 @@ trait Positional {
   def showInSourceLine: String = myPos match {
     case null => "<no position>"
     case pos => pos.showInSourceLine
+  }
+
+  def -- (other: Positional): SourcePosSpan = {
+    assert(myPos ne null, s"spanning from a Positional element with null position: $this")
+    assert(other.myPos ne null, s"spanning to a Positional element with null position: $other")
+
+    myPos -- other.myPos
   }
 }

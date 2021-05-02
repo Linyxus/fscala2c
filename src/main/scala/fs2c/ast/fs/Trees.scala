@@ -16,7 +16,7 @@ object Trees {
 
   /** The trait for all terms living in the value domain.
     */
-  trait Term extends Positional
+  trait Term
 
   /** A class definition.
     *
@@ -396,7 +396,9 @@ object Trees {
 
   /** Wrapper for untyped trees.
     */
-  final case class Untyped[+X](tree: X)
+  final case class Untyped[+X](tree: X) extends Positional {
+    type PosSelf = this.type
+  }
 
   /** Wrapper for typed trees.
     * 
@@ -407,7 +409,9 @@ object Trees {
     */
   final case class Typed[+X](tree: X, var tpe: Type, 
                              var code: bd.CodeBundle = bd.NoCode, 
-                             var freeNames: List[Symbol[_]] = Nil) {
+                             var freeNames: List[Symbol[_]] = Nil) extends Positional {
+    type PosSelf = this.type
+
     def type_=(tpe: Type) =
       this.tpe = tpe
       

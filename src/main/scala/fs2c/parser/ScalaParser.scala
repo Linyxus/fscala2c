@@ -138,32 +138,32 @@ class ScalaParser {
   def exprParser: Parser[untpd.Expr] = ifExpr or newExpr or {
     makeExprParser(List(
       Binary(LeftAssoc, List(
-        "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)) },
-        "||" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.||, e1, e2)) },
+        "&&" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.&&, e1, e2)).withPos(e1 -- e2) },
+        "||" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.||, e1, e2)).withPos(e1 -- e2) },
       )),
       Binary(LeftAssoc, List(
-        ">" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>, e1, e2)) },
-        "<" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<, e1, e2)) },
-        ">=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>=, e1, e2)) },
-        "<=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<=, e1, e2)) },
-        "==" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.==, e1, e2)) },
-        "!=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.!=, e1, e2)) },
+        ">" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>, e1, e2)).withPos(e1 -- e2) },
+        "<" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<, e1, e2)).withPos(e1 -- e2) },
+        ">=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.>=, e1, e2)).withPos(e1 -- e2) },
+        "<=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.<=, e1, e2)).withPos(e1 -- e2) },
+        "==" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.==, e1, e2)).withPos(e1 -- e2) },
+        "!=" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.!=, e1, e2)).withPos(e1 -- e2) },
       )),
       Binary(LeftAssoc, List(
-        "+" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.+, e1, e2)) },
-        "-" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.-, e1, e2)) },
+        "+" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.+, e1, e2)).withPos(e1 -- e2) },
+        "-" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.-, e1, e2)).withPos(e1 -- e2) },
       )),
       Binary(LeftAssoc, List(
-        "*" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.*, e1, e2)) },
-        "/" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop./, e1, e2)) },
-        "%" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.%, e1, e2)) },
+        "*" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.*, e1, e2)).withPos(e1 -- e2) },
+        "/" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop./, e1, e2)).withPos(e1 -- e2) },
+        "%" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.%, e1, e2)).withPos(e1 -- e2) },
       )),
       Binary(LeftAssoc, List(
-        "^" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.^, e1, e2)) },
+        "^" <* { (e1, e2) => Untyped(Trees.BinOpExpr(bop.^, e1, e2)).withPos(e1 -- e2) },
       )),
       Unary(List(
-        "!" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.!, e)) },
-        "-" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.-, e)) },
+        "!" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.!, e)).withPos(e) },
+        "-" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.-, e)).withPos(e) },
       ))
     ), applyAndSelectExpr)
   }
@@ -180,8 +180,8 @@ class ScalaParser {
     */
   def ifExpr: Parser[untpd.IfExpr] = {
     ("if" ~ exprParser ~ "then" ~ exprParser ~ (NL.optional >> "else") ~ exprParser) <| {
-      case _ ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
-        Untyped(Trees.IfExpr(cond, trueBody, falseBody))
+      case kwIf ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
+        Untyped(Trees.IfExpr(cond, trueBody, falseBody)).withPos(kwIf -- falseBody)
     }
   }
   
@@ -190,8 +190,8 @@ class ScalaParser {
       case None => Nil
       case Some(xs) => xs
     }
-    ("new" ~ identifier ~ params) <| { case _ ~ ScalaToken(ScalaTokenType.Identifier(symName)) ~ params =>
-      Untyped(Trees.NewExpr(Symbol.Ref.Unresolved(symName), params))
+    ("new" ~ identifier ~ params) <| { case kwNew ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params =>
+      Untyped(Trees.NewExpr(Symbol.Ref.Unresolved(symName), params)).withPos(kwNew -- tk)
     }
   }
 
@@ -206,12 +206,12 @@ class ScalaParser {
     */
   def applyAndSelectExpr: Parser[untpd.Expr] = {
     def selP: Parser[untpd.Expr => untpd.Expr] = 
-      { "." ~ identifier } <| { case _ ~ ScalaToken(ScalaTokenType.Identifier(member)) =>
-        e => Untyped(Trees.SelectExpr(e, member))
+      { "." ~ identifier } <| { case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(member))) =>
+        e => Untyped(Trees.SelectExpr(e, member)).withPos(e -- tk)
       }
     def applyP: Parser[untpd.Expr => untpd.Expr] =
       exprParser.sepBy(",").wrappedBy("(", ")") <| { case es =>
-        e => Untyped(Trees.ApplyExpr(e, es))
+        e => Untyped(Trees.ApplyExpr(e, es)).withPos(e.pos)
       }
 
     (exprTerm ~ (selP or applyP).many) <| { case e ~ ts =>
@@ -230,23 +230,23 @@ class ScalaParser {
   /** Parses a integer literal.
     */
   def literalIntExpr: Parser[untpd.Expr] = literalInt <| {
-    case ScalaToken(ScalaTokenType.LiteralInt(value)) => Untyped(Trees.LiteralIntExpr(value))
+    case tk @ ScalaToken(ScalaTokenType.LiteralInt(value)) => Untyped(Trees.LiteralIntExpr(value)).withPos(tk)
   }
 
   /** Parses a floating number literal.
     */
   def literalFloatExpr: Parser[untpd.Expr] = literalFloat <| {
-    case ScalaToken(ScalaTokenType.LiteralFloat(value)) => Untyped(Trees.LiteralFloatExpr(value))
+    case tk @ ScalaToken(ScalaTokenType.LiteralFloat(value)) => Untyped(Trees.LiteralFloatExpr(value)).withPos(tk)
   }
 
   /** Parses a boolean literal.
     */
   def literalBooleanExpr: Parser[untpd.Expr] = literalBoolean <| {
-    case ScalaToken(ScalaTokenType.LiteralBoolean(value)) => Untyped(Trees.LiteralBooleanExpr(value))
+    case tk @ ScalaToken(ScalaTokenType.LiteralBoolean(value)) => Untyped(Trees.LiteralBooleanExpr(value)).withPos(tk)
   }
 
   def literalStringExpr: Parser[untpd.Expr] = literalString <| {
-    case ScalaToken(ScalaTokenType.LiteralString(value)) => Untyped(Trees.LiteralStringExpr(value))
+    case tk @ ScalaToken(ScalaTokenType.LiteralString(value)) => Untyped(Trees.LiteralStringExpr(value)).withPos(tk)
   }
 
   /** Parser for lambda expressions.
@@ -274,10 +274,13 @@ class ScalaParser {
     val body: Parser[untpd.Expr] = exprParser <| { x =>
       // exit the scope
       scopeCtx.relocateScope()
-      Untyped(x.tree)
+      Untyped(x.tree).withPos(x)
     }
 
-    (params ~ "=>" ~ body) <| { case params ~ _ ~ body => Untyped(Trees.LambdaExpr(params, None, body)) }
+    (params ~ "=>" ~ body) <| { case params ~ arrow ~ body =>
+      val theBody = body
+      Untyped(Trees.LambdaExpr(params, None, body)).withPos(arrow -- body)
+    }
   }
 
   /** Parser for block expressions.
@@ -289,14 +292,14 @@ class ScalaParser {
     val block: Parser[untpd.BlockExpr] = 
       (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
         ls match {
-          case Nil => throw SyntaxError(s"Block expression should not be empty").withPos(endToken.pos)
+          case Nil => throw SyntaxError(s"Block expression should not be empty").withPos(beginToken -- endToken)
           case ls : List[untpd.LocalDef] =>
             val lastOne: Trees.LocalDef[Untyped] = ls.last.tree
             lastOne match {
               case eval: fs2c.ast.fs.Trees.LocalDef.Eval[Untyped] =>
-                Untyped(Trees.BlockExpr(ls.init, eval.expr))
+                Untyped(Trees.BlockExpr(ls.init, eval.expr)).withPos(beginToken -- endToken)
               case _ =>
-                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(endToken.pos)
+                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(beginToken -- endToken)
             }
         }
       }
@@ -308,7 +311,7 @@ class ScalaParser {
 
   def localDefDef: Parser[untpd.LocalDef] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
-    ("def" ~ identifier ~ param.sepBy(",").wrappedBy("(", ")") ~ "=" ~ exprParser) <| { case _ ~ name ~ params ~ _ ~ body =>
+    ("def" ~ identifier ~ param.sepBy(",").wrappedBy("(", ")") ~ "=" ~ exprParser) <| { case kwDef ~ name ~ params ~ _ ~ body =>
       val funcName = name match {
         case ScalaToken(ScalaTokenType.Identifier(name)) => name
       }
@@ -324,24 +327,24 @@ class ScalaParser {
             lambdaParam.sym
           }
       }
-      val lambda = Untyped(Trees.LambdaExpr(funcParams, None, body))
+      val lambda = Untyped(Trees.LambdaExpr(funcParams, None, body)).withPos(kwDef -- body)
       if scopeCtx.findSym(funcName).isDefined then
         throw SyntaxError(s"duplicated value name in local definition: $funcName").withPos(name.pos)
       else {
         val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(funcName, null), false, None, lambda))
         bind.tree.sym.dealias = bind
         scopeCtx.addSymbol(bind.tree.sym)
-        bind
+        bind.withPos(lambda)
       }
     }
   }
 
   def localDefBind: Parser[untpd.LocalDef] = {
-    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(t) => t }
+    val kw: Parser[ScalaToken] = ("val" | "var")
     val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
     (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| { 
       case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
-        val mutable = bindKw match {
+        val mutable = bindKw.tokenType match {
           case ScalaTokenType.KeywordVal => false
           case ScalaTokenType.KeywordVar => true
           case _ => false
@@ -353,23 +356,23 @@ class ScalaParser {
           val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
           bind.tree.sym.dealias = bind
           scopeCtx.addSymbol(bind.tree.sym)
-          bind
+          bind.withPos(bindKw -- body)
         }
     }
   }
   
   def localDefAssign: Parser[untpd.LocalDef] = {
-    (identifier ~ "=" ~ exprParser) <| { case t@ScalaToken(ScalaTokenType.Identifier(symName)) ~ _ ~ expr =>
-      Untyped(Trees.LocalDef.Assign(tryResolveSymbol(symName), expr))
+    (identifier ~ "=" ~ exprParser) <| { case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ _ ~ expr =>
+      Untyped(Trees.LocalDef.Assign(tryResolveSymbol(symName), expr)).withPos(t -- expr)
     }
   }
 
   def localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
-    Untyped(Trees.LocalDef.Eval(expr))
+    Untyped(Trees.LocalDef.Eval(expr)).withPos(expr)
   }
 
-  def localDefWhile: Parser[untpd.LocalDef] = ("while" ~ exprParser ~ "do" ~ exprParser) <| { case _ ~ cond ~ _ ~ body =>
-    Untyped(Trees.LocalDef.While(cond, body))
+  def localDefWhile: Parser[untpd.LocalDef] = ("while" ~ exprParser ~ "do" ~ exprParser) <| { case kwWhile ~ cond ~ _ ~ body =>
+    Untyped(Trees.LocalDef.While(cond, body)).withPos(kwWhile -- body)
   }
   
   def tryResolveSymbol(symName: String): Symbol.Ref = scopeCtx.findSym(symName) match {
@@ -381,13 +384,13 @@ class ScalaParser {
     */
   def identifierExpr: Parser[untpd.IdentifierExpr | untpd.GroundValue] = {
     identifier <| {
-      case ScalaToken(ScalaTokenType.Identifier(symName)) =>
+      case tk @ ScalaToken(ScalaTokenType.Identifier(symName)) =>
         groundValueMap get symName match {
-          case Some(e) => e
+          case Some(e) => e.withPos(tk)
           case None =>
             scopeCtx.findSym(symName) match {
-              case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName)))
-              case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym)))
+              case None => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Unresolved(symName))).withPos(tk)
+              case Some(sym) => Untyped(Trees.IdentifierExpr[Untyped](Symbol.Ref.Resolved(sym))).withPos(tk)
             }
         }
     }
