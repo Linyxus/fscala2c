@@ -113,10 +113,18 @@ object Trees {
     override def toString: String = s"$value"
   }
 
+  extension (i: Int) {
+    def asC: Expr = IntExpr(i)
+  }
+
   /** Float expression.
     */
   case class FloatExpr(value: Double) extends Expr, LiteralExpr {
     override def toString: String = s"$value"
+  }
+
+  extension (i: Float) {
+    def asC: Expr = FloatExpr(i)
   }
 
   /** Boolean expression.
@@ -125,8 +133,16 @@ object Trees {
     override def toString: String = s"$value"
   }
 
+  extension (i: Boolean) {
+    def asC: Expr = BoolExpr(i)
+  }
+
   case class StringExpr(value: String) extends Expr, LiteralExpr {
     override def toString: String = s"\"$value\""
+  }
+
+  extension (s: String) {
+    def asC: Expr = StringExpr(s)
   }
 
   /** Identifier expression referring a C [[Symbol]].
