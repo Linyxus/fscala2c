@@ -202,6 +202,22 @@ class Tokenizer(val source: ScalaSource) {
     }
   }
 
+  def literalString: LiteralString | Error =
+    while !eof && peek != '\"' && peek != '\n' && peek != '\r' do
+      if peek == '\\' then forward
+      if eof then
+        Error("unexpected eof when tokenizing a string")
+      else
+        forward
+    peek match
+      case '\"' =>
+        forward
+        val s = content.substring(start + 1, current - 1)
+        LiteralString(s)
+      case ch =>
+        Error(s"unexpected character $ch when tokenizing a string")
+  end literalString
+
   /** Parse a symbol starting with a letter and consists of letters and digits.
     */
   def symbol: String = {
@@ -288,6 +304,8 @@ class Tokenizer(val source: ScalaSource) {
           case '<' => LessThan
           case '!' if look('=') => BangEqual
           case '!' => Bang
+          case '\"' =>
+            literalString
           case ch if ch.isLetter =>
             val str = symbol
             keyword(str) !! identifier(str)

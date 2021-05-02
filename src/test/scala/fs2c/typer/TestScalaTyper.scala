@@ -62,6 +62,15 @@ class TestScalaTyper {
     assertTyped("readInt() + 1", IntType)
   }
 
+  @Test def strings: Unit = {
+    assertTyped("\"one\"", StringType)
+    assertTyped(
+      """{
+        |  val x = "one"
+        |  x
+        |}""".stripMargin, StringType)
+  }
+
   @Test def lambdaExpr: Unit = {
     assertTyped("(x : Int) => x", LambdaType(List(IntType), IntType))
     assertTyped("(x : Int, y : Int) => x + y + 2 * x * y", LambdaType(List(IntType, IntType), IntType))

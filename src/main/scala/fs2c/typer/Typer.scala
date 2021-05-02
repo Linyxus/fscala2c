@@ -256,6 +256,7 @@ class Typer {
       case x : Trees.LiteralIntExpr[_] => x.assignType(IntType)
       case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
       case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
+      case x : Trees.LiteralStringExpr[_] => x.assignType(StringType)
       case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
       case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
       case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))

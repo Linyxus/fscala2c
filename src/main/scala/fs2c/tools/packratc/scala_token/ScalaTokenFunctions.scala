@@ -55,6 +55,11 @@ trait ScalaTokenFunctions {
     case ScalaToken(_ : ScalaTokenType.LiteralBoolean) => true
     case _ => false
   } ?? "boolean literal"
+
+  def literalString: Parser[ScalaToken] = satisfy {
+    case ScalaToken(_: ScalaTokenType.LiteralString) => true
+    case _ => false
+  } ?? "string literal"
   
   def symbol(name: String): Parser[ScalaToken] = satisfy {
     case ScalaToken(ScalaTokenType.Identifier(s)) if s == name => true

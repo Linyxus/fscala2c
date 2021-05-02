@@ -141,6 +141,9 @@ class CodeGen {
       case FST.GroundType.BooleanType => bd.SimpleTypeBundle {
         C.BaseType.IntType
       }
+      case FST.GroundType.StringType => bd.SimpleTypeBundle {
+        C.PointerType(C.BaseType.CharType)
+      }
       case _ : FST.LambdaType if lambdaValueType => lambdaClosureType
       case FST.LambdaType(paramTypes, valueType) => genLambdaType(paramTypes, valueType, aliasName)
       case clsDef: FS.ClassDef[FS.Typed] => clsDef.sym.dealias.code match {
@@ -288,6 +291,7 @@ class CodeGen {
     case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
+    case _ : FS.LiteralStringExpr[_] => genStringLiteralExpr(expr.asInstanceOf)
     case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
@@ -317,6 +321,11 @@ class CodeGen {
     */
   def genBooleanLiteralExpr(expr: tpd.LiteralBooleanExpr): bd.PureExprBundle = expr.assignCode { t =>
     val code = bd.PureExprBundle(C.BoolExpr(t.value))
+    code
+  }
+
+  def genStringLiteralExpr(expr: tpd.LiteralStringExpr): bd.PureExprBundle = expr.assignCode { t =>
+    val code = bd.PureExprBundle(C.StringExpr(t.value))
     code
   }
 

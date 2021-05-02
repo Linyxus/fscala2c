@@ -110,7 +110,7 @@ object Trees {
     def assignType(tpe: Type): tpd.LiteralIntExpr =
       Typed(tree = LiteralIntExpr(value), tpe = tpe)
   }
-  
+
   case class LiteralFloatExpr[F[_]](value: Double) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralFloatExpr =
       Typed(tree = LiteralFloatExpr(value), tpe = tpe)
@@ -119,6 +119,11 @@ object Trees {
   case class LiteralBooleanExpr[F[_]](value: Boolean) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralBooleanExpr =
       Typed(tree = LiteralBooleanExpr(value), tpe = tpe)
+  }
+
+  case class LiteralStringExpr[F[_]](value: String) extends Expr[F] {
+    def assignType(tp: Type): tpd.LiteralStringExpr =
+      Typed(tree = LiteralStringExpr(value), tpe = tp)
   }
 
   /** Application.
@@ -395,7 +400,8 @@ object Trees {
     type LiteralIntExpr = UntypedTree[Trees.LiteralIntExpr]
     type LiteralFloatExpr = UntypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = UntypedTree[Trees.LiteralBooleanExpr]
-    
+    type LiteralStringExpr = UntypedTree[Trees.LiteralStringExpr]
+
     type LambdaExpr = UntypedTree[Trees.LambdaExpr]
     
     type BlockExpr = UntypedTree[Trees.BlockExpr]
@@ -428,7 +434,8 @@ object Trees {
     type LiteralIntExpr = TypedTree[Trees.LiteralIntExpr]
     type LiteralFloatExpr = TypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = TypedTree[Trees.LiteralBooleanExpr]
-    
+    type LiteralStringExpr = TypedTree[Trees.LiteralStringExpr]
+
     type LambdaExpr = TypedTree[Trees.LambdaExpr]
     
     type BlockExpr = TypedTree[Trees.BlockExpr]

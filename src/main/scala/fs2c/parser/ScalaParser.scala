@@ -224,7 +224,7 @@ class ScalaParser {
 
   /** Parses literal values.
     */
-  def literals: Parser[untpd.Expr] = literalIntExpr or literalFloatExpr or literalBooleanExpr
+  def literals: Parser[untpd.Expr] = literalStringExpr or literalIntExpr or literalFloatExpr or literalBooleanExpr
 
   /** Parses a integer literal.
     */
@@ -242,6 +242,10 @@ class ScalaParser {
     */
   def literalBooleanExpr: Parser[untpd.Expr] = literalBoolean <| {
     case ScalaToken(ScalaTokenType.LiteralBoolean(value)) => Untyped(Trees.LiteralBooleanExpr(value))
+  }
+
+  def literalStringExpr: Parser[untpd.Expr] = literalString <| {
+    case ScalaToken(ScalaTokenType.LiteralString(value)) => Untyped(Trees.LiteralStringExpr(value))
   }
 
   /** Parser for lambda expressions.

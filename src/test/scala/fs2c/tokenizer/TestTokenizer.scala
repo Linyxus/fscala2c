@@ -12,7 +12,7 @@ class TestTokenizer {
     val tokens = Tokenizer.tokenize(source)
     assertEquals(List(Plus, Minus, Asterisk, Slash, Caret, EndOfSource), tokens map (_.tokenType))
   }
-  
+
   @Test def newLine: Unit = {
     val source = ScalaSource.testSource("hello\n  world\nhello\nworld")
     val tokens = Tokenizer.tokenize(source)
