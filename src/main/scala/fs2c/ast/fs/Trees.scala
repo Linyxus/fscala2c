@@ -270,6 +270,18 @@ object Trees {
     override def typed: TypedTree[PrintLn] = Typed(PrintLn(), tpe = LambdaType(List(GroundType.StringType), GroundType.StringType))
   }
 
+  case class InitRandom[F[_]]() extends GroundValue[F] {
+    override type This[F[_]] = InitRandom[F]
+    override def untyped: UntypedTree[InitRandom] = Untyped(InitRandom())
+    override def typed: TypedTree[InitRandom] = Typed(InitRandom(), tpe = LambdaType(Nil, GroundType.IntType))
+  }
+
+  case class NextRandom[F[_]]() extends GroundValue[F] {
+    override type This[F[_]] = NextRandom[F]
+    override def untyped: UntypedTree[NextRandom] = Untyped(NextRandom())
+    override def typed: TypedTree[NextRandom] = Typed(NextRandom(), tpe = GroundType.IntType)
+  }
+
   val groundValueMap: Map[String, UntypedTree[GroundValue]] = Map(
     "readInt" -> ReadInt().untyped,
     "readFloat" -> ReadFloat().untyped,
@@ -280,6 +292,8 @@ object Trees {
     "printlnFloat" -> PrintLnFloat().untyped,
     "print" -> Print().untyped,
     "println" -> PrintLn().untyped,
+    "initRandom" -> InitRandom().untyped,
+    "nextRandom" -> NextRandom().untyped,
   )
 
   /** Local definitions in block expressions.

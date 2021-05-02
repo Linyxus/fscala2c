@@ -3,6 +3,7 @@ package fs2c.codegen
 import fs2c.codegen.{CodeBundles => bd}
 import fs2c.ast.Symbol
 import fs2c.ast.c.{ Trees => C }
+import fs2c.ast.c.Trees.asC
 import fs2c.ast.fs.{ Trees => FS }
 import fs2c.typer.{ Types => FST }
 import FS.tpd
@@ -73,6 +74,12 @@ class CodeGen {
   def useScanf: C.GroundFunc = useGroundFunc(defn.GroundFuncs.scanf)
 
   def usePrintf: C.GroundFunc = useGroundFunc(defn.GroundFuncs.printf)
+
+  def useSRand: C.GroundFunc = useGroundFunc(defn.GroundFuncs.srand)
+
+  def useRand: C.GroundFunc = useGroundFunc(defn.GroundFuncs.rand)
+
+  def useTime: C.GroundFunc = useGroundFunc(defn.GroundFuncs.time)
 
   /** Make a structure definition.
     * 
@@ -292,6 +299,7 @@ class CodeGen {
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralStringExpr[_] => genStringLiteralExpr(expr.asInstanceOf)
+    case _ : FS.NextRandom[_] => bd.PureExprBundle { useRand.appliedTo() }
     case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
@@ -634,6 +642,11 @@ class CodeGen {
         case _: FS.PrintLnInt[_] => genPrintFunc(C.BaseType.IntType, "%d", newLine = true)
         case _: FS.PrintLnFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f", newLine = true)
         case _: FS.PrintLn[_] => genPrintFunc(C.PointerType(C.BaseType.CharType), "%s", newLine = true)
+        case _: FS.InitRandom[_] =>
+          bd.BlockBundle(
+            expr = C.IntExpr(0),
+            block = List(C.Statement.Eval(useSRand appliedTo (useTime appliedTo 0.asC)))
+          )
         case _ =>
           val funcBundle: bd.ValueBundle = genExpr(apply.func)
           val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
