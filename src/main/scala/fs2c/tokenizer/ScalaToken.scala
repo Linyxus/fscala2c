@@ -147,7 +147,7 @@ enum ScalaTokenType {
 }
 
 case class ScalaToken(tokenType: ScalaTokenType) extends Positional {
-  override type This = ScalaToken
+  override type PosSelf = ScalaToken
 
   def showToken: String = tokenType.show
 

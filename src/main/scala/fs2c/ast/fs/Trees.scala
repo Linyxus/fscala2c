@@ -3,6 +3,7 @@ package fs2c.ast.fs
 import fs2c.ast.Symbol
 import fs2c.typer.Types._
 import fs2c.codegen.{ CodeBundles => bd }
+import fs2c.io.Positional
 
 /** Abstract syntax trees for Featherweight Scala
   *
@@ -15,7 +16,7 @@ object Trees {
 
   /** The trait for all terms living in the value domain.
     */
-  trait Term
+  trait Term extends Positional
 
   /** A class definition.
     *

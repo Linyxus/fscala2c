@@ -18,13 +18,13 @@ case class SourcePosSpan(start: SourcePos, length: Int) {
 }
 
 trait Positional {
-  type This >: this.type
+  type PosSelf >: this.type
 
   private var myPos: SourcePosSpan = null
 
   def pos: SourcePosSpan = myPos
 
-  def withPos(newPos: => SourcePosSpan): This = {
+  def withPos(newPos: => SourcePosSpan): PosSelf = {
     myPos = newPos
     this
   }
