@@ -48,7 +48,7 @@ abstract class ScalaSource {
     if currentLine >= lineCount then
       col = 0
 
-    SourcePos(this, currentLine, col)
+    SourcePos(this, currentLine, col, posIdx)
   }
 }
 

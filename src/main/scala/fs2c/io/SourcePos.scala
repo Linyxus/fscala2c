@@ -1,6 +1,6 @@
 package fs2c.io
 
-case class SourcePos(source: ScalaSource, line: Int, col: Int) {
+case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
   def lineStr: String = source.lines(line)
 }
 
