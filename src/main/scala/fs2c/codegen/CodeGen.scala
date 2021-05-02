@@ -589,14 +589,24 @@ class CodeGen {
 
   def genApplyExpr(expr: tpd.ApplyExpr): bd.ValueBundle = expr.assignCode {
     case apply: FS.ApplyExpr[FS.Typed] =>
-      def genReadFunc(cType: C.Type, fmtStr: String, newLine: Boolean = false): bd.ValueBundle = {
-        val (tempVar, varDefBlock) = defn.localVariable(freshVarName, cType)
+      def genReadFunc(cType: C.Type, fmtStr: String, newLine: Boolean = false, allocSize: Option[Int] = None): bd.ValueBundle = {
+        val (tempVar, varDefBlock) =
+          defn.localVariable(
+            freshVarName,
+            cType,
+            allocSize map { allocSize => useMalloc $$ C.IntExpr(allocSize) }
+          )
+
+        val readAddr = allocSize match {
+          case Some(_) => tempVar.cIdent
+          case None => tempVar.cIdent.addressExpr
+        }
 
         bd.BlockBundle(
           expr = tempVar.cIdent,
           block =
             varDefBlock ++ List(
-              C.Statement.Eval(useScanf.appliedTo(C.StringExpr(fmtStr ++ { if newLine then "\\n" else "" }), tempVar.cIdent.addressExpr))
+              C.Statement.Eval(useScanf.appliedTo(C.StringExpr(fmtStr ++ { if newLine then "\\n" else "" }), readAddr))
             )
         )
       }
@@ -616,10 +626,13 @@ class CodeGen {
       apply.func.tree match {
         case _: FS.ReadInt[_] => genReadFunc(C.BaseType.IntType, "%d")
         case _: FS.ReadFloat[_] => genReadFunc(C.BaseType.DoubleType, "%f")
+        case _: FS.ReadStr[_] => genReadFunc(C.PointerType(C.BaseType.CharType), "%s", allocSize = Some(1024))
         case _: FS.PrintInt[_] => genPrintFunc(C.BaseType.IntType, "%d")
         case _: FS.PrintFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f")
+        case _: FS.Print[_] => genPrintFunc(C.PointerType(C.BaseType.CharType), "%s")
         case _: FS.PrintLnInt[_] => genPrintFunc(C.BaseType.IntType, "%d", newLine = true)
         case _: FS.PrintLnFloat[_] => genPrintFunc(C.BaseType.DoubleType, "%f", newLine = true)
+        case _: FS.PrintLn[_] => genPrintFunc(C.PointerType(C.BaseType.CharType), "%s", newLine = true)
         case _ =>
           val funcBundle: bd.ValueBundle = genExpr(apply.func)
           val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }
