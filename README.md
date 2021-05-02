@@ -40,6 +40,8 @@
  
  ## Examples
  
+ ### Fibonacci Array (CPS)
+ 
  We will compile the following FScala code to C:
  ```scala
  class Main {
