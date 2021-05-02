@@ -802,6 +802,9 @@ class Typer {
       ConcreteBinOpSig(IntType, IntType, IntType),
       ConcreteBinOpSig(FloatType, FloatType, FloatType),
     ),
+    bop.% -> List(
+      ConcreteBinOpSig(IntType, IntType, IntType),
+    ),
     bop.* -> List(
       ConcreteBinOpSig(IntType, IntType, IntType),
       ConcreteBinOpSig(FloatType, FloatType, FloatType),

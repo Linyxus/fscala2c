@@ -101,6 +101,7 @@ object printing {
         C.BinOpType.< -> 1,
         C.BinOpType.+ -> 2,
         C.BinOpType.- -> 2,
+        C.BinOpType.% -> 2,
         C.BinOpType.* -> 3,
         C.BinOpType./ -> 3,
         C.BinOpType.^ -> 4,

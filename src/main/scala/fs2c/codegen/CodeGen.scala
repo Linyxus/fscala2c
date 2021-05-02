@@ -438,6 +438,7 @@ class CodeGen {
     case sbop.* => cbop.*
     case sbop./ => cbop./
     case sbop.^ => cbop.^
+    case sbop.% => cbop.%
     case sbop.&& => cbop.&&
     case sbop.|| => cbop.||
     case sbop.>= => cbop.>=

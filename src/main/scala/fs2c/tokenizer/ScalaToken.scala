@@ -70,6 +70,8 @@ enum ScalaTokenType {
 
   case Caret
 
+  case Percent
+
   case DoubleAmpersand
 
   case DoubleVerticalBar
@@ -128,6 +130,7 @@ enum ScalaTokenType {
     case Asterisk => "*"
     case Slash => "/"
     case Caret => "^"
+    case Percent => "%"
     case DoubleAmpersand => "&&"
     case DoubleVerticalBar => "||"
     case GreaterThan => ">"

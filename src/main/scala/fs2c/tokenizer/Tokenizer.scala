@@ -296,6 +296,7 @@ class Tokenizer(val source: ScalaSource) {
           case '*' => Asterisk
           case '/' => Slash
           case '^' => Caret
+          case '%' => Percent
           case '&' if look('&') => DoubleAmpersand
           case '|' if look('|') => DoubleVerticalBar
           case '>' if look('=') => GreaterThanEqual

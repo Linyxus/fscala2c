@@ -62,6 +62,7 @@ object Trees {
     case *
     case /
     case ^
+    case %
     case &&
     case ||
     case ==

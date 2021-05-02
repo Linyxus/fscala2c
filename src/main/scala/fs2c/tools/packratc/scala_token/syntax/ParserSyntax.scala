@@ -14,6 +14,7 @@ trait ParserSyntax {
       case "*" => tokenOfType(ScalaTokenType.Asterisk)
       case "/" => tokenOfType(ScalaTokenType.Slash)
       case "^" => tokenOfType(ScalaTokenType.Caret)
+      case "%" => tokenOfType(ScalaTokenType.Percent)
       case "=" => tokenOfType(ScalaTokenType.Equal)
       case ":" => tokenOfType(ScalaTokenType.Colon)
       case ";" => tokenOfType(ScalaTokenType.Semicolon)
