@@ -26,7 +26,7 @@ class ScalaParser {
     * @param msg The error message.
     */
   case class SyntaxError(msg: String) extends Exception with Positional {
-    override type This = SyntaxError
+    override type PosSelf = SyntaxError
 
     override def toString: String = showInSourceLine ++ s"\nSyntax error: $msg"
   }
