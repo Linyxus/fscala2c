@@ -317,7 +317,8 @@ class ScalaParser {
               case eval: fs2c.ast.fs.Trees.LocalDef.Eval[Untyped] =>
                 Untyped(Trees.BlockExpr(ls.init, eval.expr)).withPos(beginToken -- endToken)
               case _ =>
-                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(beginToken -- endToken)
+                Untyped(Trees.BlockExpr(ls, Untyped(Trees.LiteralIntExpr(0)))).withPos(beginToken -- endToken)
+//                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(beginToken -- endToken)
             }
         }
       }
