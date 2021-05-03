@@ -9,10 +9,12 @@ class Main {
   val main = () => {
     print("> ")
     val n = readInt()
-    val s = sum(n, (x: Int) => x)
-    print("sum(")
-    printInt(n)
-    print(") = ")
-    printlnInt(s)
+
+    var i = 0
+    while i <= n do {
+      val s = sum(i, (x: Int) => x)
+      printf("sum(0..%d) = %d\n", i, s)
+      i = i + 1
+    }
   }
 }

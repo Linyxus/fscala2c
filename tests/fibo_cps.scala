@@ -10,7 +10,11 @@ class Main {
 
   val main = () => {
     val n = readInt()
-    val res = fibonacci(n, identity)
-    printlnInt(res)
+    var i = 0
+    while i <= n do {
+      val f = fibonacci(i, identity)
+      printf("fibonacci(%d) = %d\n", i, f)
+      i = i + 1
+    }
   }
 }
