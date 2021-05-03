@@ -43,5 +43,6 @@ object defn {
     val srand = C.GroundFunc("srand", List("stdlib.h"))
     val rand = C.GroundFunc("rand", List("stdlib.h"))
     val time = C.GroundFunc("time", List("time.h"))
+    val sqrt = C.GroundFunc("sqrt", List("math.h"))
   }
 }

@@ -665,6 +665,13 @@ class CodeGen {
             expr = C.IntExpr(0),
             block = List(C.Statement.Eval(useSRand appliedTo (useTime appliedTo 0.asC)))
           )
+        case _: FS.Sqrt[_] =>
+          val e: tpd.Expr = apply.args.head
+          val bundle = genExpr(e)
+          bd.BlockBundle(
+            expr = useGroundFunc(defn.GroundFuncs.sqrt) $$ (bundle.getExpr),
+            block = bundle.getBlock
+          )
         case _ =>
           val funcBundle: bd.ValueBundle = genExpr(apply.func)
           val argsBundle: List[bd.ValueBundle] = apply.args map { arg => genExpr(arg) }

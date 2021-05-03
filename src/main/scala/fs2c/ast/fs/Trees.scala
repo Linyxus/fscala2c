@@ -283,6 +283,12 @@ object Trees {
     override def typed: TypedTree[NextRandom] = Typed(NextRandom(), tpe = GroundType.IntType)
   }
 
+  case class Sqrt[F[_]]() extends GroundValue[F] {
+    override type This[F[_]] = Sqrt[F]
+    override def untyped: UntypedTree[Sqrt] = Untyped(Sqrt())
+    override def typed: TypedTree[Sqrt] = Typed(Sqrt(), tpe = LambdaType(List(GroundType.FloatType), GroundType.FloatType))
+  }
+
   val groundValueMap: Map[String, UntypedTree[GroundValue]] = Map(
     "readInt" -> ReadInt().untyped,
     "readFloat" -> ReadFloat().untyped,
@@ -295,6 +301,7 @@ object Trees {
     "println" -> PrintLn().untyped,
     "initRandom" -> InitRandom().untyped,
     "nextRandom" -> NextRandom().untyped,
+    "sqrt" -> Sqrt().untyped,
   )
 
   /** Local definitions in block expressions.
