@@ -289,9 +289,9 @@ object Trees {
     override def typed: TypedTree[Sqrt] = Typed(Sqrt(), tpe = LambdaType(List(GroundType.FloatType), GroundType.FloatType))
   }
 
-  case class Printf[F[_]](fmt: String, args: List[F[Expr[F]]]) extends Expr[F] {
+  case class Printf[F[_]](fmt: String, args: List[F[Expr[F]]], strValue: Boolean) extends Expr[F] {
     def assignType(args: List[tpd.Expr], tp: Type): tpd.Printf = setFreeNames(args flatMap (_.freeNames)) {
-      Typed(Printf(fmt, args), tpe = tp)
+      Typed(Printf(fmt, args, strValue), tpe = tp)
     }
   }
 

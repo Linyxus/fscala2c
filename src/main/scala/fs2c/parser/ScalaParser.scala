@@ -221,14 +221,23 @@ class ScalaParser {
 
   /** Parses a term in the expression grammar.
     */
-  def exprTerm: Parser[untpd.Expr] = printfExpr or identifierExpr or literals or { lambdaExpr or blockExpr or exprParser.wrappedBy("(", ")") }
+  def exprTerm: Parser[untpd.Expr] = printfExpr or formatExpr or identifierExpr or literals or { lambdaExpr or blockExpr or exprParser.wrappedBy("(", ")") }
 
   def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
     params match {
       case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
-        Untyped(Trees.Printf(fmt, params)).withPos(kw)
+        Untyped(Trees.Printf(fmt, params, strValue = false)).withPos(kw)
       case fmt :: params =>
         throw SyntaxError(s"printf format should be a string, but found $fmt").withPos(fmt)
+    }
+  }
+
+  def formatExpr: Parser[untpd.Printf] = (symbol("format") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
+    params match {
+      case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
+        Untyped(Trees.Printf(fmt, params, strValue = true)).withPos(kw)
+      case fmt :: params =>
+        throw SyntaxError(s"format should be a string, but found $fmt").withPos(fmt)
     }
   }
 

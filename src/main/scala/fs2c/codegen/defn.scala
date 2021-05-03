@@ -40,6 +40,7 @@ object defn {
     val malloc = C.GroundFunc("malloc", List("stdlib.h"))
     val scanf = C.GroundFunc("scanf", List("stdio.h"))
     val printf = C.GroundFunc("printf", List("stdio.h"))
+    val sprintf = C.GroundFunc("sprintf", List("stdio.h"))
     val srand = C.GroundFunc("srand", List("stdlib.h"))
     val rand = C.GroundFunc("rand", List("stdlib.h"))
     val time = C.GroundFunc("time", List("time.h"))

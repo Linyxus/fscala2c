@@ -313,13 +313,25 @@ class CodeGen {
     case _ => throw CodeGenError(s"unsupported expr $expr")
   }
 
-  def genPrintfExpr(expr: tpd.Printf): bd.BlockBundle = expr assignCode { case FS.Printf(fmt, args) =>
-    val codes = args map { e => genExpr(e) }
+  def genPrintfExpr(expr: tpd.Printf): bd.BlockBundle = expr assignCode {
+    case FS.Printf(fmt, args, false) =>
+      val codes = args map { e => genExpr(e) }
 
-    bd.BlockBundle(
-      block = (codes flatMap (_.getBlock)) :+ C.Statement.Eval(usePrintf.appliedTo(fmt.asC :: codes.map(_.getExpr))),
-      expr = 0.asC
-    )
+      bd.BlockBundle(
+        block = (codes flatMap (_.getBlock)) :+ C.Statement.Eval(usePrintf.appliedTo(fmt.asC :: codes.map(_.getExpr))),
+        expr = 0.asC
+      )
+    case FS.Printf(fmt, args, _) =>
+      val codes = args.map { e => genExpr(e) }
+      val (tempVar, varDef) =
+        defn.localVariable(freshVarName, C.PointerType(C.BaseType.CharType), Some(useMalloc.appliedTo(1024.asC)))
+      val printBlock = List(
+        C.Statement.Eval(useGroundFunc(defn.GroundFuncs.sprintf).appliedTo(tempVar.cIdent :: fmt.asC :: codes.map(_.getExpr)))
+      )
+      bd.BlockBundle(
+        expr = tempVar.cIdent,
+        block = codes.flatMap(_.getBlock) ++ varDef ++ printBlock
+      )
   }
 
   /** Generate code for int literals.

@@ -7,6 +7,8 @@ class Point(x0: Float, y0: Float) {
     val dy = y - other.y
     sqrt(dx * dx + dy * dy)
   }
+
+  val show = format("(%f, %f)", x, y)
 }
 
 class Main {
@@ -18,18 +20,12 @@ class Main {
     new Point(x, y)
   }
 
-  val printPoint = (p: Point) => printf("(%f, %f)", p.x, p.y)
-
   val main = () => {
     println("input the first point!")
     val p1 = readPoint()
     println("input the second point!")
     val p2 = readPoint()
-    print("the two points are ")
-    printPoint(p1)
-    print(" and ")
-    printPoint(p2)
-    println(".")
+    printf("the two points are %s and %s.\n", p1.show, p2.show)
     val d = p1.distTo(p2)
     printf("the distance between them: %f\n", d)
   }

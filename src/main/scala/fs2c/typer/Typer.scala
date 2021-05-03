@@ -276,9 +276,9 @@ class Typer {
   }
 
   def typedPrintfExpr(expr: untpd.Printf): tpd.Printf = expr.tree match {
-    case t @ Trees.Printf(fmt, params) =>
+    case t @ Trees.Printf(fmt, params, strValue) =>
       val tpdParams: List[tpd.Expr] = params map typedExpr
-      t.assignType(tpdParams, GroundType.IntType)
+      t.assignType(tpdParams, if strValue then GroundType.StringType else GroundType.IntType)
   }
 
   def typedGroundValue(expr: untpd.GroundValue): tpd.GroundValue = expr.tree.typed.withPos(expr)
