@@ -554,7 +554,13 @@ class CodeGen {
               )
           }
         case eval : FS.LocalDef.Eval[FS.Typed] =>
-          genExpr(eval.expr)
+          val b = genExpr(eval.expr)
+          bd.PureBlockBundle(
+            block = b.getBlock ++ b.getExpr.match {
+              case e: C.CallFunc => List(C.Statement.Eval(e))
+              case _ => Nil
+            }
+          )
         case wh : FS.LocalDef.While[FS.Typed] =>
           val condBundle: bd.ValueBundle = genExpr(wh.cond)
           val bodyBundle: bd.ValueBundle = genExpr(wh.body)
