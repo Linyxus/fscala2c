@@ -127,7 +127,7 @@ trait ParserFunctions {
         case Unary(ops) :: rows =>
           val q = (choice(ops).optional seq p) map {
             case None ~ r => r
-            case Some(fun) ~ r =>  fun(r)
+            case Some(fun) ~ r => fun(r)
           }
           recur(rows, q)
         case Binary(assoc, ops) :: rows =>

@@ -4,12 +4,13 @@ import Types._
 import fs2c.typer
 import fs2c.ast.fs.Trees
 import Typer.TypeError
+import fs2c.io.{Positional, SourcePosSpan}
 
 object Constraints {
 
   /** Enum for constraints.
     */
-  enum Constraint {
+  enum Constraint extends Positional {
     case Equality(tpe1: Type, tpe2: Type)
   }
   
@@ -66,8 +67,8 @@ object Constraints {
     
     def transformConstr(constr: Constraint): Constraint =
       constr match {
-        case Equality(tpe1, tpe2) => 
-          Equality(transformType(tpe1), transformType(tpe2))
+        case e @ Equality(tpe1, tpe2) =>
+          Equality(transformType(tpe1), transformType(tpe2)).withPos(e).asInstanceOf[Constraint]
       }
     
     def apply(tpe: Type): Type = transformType(tpe)
@@ -121,11 +122,11 @@ object Constraints {
 
     /** Calls [[ConstraintSolver.addConstraint]](Equality(tpe1, tpe2)). It will check whether the equality is trivial.
       */
-    def addEquality(tpe1: Type, tpe2: Type): Unit = {
+    def addEquality(tpe1: Type, tpe2: Type, pos: SourcePosSpan): Unit = {
       val subst = solve
       if subst.transformType(tpe1) != subst.transformType(tpe2) then {
-        val eq = Equality(tpe1, tpe2)
-        addConstraint(eq)
+        val eq = Equality(tpe1, tpe2).withPos(pos)
+        addConstraint(eq.asInstanceOf[Constraint])
       }
     }
 
@@ -161,17 +162,17 @@ object Constraints {
                 tryInhertPredicates(tpe2, tpe1)
                 recur(xs, subst.add(tpe2, tpe1))
               }
-            case Equality(GroundType.ArrayType(tpe1), GroundType.ArrayType(tpe2)) =>
-              recur(Equality(tpe1, tpe2) :: xs, subst)
-            case Equality(LambdaType(p1, v1), LambdaType(p2, v2)) =>
+            case e @ Equality(GroundType.ArrayType(tpe1), GroundType.ArrayType(tpe2)) =>
+              recur(Equality(tpe1, tpe2).withPos(e).asInstanceOf[Constraint] :: xs, subst)
+            case e @ Equality(LambdaType(p1, v1), LambdaType(p2, v2)) =>
               if p1.length != p2.length then
                 throw TypeError(s"can not unify lambda type with different parameter number: $p1 ~ $p2")
               else {
-                val equalities = (v1 :: p1) zip (v2 :: p2) map { case (t1, t2) => Equality(t1, t2) }
+                val equalities = (v1 :: p1) zip (v2 :: p2) map { case (t1, t2) => Equality(t1, t2).withPos(e).asInstanceOf[Constraint] }
                 recur(equalities ++ xs, subst)
               }
             case e : Equality =>
-              throw TypeError(s"can not unify $e\n$showConstraints")
+              throw TypeError(s"can not unify $e,\n  which is generated from\n${e.showInSourceLine}")
           }
         }
       }

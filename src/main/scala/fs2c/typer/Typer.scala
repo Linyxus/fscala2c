@@ -1,5 +1,6 @@
 package fs2c.typer
 
+import fs2c.io.SourcePosSpan
 import fs2c.ast.Symbol
 import fs2c.ast.Scopes._
 import fs2c.ast.fs._
@@ -76,8 +77,8 @@ class Typer {
 
   /** Alias of [[ConstraintSolver.addEquality]].
     */
-  def recordEquality(tpe1: Type, tpe2: Type): Unit = {
-    constrs.addEquality(tpe1, tpe2)
+  def recordEquality(tpe1: Type, tpe2: Type, pos: SourcePosSpan): Unit = {
+    constrs.addEquality(tpe1, tpe2, pos)
   }
 
   /** Fresh type variable prefixed with T.
@@ -206,7 +207,7 @@ class Typer {
               throw TypeError(s"fatal error: member name not found in placeholders. This is caused by a bug.")
             case Some(sym) =>
               val assumedType: Type = sym.dealias.tpe
-              recordEquality(assumedType, actualType)
+              recordEquality(assumedType, actualType, tpdDef.pos)
               sym.dealias = tpdDef
               tpdDef.tree.classDef = typedClsDef.tree.sym
           }
@@ -257,16 +258,16 @@ class Typer {
       case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
       case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
       case x : Trees.LiteralStringExpr[_] => x.assignType(StringType)
-      case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(Untyped(x))
-      case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(Untyped(x))
-      case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(Untyped(x))
-      case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(Untyped(x))
-      case x : Trees.BlockExpr[Untyped] => typedRecBlockExpr(Untyped(x))
-      case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(Untyped(x))
-      case x : Trees.IfExpr[Untyped] => typedIfExpr(Untyped(x))
-      case x : Trees.NewExpr[Untyped] => typedNewExpr(Untyped(x))
-      case x : Trees.SelectExpr[Untyped] => typedSelectExpr(Untyped(x))
-      case x : Trees.GroundValue[Untyped] => typedGroundValue(Untyped(x))
+      case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(expr.asInstanceOf)
+      case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(expr.asInstanceOf)
+      case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(expr.asInstanceOf)
+      case x : Trees.IdentifierExpr[Untyped] => typedIdentifierExpr(expr.asInstanceOf)
+      case x : Trees.BlockExpr[Untyped] => typedRecBlockExpr(expr.asInstanceOf)
+      case x : Trees.ApplyExpr[Untyped] => typedApplyExpr(expr.asInstanceOf)
+      case x : Trees.IfExpr[Untyped] => typedIfExpr(expr.asInstanceOf)
+      case x : Trees.NewExpr[Untyped] => typedNewExpr(expr.asInstanceOf)
+      case x : Trees.SelectExpr[Untyped] => typedSelectExpr(expr.asInstanceOf)
+      case x : Trees.GroundValue[Untyped] => typedGroundValue(expr.asInstanceOf)
     }
 
     /** inherit position in typed expressions */
@@ -374,7 +375,7 @@ class Typer {
             case Some(wrapper) =>
               val assumedType = wrapper.dealias.tpe
               wrapper.dealias = res.asInstanceOf
-              recordEquality(assumedType, actualType)
+              recordEquality(assumedType, actualType, d.pos)
           }
         case _ =>
       }
@@ -451,7 +452,7 @@ class Typer {
             else if !recursiveMode then
               throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
             else
-              recordEquality(tpdExpr.tpe, typeOfSymbol(sym))
+              recordEquality(tpdExpr.tpe, typeOfSymbol(sym), expr.pos)
               assign.assignTypeAssign(sym, tpdExpr)
         }
       }
@@ -583,7 +584,7 @@ class Typer {
       case tpe : Type =>
         val retType = freshTvar
         val expectType = LambdaType(paramTypes, retType)
-        recordEquality(tpe, expectType)
+        recordEquality(tpe, expectType, expr.pos)
         apply.assignType(tpe = retType, func, params)
     }
   }
@@ -605,7 +606,7 @@ class Typer {
 
     val condType: Type = tryInstantiateType(tpdCond.tpe) match {
       case None =>
-        recordEquality(tpdCond.tpe, GroundType.BooleanType)
+        recordEquality(tpdCond.tpe, GroundType.BooleanType, ifExpr.cond.pos)
         tpdCond.tpe
       case Some(tpe) if tpe == GroundType.BooleanType =>
         tpe
@@ -619,7 +620,7 @@ class Typer {
         throw TypeError(s"body of if expressions have different types: $tpe1 and $tpe2")
       case (_, _) =>
         val (tpe1, tpe2) = (tpdTBody.tpe, tpdFBody.tpe)
-        recordEquality(tpe1, tpe2)
+        recordEquality(tpe1, tpe2, expr.pos)
         (tpe1, tpe2)
     }
 
@@ -664,7 +665,7 @@ class Typer {
       case (Nil, _) | (_, Nil) =>
         throw TypeError(s"parameter list length mismatch: expect $expectTypes but found $realTypes")
       case (t1 :: ts1, t2 :: ts2) =>
-        recordEquality(t1, t2)
+        recordEquality(t1, t2, expr.pos)
         recur(ts1, ts2)
     }
     recur(realTypes, expectTypes)
@@ -713,7 +714,7 @@ class Typer {
     val tpe = binOpSig get op match {
       case None => throw TypeError(s"unknown binary operator: $op")
       case Some(sigs) => sigs.collectFirst {
-        case sig if sig.infer(e1.tpe, e2.tpe).isDefined => sig.infer(e1.tpe, e2.tpe).get
+        case sig if sig.infer(e1.tpe, e2.tpe, expr).isDefined => sig.infer(e1.tpe, e2.tpe, expr).get
       }
     } match {
       case None => throw TypeError(s"could not find override function for $op with operand type ${e1.tpe} and ${e2.tpe}")
@@ -752,23 +753,23 @@ class Typer {
       * @param e2 Type for the right operand.
       * @return Inferred result type. `None` if operand type mismatch.
       */
-    def infer(e1: Type, e2: Type): Option[Type]
+    def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type]
   }
 
   /** Concrete signature with fixed operand and result types.
     */
   case class ConcreteBinOpSig(e1: Type, e2: Type, res: Type) extends BinOpSig {
-    override def infer(tp1: Type, tp2: Type): Option[Type] = {
+    override def infer(tp1: Type, tp2: Type, expr: untpd.Expr): Option[Type] = {
       val e1 = tryInstantiateType(tp1) getOrElse tp1
       val e2 = tryInstantiateType(tp2) getOrElse tp2
       if e1 == this.e1 && e2 == this.e2 then
         Some(res)
       else if e1 == this.e1 then {
-        recordEquality(e2, this.e2)
+        recordEquality(e2, this.e2, expr.pos)
         Some(res)
       }
       else if e2 == this.e2 then {
-        recordEquality(e1, this.e1)
+        recordEquality(e1, this.e1, expr.pos)
         Some(res)
       } else {
         None
@@ -786,7 +787,7 @@ class Typer {
     override def infer(e: Type): Option[Type] =
       tryInstantiateType(e) match {
         case None if !ambiguous =>
-          recordEquality(e, this.e)
+          recordEquality(e, this.e, null)
           Some(res)
         case Some(tpe) if tpe == this.e =>
           Some(res)
@@ -845,22 +846,22 @@ class Typer {
     ),
     bop.== -> List(
       new BinOpSig {
-        override def infer(e1: Type, e2: Type): Option[Type] =
+        override def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
           else {
-            recordEquality(e1, e2)
+            recordEquality(e1, e2, expr.pos)
             Some(BooleanType)
           }
       }
     ),
     bop.!= -> List(
       new BinOpSig {
-        override def infer(e1: Type, e2: Type): Option[Type] =
+        override def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
           else {
-            recordEquality(e1, e2)
+            recordEquality(e1, e2, expr.pos)
             Some(BooleanType)
           }
       }

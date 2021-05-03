@@ -15,7 +15,7 @@ class TestConstraintSolver {
     val tv1 = Unique.freshTypeVar()
     val tv2 = Unique.freshTypeVar()
     
-    solver.addEquality(LambdaType(List(tv1), ArrayType(tv1)), LambdaType(List(ArrayType(StringType)), tv2))
+    solver.addEquality(LambdaType(List(tv1), ArrayType(tv1)), LambdaType(List(ArrayType(StringType)), tv2), null)
     val subst = solver.subst
     assertEquals(ArrayType(StringType), subst(tv1))
     assertEquals(ArrayType(ArrayType(StringType)), subst(tv2))
