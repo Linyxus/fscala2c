@@ -882,7 +882,9 @@ class Typer {
 }
 
 object Typer {
-  case class TypeError(msg: String) extends Exception(msg)
+  case class TypeError(msg: String) extends Exception {
+    override def toString: String = s"type error: $msg"
+  }
 
   /** Shows tpd.Expr.
     */
