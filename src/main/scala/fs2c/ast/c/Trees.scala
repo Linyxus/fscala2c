@@ -93,10 +93,11 @@ object Trees {
     * Can either be a [[GroundFunc]] or a [[FuncDef]].
     */
   trait Func {
-    def appliedTo(es: Expr*): Expr = this match {
+    def appliedTo(es: List[Expr]): Expr = this match {
       case g : GroundFunc => CallFunc(g, es.toList)
       case f : FuncDef => CallFunc(IdentifierExpr(f.sym), es.toList)
     }
+    def appliedTo(es: Expr*): Expr = appliedTo(es.toList)
     def $$ (es: Expr*): Expr = appliedTo(es: _*)
   }
 
