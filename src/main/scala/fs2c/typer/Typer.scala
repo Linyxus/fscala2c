@@ -168,7 +168,7 @@ class Typer {
     val clsDef: Trees.ClassDef[Untyped] = classDef.tree
 
     // tpd.ClassDef <--> ClassTypeVariable
-    val typedClsDef: tpd.ClassDef = clsDef.assignType(null, null)
+    val typedClsDef: tpd.ClassDef = clsDef.assignType(null, null).withPos(classDef.pos)
     val clsTvar: ClassTypeVariable = clsVar(typedClsDef)
     typedClsDef.tpe = clsTvar
     
@@ -252,7 +252,7 @@ class Typer {
   /** Type expressions.
     */
   def typedExpr(expr: untpd.Expr): tpd.Expr = recordTyped {
-    expr.tree match {
+    val res = expr.tree match {
       case x : Trees.LiteralIntExpr[_] => x.assignType(IntType)
       case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
       case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
@@ -268,9 +268,12 @@ class Typer {
       case x : Trees.SelectExpr[Untyped] => typedSelectExpr(Untyped(x))
       case x : Trees.GroundValue[Untyped] => typedGroundValue(Untyped(x))
     }
+
+    /** inherit position in typed expressions */
+    res.withPos(expr)
   }
 
-  def typedGroundValue(expr: untpd.GroundValue): tpd.GroundValue = expr.tree.typed
+  def typedGroundValue(expr: untpd.GroundValue): tpd.GroundValue = expr.tree.typed.withPos(expr)
 
   /** Type lambda expressions.
     *
@@ -361,7 +364,7 @@ class Typer {
     }
 
     val tpdDefs: List[tpd.LocalDef] = block.defs map { d => 
-      val res = typedLocalDef(d, recursiveMode = true) 
+      val res = typedLocalDef(d, recursiveMode = true)
       
       res match {
         case res @ Typed(bind : Trees.LocalDef.Bind[Typed], actualType, _, _) =>
@@ -375,8 +378,9 @@ class Typer {
           }
         case _ =>
       }
-      
-      res
+
+      /** Record position in local definitions */
+      res.withPos(d)
     }
 
     // instantiate all type variables in the block
