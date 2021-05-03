@@ -18,14 +18,7 @@ class Main {
     new Point(x, y)
   }
 
-  val printPoint = (p: Point) => {
-    print("(")
-    printFloat(p.x)
-    print(", ")
-    printFloat(p.y)
-    print(")")
-    p
-  }
+  val printPoint = (p: Point) => printf("(%f, %f)", p.x, p.y)
 
   val main = () => {
     println("input the first point!")
