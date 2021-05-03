@@ -7,8 +7,8 @@ import fs2c.ast.c.Trees.asC
 import fs2c.ast.fs.{ Trees => FS }
 import fs2c.typer.{ Types => FST }
 import FS.tpd
-import FS.{ExprBinOpType => sbop}
-import C.{BinOpType => cbop}
+import FS.{ExprBinOpType => sbop, ExprUnaryOpType => suop}
+import C.{BinOpType => cbop, UnaryOpType => cuop}
 import fs2c.tools.Unique
 
 class CodeGen {
@@ -302,6 +302,7 @@ class CodeGen {
     case _ : FS.NextRandom[_] => bd.PureExprBundle { useRand.appliedTo() }
     case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
+    case _ : FS.UnaryOpExpr[FS.Typed] => genUnaryOpExpr(expr.asInstanceOf)
     case _ : FS.IfExpr[FS.Typed] => genIfExpr(expr.asInstanceOf)
     case _ : FS.BlockExpr[FS.Typed] => genBlockExpr(expr.asInstanceOf)
     case _ : FS.LambdaExpr[FS.Typed] => genLambdaExpr(expr.asInstanceOf, lambdaName = lambdaName)
@@ -455,6 +456,23 @@ class CodeGen {
     case sbop.< => cbop.<
     case _ if op == sbopEq => cbop.==
     case _ if op == sbopNeq => cbop.!=
+  }
+
+  def genUnaryOpExpr(expr: tpd.UnaryOpExpr): bd.ValueBundle = expr assignCode { case FS.UnaryOpExpr(sop, e) =>
+    val cop = suOp2cuOp(sop)
+
+    val bundle = genExpr(e)
+
+    val cExpr = C.UnaryOpExpr(cop, bundle.getExpr)
+    if bundle.getBlock.nonEmpty then
+      bd.BlockBundle(cExpr, bundle.getBlock)
+    else
+      bd.PureExprBundle(cExpr)
+  }
+
+  def suOp2cuOp(op: suop): cuop = op match {
+    case suop.! => cuop.!
+    case suop.- => cuop.-
   }
 
   /** Generate C code for If expression.

@@ -1,5 +1,5 @@
 class Main {
-  val abs = (i: Float) => if i < 0.0 then 0.0 - i else i
+  val abs = (i: Float) => if i < 0.0 then -i else i
 
   val squareRoot = (n: Float) => {
     val loss = 0.00001
