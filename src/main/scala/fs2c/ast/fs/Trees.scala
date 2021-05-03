@@ -154,7 +154,7 @@ object Trees {
   
   case class NewExpr[F[_]](ref: Symbol.Ref, params: List[F[Expr[F]]]) extends Expr[F] {
     def assignType(tpe: Type, sym: Symbol[tpd.ClassDef], params: List[tpd.Expr]): tpd.NewExpr =
-      Typed(tpe = tpe, tree = NewExpr(Symbol.Ref.Resolved(sym), params))
+      Typed(tpe = tpe, tree = NewExpr(Symbol.Ref.Resolved(sym), params), freeNames = params flatMap (_.freeNames))
   }
 
   case class BinOpExpr[F[_]](op: ExprBinOpType, e1: F[Expr[F]], e2: F[Expr[F]]) extends Expr[F] {
@@ -287,6 +287,12 @@ object Trees {
     override type This[F[_]] = Sqrt[F]
     override def untyped: UntypedTree[Sqrt] = Untyped(Sqrt())
     override def typed: TypedTree[Sqrt] = Typed(Sqrt(), tpe = LambdaType(List(GroundType.FloatType), GroundType.FloatType))
+  }
+
+  case class Printf[F[_]](fmt: String, args: List[F[Expr[F]]]) extends Expr[F] {
+    def assignType(args: List[tpd.Expr], tp: Type): tpd.Printf = setFreeNames(args flatMap (_.freeNames)) {
+      Typed(Printf(fmt, args), tpe = tp)
+    }
   }
 
   val groundValueMap: Map[String, UntypedTree[GroundValue]] = Map(
@@ -471,6 +477,8 @@ object Trees {
     type IdentifierExpr = UntypedTree[Trees.IdentifierExpr]
 
     type GroundValue = UntypedTree[Trees.GroundValue]
+
+    type Printf = UntypedTree[Trees.Printf]
   }
 
   object tpd {
@@ -506,6 +514,8 @@ object Trees {
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
 
     type GroundValue = TypedTree[Trees.GroundValue]
+
+    type Printf = TypedTree[Trees.Printf]
   }
 
   def setFreeNames[X](freeNames: List[Symbol[_]])(tpdTree: Typed[X]): Typed[X] = {

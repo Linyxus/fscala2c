@@ -309,7 +309,17 @@ class CodeGen {
     case _ : FS.ApplyExpr[FS.Typed] => genApplyExpr(expr.asInstanceOf)
     case _ : FS.SelectExpr[FS.Typed] => genSelectExpr(expr.asInstanceOf)
     case _ : FS.NewExpr[FS.Typed] => genNewExpr(expr.asInstanceOf)
+    case _ : FS.Printf[FS.Typed] => genPrintfExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
+  }
+
+  def genPrintfExpr(expr: tpd.Printf): bd.BlockBundle = expr assignCode { case FS.Printf(fmt, args) =>
+    val codes = args map { e => genExpr(e) }
+
+    bd.BlockBundle(
+      block = (codes flatMap (_.getBlock)) :+ C.Statement.Eval(usePrintf.appliedTo(fmt.asC :: codes.map(_.getExpr))),
+      expr = 0.asC
+    )
   }
 
   /** Generate code for int literals.

@@ -38,8 +38,6 @@ class Main {
     printPoint(p2)
     println(".")
     val d = p1.distTo(p2)
-    print("the distance between them: ")
-    printFloat(d)
-    println("")
+    printf("the distance between them: %f\n", d)
   }
 }

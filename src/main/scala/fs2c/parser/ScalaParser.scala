@@ -221,7 +221,16 @@ class ScalaParser {
 
   /** Parses a term in the expression grammar.
     */
-  def exprTerm: Parser[untpd.Expr] = identifierExpr or literals or { lambdaExpr or blockExpr or exprParser.wrappedBy("(", ")") }
+  def exprTerm: Parser[untpd.Expr] = printfExpr or identifierExpr or literals or { lambdaExpr or blockExpr or exprParser.wrappedBy("(", ")") }
+
+  def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
+    params match {
+      case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
+        Untyped(Trees.Printf(fmt, params)).withPos(kw)
+      case fmt :: params =>
+        throw SyntaxError(s"printf format should be a string, but found $fmt").withPos(fmt)
+    }
+  }
 
   /** Parses literal values.
     */
@@ -382,7 +391,7 @@ class ScalaParser {
 
   /** Parser for identifiers in the expression.
     */
-  def identifierExpr: Parser[untpd.IdentifierExpr | untpd.GroundValue] = {
+  def identifierExpr: Parser[untpd.IdentifierExpr | untpd.GroundValue | untpd.Printf] = {
     identifier <| {
       case tk @ ScalaToken(ScalaTokenType.Identifier(symName)) =>
         groundValueMap get symName match {
