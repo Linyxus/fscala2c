@@ -139,6 +139,7 @@ class CodeGen {
     */
   def genType(tp: FST.Type, aliasName: Option[String] = None, lambdaValueType: Boolean = false): bd.TypeBundle = tp.assignCode {
     tp match {
+      case FST.GroundType.UnitType => bd.SimpleTypeBundle(C.BaseType.IntType)
       case FST.GroundType.IntType => bd.SimpleTypeBundle {
         C.BaseType.IntType
       }
@@ -295,6 +296,7 @@ class CodeGen {
   /** Generate C code for Scala expressions.
     */
   def genExpr(expr: tpd.Expr, lambdaName: Option[String] = None): bd.ValueBundle = expr.tree match {
+    case _ : FS.LiteralUnitExpr[_] => expr assignCode { _ => bd.PureExprBundle(0.asC) }
     case _ : FS.LiteralIntExpr[FS.Typed] => genIntLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)

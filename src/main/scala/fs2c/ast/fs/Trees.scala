@@ -106,6 +106,11 @@ object Trees {
     def assignType(tpe: Type, sym: Symbol[_]): tpd.IdentifierExpr =
       Typed(Trees.IdentifierExpr(Symbol.Ref.Resolved(sym)), tpe = tpe)
   }
+
+  case class LiteralUnitExpr[F[_]]() extends Expr[F] {
+    def untyped: UntypedTree[LiteralUnitExpr] = Untyped(LiteralUnitExpr())
+    def typed: TypedTree[LiteralUnitExpr] = Typed(LiteralUnitExpr(), tpe = GroundType.UnitType)
+  }
   
   case class LiteralIntExpr[F[_]](value: Int) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralIntExpr =
@@ -450,7 +455,8 @@ object Trees {
     type MemberDef = UntypedTree[Trees.MemberDef]
     
     type Expr = UntypedTree[Trees.Expr]
-    
+
+    type LiteralUnitExpr = UntypedTree[Trees.LiteralUnitExpr]
     type LiteralIntExpr = UntypedTree[Trees.LiteralIntExpr]
     type LiteralFloatExpr = UntypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = UntypedTree[Trees.LiteralBooleanExpr]
@@ -486,7 +492,8 @@ object Trees {
     type MemberDef = TypedTree[Trees.MemberDef]
     
     type Expr = TypedTree[Trees.Expr]
-    
+
+    type LiteralUnitExpr = TypedTree[Trees.LiteralUnitExpr]
     type LiteralIntExpr = TypedTree[Trees.LiteralIntExpr]
     type LiteralFloatExpr = TypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = TypedTree[Trees.LiteralBooleanExpr]

@@ -254,6 +254,7 @@ class Typer {
     */
   def typedExpr(expr: untpd.Expr): tpd.Expr = recordTyped {
     val res = expr.tree match {
+      case x : Trees.LiteralUnitExpr[_] => x.typed
       case x : Trees.LiteralIntExpr[_] => x.assignType(IntType)
       case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
       case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)

@@ -24,6 +24,7 @@ object Types {
   /** Ground types.
     */
   enum GroundType extends Type {
+    case UnitType
     case IntType
     case FloatType
     case BooleanType

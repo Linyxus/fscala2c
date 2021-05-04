@@ -221,7 +221,9 @@ class ScalaParser {
 
   /** Parses a term in the expression grammar.
     */
-  def exprTerm: Parser[untpd.Expr] = printfExpr or formatExpr or identifierExpr or literals or { lambdaExpr or blockExpr or exprParser.wrappedBy("(", ")") }
+  def exprTerm: Parser[untpd.Expr] = printfExpr or formatExpr or identifierExpr or literals or { lambdaExpr or blockExpr or literalUnitExpr or exprParser.wrappedBy("(", ")") }
+
+  def literalUnitExpr: Parser[untpd.LiteralUnitExpr] = ("(" ~ ")") <| { _ => Trees.LiteralUnitExpr().untyped }
 
   def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
     params match {
@@ -317,7 +319,7 @@ class ScalaParser {
               case eval: fs2c.ast.fs.Trees.LocalDef.Eval[Untyped] =>
                 Untyped(Trees.BlockExpr(ls.init, eval.expr)).withPos(beginToken -- endToken)
               case _ =>
-                Untyped(Trees.BlockExpr(ls, Untyped(Trees.LiteralIntExpr(0)))).withPos(beginToken -- endToken)
+                Untyped(Trees.BlockExpr(ls, Trees.LiteralUnitExpr().untyped)).withPos(beginToken -- endToken)
 //                throw SyntaxError(s"Expecting a expression at the end of a block.").withPos(beginToken -- endToken)
             }
         }
