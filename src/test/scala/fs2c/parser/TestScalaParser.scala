@@ -63,10 +63,10 @@ class TestScalaParser {
 
   @Test def typeParser: Unit = {
     val tests = List(
-      "Int", "Float", "Boolean", "String",
+      "Int", "Float", "Boolean", "String", "Unit",
       "Int => Int", "(Int, Int) => Int", "(Int, Int) => Int => Int",
       "Int => (Int => Int) => Int", "Int => (Array[Int] => Int) => Array[Int => String]",
-      "Foo => Bar"
+      "Foo => Bar", "Int => Unit"
     )
 
     tests foreach { s => assertParseSuccess((new ScalaParser).typeParser, s) }

@@ -486,6 +486,7 @@ class ScalaParser {
       (symbol("Float") <* GroundType.FloatType) or
       (symbol("Boolean") <* GroundType.BooleanType) or
       (symbol("String") <* GroundType.StringType) or
+      (symbol("Unit") <* GroundType.UnitType) or
       arrayType
   
   def arrayType: Parser[GroundType.ArrayType] =
