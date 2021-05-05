@@ -227,6 +227,15 @@ class TestScalaTyper {
     tests foreach { case (s, t) => assertTyped(s, t) }
   }
 
+  @Test def array: Unit = {
+    assertTyped(
+      """{
+        |  val xs = Array[Int](10)
+        |  xs(0)
+        |}
+        |""".stripMargin, IntType)
+  }
+
   @Test def classDef: Unit = {
     val source =
       """class Counter(initial : Int) {

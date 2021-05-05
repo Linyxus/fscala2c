@@ -116,6 +116,9 @@ class Typer {
   def tryInstantiateType(tpe: Type): Option[Type] =
     solvedSubst.instantiateType(tpe)
 
+  def maybeInstantiateType(tp: Type): Type =
+    tryInstantiateType(tp) getOrElse tp
+
   /** Forcefully instantiate the type. Throws an error if fails.
     */
   def forceInstantiateType(tpe: Type): Type =
@@ -598,7 +601,17 @@ class Typer {
     val params: List[tpd.Expr] = apply.args map typedExpr
     val paramTypes: List[Type] = params map (_.tpe)
 
-    func.tpe match {
+    maybeInstantiateType(func.tpe) match {
+      case ArrayType(elemTp) =>
+        paramTypes match {
+          case IntType :: Nil =>
+            apply.assignType(tpe = elemTp, func, params)
+          case t :: Nil =>
+            recordEquality(t, IntType, expr.pos)
+            apply.assignType(tpe = elemTp, func, params)
+          case _ =>
+            throw TypeError(s"expecting one Int to index an Array")
+        }
       case LambdaType(expectParamTypes, vTp) =>
         val valueType = tryResolveSymbolType(vTp)
         @annotation.tailrec def go(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
