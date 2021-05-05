@@ -132,6 +132,12 @@ object Trees {
       Typed(tree = LiteralStringExpr(value), tpe = tp)
   }
 
+  case class LiteralArrayExpr[F[_]](elemTp: Type, length: F[Expr[F]]) extends Expr[F] {
+    def assignType(length: tpd.Expr): tpd.LiteralArrayExpr =
+      assert(length.tpe == GroundType.IntType, "array length should be Int")
+      Typed(tree = LiteralArrayExpr(elemTp, length), tpe = GroundType.ArrayType(elemTp), freeNames = length.freeNames)
+  }
+
   /** Application.
     */
   case class ApplyExpr[F[_]](func: F[Expr[F]], args: List[F[Expr[F]]]) extends Expr[F] {
@@ -475,6 +481,7 @@ object Trees {
     type LiteralFloatExpr = UntypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = UntypedTree[Trees.LiteralBooleanExpr]
     type LiteralStringExpr = UntypedTree[Trees.LiteralStringExpr]
+    type LiteralArrayExpr = UntypedTree[Trees.LiteralArrayExpr]
 
     type LambdaExpr = UntypedTree[Trees.LambdaExpr]
     
@@ -512,6 +519,7 @@ object Trees {
     type LiteralFloatExpr = TypedTree[Trees.LiteralFloatExpr]
     type LiteralBooleanExpr = TypedTree[Trees.LiteralBooleanExpr]
     type LiteralStringExpr = TypedTree[Trees.LiteralStringExpr]
+    type LiteralArrayExpr = TypedTree[Trees.LiteralArrayExpr]
 
     type LambdaExpr = TypedTree[Trees.LambdaExpr]
     

@@ -259,7 +259,7 @@ class ScalaParser {
 
   /** Parses a term in the expression grammar.
     */
-  def exprTerm: Parser[untpd.Expr] = printfExpr or formatExpr or identifierExpr or literals or { lambdaExpr or blockExpr or literalUnitExpr or exprParser.wrappedBy("(", ")") }
+  def exprTerm: Parser[untpd.Expr] = literalArrayExpr or printfExpr or formatExpr or identifierExpr or literals or { lambdaExpr or blockExpr or literalUnitExpr or exprParser.wrappedBy("(", ")") }
 
   def literalUnitExpr: Parser[untpd.LiteralUnitExpr] = ("(" ~ ")") <| { _ => Trees.LiteralUnitExpr().untyped }
 
@@ -306,6 +306,12 @@ class ScalaParser {
   def literalStringExpr: Parser[untpd.Expr] = literalString <| {
     case tk @ ScalaToken(ScalaTokenType.LiteralString(value)) => Untyped(Trees.LiteralStringExpr(value)).withPos(tk)
   }
+
+  def literalArrayExpr: Parser[untpd.Expr] =
+    symbol("Array") ~ typeParser.wrappedBy("[", "]") ~ exprParser.wrappedBy("(", ")") <| {
+      case arrayTk ~ elemTp ~ len =>
+        Untyped(Trees.LiteralArrayExpr(elemTp, len)).withPos(arrayTk -- len)
+    }
 
   /** Parser for lambda expressions.
     */

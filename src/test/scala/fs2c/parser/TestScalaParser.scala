@@ -56,7 +56,8 @@ class TestScalaParser {
   @Test def literals: Unit = {
     val tests = List(
       "1", "1.0", "True", "False",
-      "1 + 1.0", "2.0 + 3.0", "1.1231 + False * True"
+      "1 + 1.0", "2.0 + 3.0", "1.1231 + False * True",
+      "Array[Int](10)"
     )
     tests foreach { s => assertParseSuccess((new ScalaParser).exprParser, s) }
   }
