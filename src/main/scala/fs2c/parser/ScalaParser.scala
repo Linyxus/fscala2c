@@ -120,7 +120,7 @@ class ScalaParser {
         val params = makeParams(ps)
         val lambda = Trees.LambdaExpr(params map (_.sym), None, body)
         val lambdaType = retTp map { retTp => Types.LambdaType(ps map (_._2), retTp) }
-        val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, false, lambdaType, body))
+        val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, false, lambdaType, Untyped(lambda)))
         member.tree.sym.dealias = member
 
         scopeCtx.addSymbol(member.tree.sym)
