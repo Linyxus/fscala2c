@@ -225,6 +225,7 @@ object Trees {
     case Eval(e: Expr)
     case AssignVar(d: Binding, expr: Expr)
     case AssignMember(v: Binding, d: Symbol[StructMember], expr: Expr)
+    case Assign(p: Expr, expr: Expr)
     case Def(d: VariableDef)
   }
 

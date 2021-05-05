@@ -279,6 +279,8 @@ object printing {
       case C.Statement.AssignMember(d, designator, expr) =>
         val name = d.getSym.name
         printer.println(s"$name->${designator.name} = ${showExpr(expr)};")
+      case C.Statement.Assign(p, e) =>
+        printer.println(s"${showExpr(p)} = ${showExpr(e)};")
       case C.Statement.Def(C.VariableDef(sym, tp, expr, _)) =>
         val name = sym.name
         cType.print(tp)

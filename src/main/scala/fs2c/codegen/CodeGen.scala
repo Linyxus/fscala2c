@@ -608,6 +608,10 @@ class CodeGen {
               tpt.code match {
                 case bundle : bd.VariableBundle =>
                   defn.assignVar(bundle.varDef, bodyBd.getExpr)
+                case bundle : bd.MemberBundle =>
+                  val self = ctx.getClosureSelf.get
+                  val assignee = C.SelectExpr(self, bundle.memberDef.sym)
+                  C.Statement.Assign(assignee, bodyBd.getExpr)
                 case bundle =>
                   throw CodeGenError(s"unexpected code bundle ${tpt.code} of assigned symbol")
               }
