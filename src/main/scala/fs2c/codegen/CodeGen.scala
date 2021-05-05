@@ -707,6 +707,20 @@ class CodeGen {
           )
         )
       }
+
+      // special handling for arrays
+      apply.func.tpe match {
+        case FST.GroundType.ArrayType(elemTp) =>
+          val arrCode = genExpr(apply.func)
+          val idxCode = genExpr(apply.args.head)
+          return
+            bd.BlockBundle(
+              block = arrCode.getBlock ++ idxCode.getBlock,
+              expr = C.IndexExpr(arrCode.getExpr, idxCode.getExpr)
+            )
+        case _ =>
+      }
+
       apply.func.tree match {
         case _: FS.ReadInt[_] => genReadFunc(C.BaseType.IntType, "%d")
         case _: FS.ReadFloat[_] => genReadFunc(C.BaseType.DoubleType, "%f")

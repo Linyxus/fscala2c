@@ -144,6 +144,11 @@ object printing {
           val s = go(expr, currentLevel = selectAndApplyLevel)
 
           s"$s->${designator.name}"
+        case C.IndexExpr(e1, e2) =>
+          val s1 = go(e1, currentLevel = selectAndApplyLevel)
+          val s2 = go(e2, currentLevel = -1)
+
+          s"$s1[$s2]"
         case C.IdentifierExpr(sym) =>
           sym.name
         case C.IntExpr(value) => value.toString

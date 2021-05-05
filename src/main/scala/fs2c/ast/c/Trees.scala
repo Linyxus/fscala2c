@@ -165,6 +165,8 @@ object Trees {
     */
   case class SelectExpr(expr: Expr, designator: Symbol[StructMember]) extends Expr
 
+  case class IndexExpr(expr: Expr, index: Expr) extends Expr
+
   /** Coercion expression in C.
     */
   case class CoercionExpr(tp: Type, expr: Expr) extends Expr
