@@ -605,10 +605,10 @@ class Typer {
       case ArrayType(elemTp) =>
         paramTypes match {
           case IntType :: Nil =>
-            apply.assignType(tpe = elemTp, func, params)
+            apply.assignType(tpe = elemTp.refType, func, params)
           case t :: Nil =>
             recordEquality(t, IntType, expr.pos)
-            apply.assignType(tpe = elemTp, func, params)
+            apply.assignType(tpe = elemTp.refType, func, params)
           case _ =>
             throw TypeError(s"expecting one Int to index an Array")
         }

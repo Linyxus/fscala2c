@@ -234,6 +234,13 @@ class TestScalaTyper {
         |  xs(0)
         |}
         |""".stripMargin, IntType)
+    assertTyped(
+      """{
+        |  val xs = Array[Int](10)
+        |  xs(0) = 1
+        |  xs(0)
+        |}
+        |""".stripMargin, IntType)
   }
 
   @Test def classDef: Unit = {
