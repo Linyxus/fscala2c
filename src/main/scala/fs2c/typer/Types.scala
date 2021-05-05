@@ -15,6 +15,15 @@ object Types {
       code = gen
       gen
     }
+
+    var isRef: Boolean = false
+
+    def refType: this.type =
+      isRef = true
+      this
+
+    def refTypeWhen(cond: => Boolean): this.type =
+      if cond then refType else this
   }
 
   /** A proxy type referring to type through a symbol.

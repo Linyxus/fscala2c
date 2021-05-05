@@ -330,6 +330,8 @@ object Trees {
     
     case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
 
+    case AssignRef[F[_]](ref: F[Expr[F]], expr: F[Expr[F]]) extends LocalDef[F]
+
     case While[F[_]](cond: F[Expr[F]], body: F[Expr[F]]) extends LocalDef[F]
 
     def assignTypeBind(body: tpd.Expr): tpd.LocalDefBind = this match {
@@ -377,6 +379,18 @@ object Trees {
                                       // in Types.scala
         )
       case _ => assert(false, s"can not call assignTypeAssign on $this")
+    }
+
+    def assignTypeAssignRef(ref: tpd.Expr, expr: tpd.Expr) = this match {
+      case e: AssignRef[_] =>
+        assert(ref.tpe.isRef, "assignee is not a ref")
+        Typed(
+          tpe = expr.tpe,
+          tree = AssignRef(ref = ref, expr = expr),
+          freeNames = ref.freeNames ++ expr.freeNames
+        )
+      case _ =>
+        assert(false, s"can not call assignTypeAssignRef on $this")
     }
 
     def assignTypeWhile(cond: tpd.Expr, body: tpd.Expr): tpd.LocalDefWhile = this match {
@@ -506,6 +520,7 @@ object Trees {
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = TypedTree[Trees.LocalDef.Eval]
     type LocalDefAssign = TypedTree[Trees.LocalDef.Assign]
+    type LocalDefAssignRef = TypedTree[Trees.LocalDef.AssignRef]
     type LocalDefWhile = TypedTree[Trees.LocalDef.While]
 
     type BinOpExpr = TypedTree[Trees.BinOpExpr]

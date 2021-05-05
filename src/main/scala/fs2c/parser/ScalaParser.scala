@@ -366,7 +366,7 @@ class ScalaParser {
     block
   }
 
-  def localDef: Parser[untpd.LocalDef] = localDefWhile | localDefBind | localDefAssign | localDefEval | localDefDef
+  def localDef: Parser[untpd.LocalDef] = localDefWhile | localDefBind | localDefAssign | localDefAssignRef | localDefWhile | localDefEval | localDefDef
 
   def localDefDef: Parser[untpd.LocalDef] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
@@ -425,6 +425,9 @@ class ScalaParser {
       Untyped(Trees.LocalDef.Assign(tryResolveSymbol(symName), expr)).withPos(t -- expr)
     }
   }
+
+  def localDefAssignRef: Parser[untpd.LocalDef] =
+    (exprParser ~ "=" ~ exprParser) <| { case p ~ _ ~ e => Untyped(Trees.LocalDef.AssignRef(p, e)).withPos(p -- e) }
 
   def localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
     Untyped(Trees.LocalDef.Eval(expr)).withPos(expr)

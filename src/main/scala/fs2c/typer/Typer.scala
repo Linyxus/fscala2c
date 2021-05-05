@@ -188,7 +188,7 @@ class Typer {
     val untypedMemDefs: List[Trees.MemberDef[Untyped]] = clsDef.members map (_.tree)
     var placeholders: Map[String, Symbol[tpd.MemberDef]] = Map.empty
     val preTypedMemberDefs: List[tpd.MemberDef] = untypedMemDefs map { memDef =>
-      val tpe: Type = memDef.tpe getOrElse freshXvar
+      val tpe: Type = tryResolveSymbolType(memDef.tpe getOrElse freshXvar)
       val typed: tpd.MemberDef = memDef.assignType(tpe, typedClsDef.tree.sym, null)
       scopeCtx.addSymbol(typed.tree.sym)
       placeholders = placeholders.updated(typed.tree.sym.name, typed.tree.sym)
@@ -364,7 +364,7 @@ class Typer {
     untpdDefs foreach {
       case Trees.LocalDef.Bind(Symbol(symName, _), mutable, ascription, _) =>
         // type of the binding
-        val tpe : Type = ascription getOrElse freshXvar
+        val tpe: Type = ascription getOrElse freshXvar
         val tpdBind: tpd.LocalDefBind = Typed(tpe = tpe, tree = Trees.LocalDef.Bind(null, mutable, null, null))
         val sym: Symbol[tpd.LocalDefBind] = Symbol(name = symName, dealias = tpdBind)
         scopeCtx.addSymbol(sym)
@@ -435,6 +435,13 @@ class Typer {
         eval.assignTypeEval(typedExpr(expr))
       case loop @ Trees.LocalDef.While(cond, body) =>
         loop.assignTypeWhile(typedExpr(cond), typedExpr(body))
+      case assign @ Trees.LocalDef.AssignRef(ref, expr) =>
+        val assignee: tpd.Expr = typedExpr(ref)
+        if !assignee.tpe.isRef then
+          throw TypeError(s"can not assign to a non-reference expr: $assignee")
+        val tpdExpr: tpd.Expr = typedExpr(expr)
+        recordEquality(assignee.tpe, tpdExpr.tpe, expr.pos)
+        assign.assignTypeAssignRef(assignee, tpdExpr)
       case assign @ Trees.LocalDef.Assign(symRef, expr) => {
         val sym: Symbol[_] = symRef match {
           case Symbol.Ref.Resolved(sym) =>
@@ -484,12 +491,17 @@ class Typer {
 
   /** Retrieve the type of the symbol.
     */
-  def typeOfSymbol(sym: Symbol[_]): Type = sym.dealias match {
-    case tped : Typed[_] => tped.tpe
-    case param : Trees.LambdaParam => param.tpe
-    case _ =>
-      throw TypeError(s"can not retrieve type of symbol $sym with dealias ${sym.dealias}")
-  }
+  def typeOfSymbol(sym: Symbol[_]): Type =
+    val tp = sym.dealias match {
+      case tped : Typed[_] => tped.tpe
+      case param : Trees.LambdaParam => param.tpe
+      case _ =>
+        throw TypeError(s"can not retrieve type of symbol $sym with dealias ${sym.dealias}")
+    }
+    if isSymbolMutable(sym) then
+      tp.refType
+    else
+      tp
 
   /** Typing lambda parameters. This will resolve SymbolType if exists.
     */
@@ -500,6 +512,13 @@ class Typer {
       case _ =>
     }
     param
+  }
+
+  def tryResolveSymbolType(tp: Type): Type = tp match {
+    case tp: SymbolType => resolveSymbolType(tp)
+    case LambdaType(paramTypes, valueType) => LambdaType(paramTypes map tryResolveSymbolType, tryResolveSymbolType(valueType))
+    case GroundType.ArrayType(tp) => GroundType.ArrayType(tryResolveSymbolType(tp))
+    case tp => tp
   }
 
   /** Resolves the symbol type.
@@ -576,11 +595,16 @@ class Typer {
     val paramTypes: List[Type] = params map (_.tpe)
 
     func.tpe match {
-      case LambdaType(expectParamTypes, valueType) =>
+      case LambdaType(expectParamTypes, vTp) =>
+        val valueType = tryResolveSymbolType(vTp)
         @annotation.tailrec def go(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
           case (Nil, Nil) => ()
           case (Nil, _) | (_, Nil) =>
             throw TypeError(s"parameter number mismatch.")
+          case ((t1: SymbolType) :: ts1, t2 :: ts2) if resolveSymbolType(t1) == t2 =>
+            go(ts1, ts2)
+          case (t1 :: ts1, (t2: SymbolType) :: ts2) if t1 == resolveSymbolType(t2) =>
+            go(ts1, ts2)
           case (t1 :: ts1, t2 :: ts2) if t1 == t2 =>
             go(ts1, ts2)
           case (t1 :: ts1, t2 :: ts2) =>
@@ -589,7 +613,7 @@ class Typer {
         // do arugment type checking
         go(expectParamTypes, paramTypes)
         apply.assignType(tpe = valueType, func, params)
-      case tpe : Type =>
+      case tpe: Type =>
         val retType = freshTvar
         val expectType = LambdaType(paramTypes, retType)
         recordEquality(tpe, expectType, expr.pos)
@@ -696,14 +720,14 @@ class Typer {
             case None =>
               throw TypeError(s"${tv.classDef.tree} does not have ${select.member}")
             case Some(m) =>
-              m.tpe
+              m.tpe.refTypeWhen(m.tree.mutable)
           }
         case cls: Trees.ClassDef[Typed] =>
           cls.members.find(m => m.tree.sym.name == select.member) match {
             case None =>
               throw TypeError(s"$cls does not have ${select.member}")
             case Some(m) =>
-              m.tpe
+              m.tpe.refTypeWhen(m.tree.mutable)
           }
         case tp =>
           throw TypeError(s"can not select member from type $tp")
