@@ -134,7 +134,6 @@ object Trees {
 
   case class LiteralArrayExpr[F[_]](elemTp: Type, length: F[Expr[F]]) extends Expr[F] {
     def assignType(length: tpd.Expr): tpd.LiteralArrayExpr =
-      assert(length.tpe == GroundType.IntType, "array length should be Int")
       Typed(tree = LiteralArrayExpr(elemTp, length), tpe = GroundType.ArrayType(elemTp), freeNames = length.freeNames)
   }
 

@@ -33,7 +33,11 @@ class TestScalaTyper {
     }
   }
 
-  def typedExpr(e: untpd.Expr): tpd.Expr = (new Typer).typedExpr(e)
+  def typedExpr(e: untpd.Expr): tpd.Expr =
+    val typer = new Typer
+    val res = typer.typedExpr(e)
+    typer.forceInstantiateBlock()
+    res
 
   def typedDef(d: untpd.ClassDef): tpd.ClassDef = (new Typer).typedClassDef(d)
 
@@ -52,6 +56,8 @@ class TestScalaTyper {
     assertTyped("-1", IntType)
     assertTyped("-(1 + 1 * -1)", IntType)
     assertTyped("!(1 > 2 && 3 < 4)", BooleanType)
+    assertTyped("Array[Int](10)", ArrayType(IntType))
+    assertTyped("Array[Int](1 + 1)", ArrayType(IntType))
   }
 
   @Test def groundValue: Unit = {

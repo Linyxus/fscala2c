@@ -259,6 +259,10 @@ class Typer {
       case x : Trees.LiteralFloatExpr[_] => x.assignType(FloatType)
       case x : Trees.LiteralBooleanExpr[_] => x.assignType(BooleanType)
       case x : Trees.LiteralStringExpr[_] => x.assignType(StringType)
+      case x : Trees.LiteralArrayExpr[Untyped] =>
+        val tpdLength = typedExpr(x.length)
+        recordEquality(tpdLength.tpe, GroundType.IntType, expr.pos)
+        x.assignType(tpdLength)
       case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(expr.asInstanceOf)
       case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(expr.asInstanceOf)
       case x : Trees.LambdaExpr[Untyped] => typedLambdaExpr(expr.asInstanceOf)
