@@ -152,6 +152,9 @@ class CodeGen {
       case FST.GroundType.StringType => bd.SimpleTypeBundle {
         C.PointerType(C.BaseType.CharType)
       }
+      case FST.GroundType.ArrayType(elemTp) => bd.SimpleTypeBundle {
+        C.PointerType(genType(elemTp, lambdaValueType = true).getTp)
+      }
       case _ : FST.LambdaType if lambdaValueType => lambdaClosureType
       case FST.LambdaType(paramTypes, valueType) => genLambdaType(paramTypes, valueType, aliasName)
       case clsDef: FS.ClassDef[FS.Typed] => clsDef.sym.dealias.code match {
@@ -301,6 +304,7 @@ class CodeGen {
     case _ : FS.LiteralFloatExpr[FS.Typed] => genFloatLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralBooleanExpr[FS.Typed] => genBooleanLiteralExpr(expr.asInstanceOf)
     case _ : FS.LiteralStringExpr[_] => genStringLiteralExpr(expr.asInstanceOf)
+    case _ : FS.LiteralArrayExpr[_] => genArrayLiteralExpr(expr.asInstanceOf)
     case _ : FS.NextRandom[_] => bd.PureExprBundle { useRand.appliedTo() }
     case _ : FS.IdentifierExpr[FS.Typed] => genIdentifierExpr(expr.asInstanceOf)
     case _ : FS.BinOpExpr[FS.Typed] => genBinaryOpExpr(expr.asInstanceOf)
@@ -313,6 +317,19 @@ class CodeGen {
     case _ : FS.NewExpr[FS.Typed] => genNewExpr(expr.asInstanceOf)
     case _ : FS.Printf[FS.Typed] => genPrintfExpr(expr.asInstanceOf)
     case _ => throw CodeGenError(s"unsupported expr $expr")
+  }
+
+  def genArrayLiteralExpr(expr: tpd.LiteralArrayExpr): bd.ValueBundle = expr assignCode {
+    case FS.LiteralArrayExpr(elemTp, lenExpr) =>
+      val cElemTp = genType(elemTp, lambdaValueType = true)
+      val lenCode = genExpr(lenExpr)
+      val allocExpr = useMalloc $$ C.BinOpExpr(C.BinOpType.*, lenCode.getExpr, C.SizeOf(cElemTp.getTp))
+      val (tempVar, varDef) = defn.localVariable(freshVarName, C.PointerType(cElemTp.getTp), Some(allocExpr))
+
+      bd.BlockBundle(
+        expr = tempVar.cIdent,
+        block = lenCode.getBlock ++ varDef
+      )
   }
 
   def genPrintfExpr(expr: tpd.Printf): bd.BlockBundle = expr assignCode {
