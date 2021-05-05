@@ -146,6 +146,12 @@ class TestScalaParser {
         |    t1 + t2
         |  }
         |}""".stripMargin,
+      """class Foo {
+        |  def m1: Int = 1
+        |  def m2(a: Int, b: Float): Int = a
+        |  def m3 = 1
+        |  def m4(x: String) = x
+        |}""".stripMargin
     )
     tests foreach { x => assertParseSuccess((new ScalaParser).classDefParser, x) }
   }

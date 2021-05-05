@@ -46,7 +46,7 @@ class ScalaParser {
   /** Parses class definition.
     */
   def classDefParser: Parser[untpd.ClassDef] = {
-    val member: Parser[untpd.MemberDef] = memberDef << NL
+    val member: Parser[untpd.MemberDef] = (memberDef or memberDefDef) << NL
     val bodyBegin: Parser[ScalaToken] = "{"
     val bodyEnd: Parser[ScalaToken] = "}" <| { t => scopeCtx.relocateScope(); t }
     val body: Parser[List[untpd.MemberDef]] =
@@ -88,6 +88,44 @@ class ScalaParser {
           ret.tree.members foreach { member => member.tree.classDef = ret.tree.sym }
           ret
         }
+    }
+  }
+
+  def memberDefDef: Parser[untpd.MemberDef] = {
+    val param: Parser[(ScalaToken, Type)] = identifier ~ ":" ~ typeParser <| { case i ~ _ ~ t => i -> t }
+    val params: Parser[List[(ScalaToken, Type)]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
+      case Some(ps) => ps
+      case None => Nil
+    }
+    val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
+
+    def makeParams(ps: List[(ScalaToken, Type)]): List[Trees.LambdaParam] = {
+      var names: Set[String] = Set.empty
+      ps map {
+        case (tk @ ScalaToken(ScalaTokenType.Identifier(name)), tp) =>
+          if names contains name then
+            throw SyntaxError(s"duplicated name $name member method definition").withPos(tk)
+          else
+            names = names + name
+            val res = Trees.LambdaParam(Symbol(name, null), tp)
+            res.sym.dealias = res
+            res
+      }
+    }
+
+    ("def" ~ identifier ~ params ~ ascription ~ "=" ~ exprParser) <| { case kwDef ~ (tk @ ScalaToken(ScalaTokenType.Identifier(name))) ~ ps ~ retTp ~ _ ~ body =>
+      if scopeCtx.findSymHere(name).isDefined then
+        throw SyntaxError(s"duplicated member name in class definition: $name").withPos(tk)
+      else
+        val params = makeParams(ps)
+        val lambda = Trees.LambdaExpr(params map (_.sym), None, body)
+        val lambdaType = retTp map { retTp => Types.LambdaType(ps map (_._2), retTp) }
+        val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, false, lambdaType, body))
+        member.tree.sym.dealias = member
+
+        scopeCtx.addSymbol(member.tree.sym)
+
+        member
     }
   }
   
