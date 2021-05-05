@@ -247,6 +247,8 @@ object Trees {
         assert(false, s"can not find $name")
       case Some(m) => m
     }
+
+    override def hashCode(): Int = sym.name.hashCode
   }
 
   object StructDef {
