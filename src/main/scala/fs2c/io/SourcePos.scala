@@ -73,12 +73,12 @@ trait Positional {
     * @return
     */
   def showInSourceLine(hint: String = ""): String = myPos match {
-    case null => "<no position>"
+    case null => s"<no position>\n$hint"
     case pos => pos.showInSourceLine(hint)
   }
 
   def showWithContext(n: Int, hint: String = ""): String = myPos match {
-    case null => "<no position>"
+    case null => s"<no position>\n$hint"
     case pos => pos.showWithContext(n, hint)
   }
 

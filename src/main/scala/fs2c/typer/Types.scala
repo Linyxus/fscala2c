@@ -1,5 +1,6 @@
 package fs2c.typer
 
+import fs2c.io.Positional
 import fs2c.ast.Symbol
 import fs2c.codegen.{ CodeBundles => bd }
 import fs2c.ast.fs.Trees.{tpd, untpd}
@@ -28,7 +29,9 @@ object Types {
 
   /** A proxy type referring to type through a symbol.
     */
-  case class SymbolType(refSym: Symbol.Ref) extends Type
+  case class SymbolType(refSym: Symbol.Ref) extends Type {
+    override def toString: String = refSym.name
+  }
 
   /** Ground types.
     */
@@ -39,11 +42,22 @@ object Types {
     case BooleanType
     case StringType
     case ArrayType(itemType: Type)
+
+    override def toString: String = this match {
+      case UnitType => "Unit"
+      case IntType => "Int"
+      case FloatType => "Float"
+      case BooleanType => "Boolean"
+      case StringType => "String"
+      case ArrayType(itemType) => s"Array[$itemType]"
+    }
   }
 
   /** Lambda types.
     */
-  case class LambdaType(paramTypes: List[Type], valueType: Type) extends Type
+  case class LambdaType(paramTypes: List[Type], valueType: Type) extends Type {
+    override def toString: String = s"(${paramTypes.map(_.toString).mkString(", ")}) => $valueType"
+  }
 
   /** Predicates on type variable.
     * 
@@ -60,7 +74,9 @@ object Types {
   }
   /** Type variables.
     */
-  case class TypeVariable(name: String, var predicates: List[Predicate]) extends Type {
+  case class TypeVariable(name: String, var predicates: List[Predicate]) extends Type with Positional {
+    type PosSelf = TypeVariable
+
     def mergePredicates(tv: TypeVariable): Unit =
       this.predicates = tv.predicates ++ this.predicates
     
@@ -71,6 +87,8 @@ object Types {
         (valTpe :: tpes) exists { occursIn(_) }
       case _ => false
     }
+
+    override def toString: String = name
   }
 
   /** Special type variable recording information about the *shape* of a class type definition.

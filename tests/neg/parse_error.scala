@@ -1,7 +1,8 @@
 class Main {
-  def f1(x: ) = {
-    def x = 1 +
-  }
+  val x = y
+  val y = x
 
-  def main = 0
+  def main = {
+    0
+  }
 }

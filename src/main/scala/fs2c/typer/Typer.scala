@@ -1,6 +1,6 @@
 package fs2c.typer
 
-import fs2c.io.SourcePosSpan
+import fs2c.io.{SourcePosSpan, Positional}
 import fs2c.ast.Symbol
 import fs2c.ast.Scopes._
 import fs2c.ast.fs._
@@ -77,19 +77,19 @@ class Typer {
 
   /** Alias of [[ConstraintSolver.addEquality]].
     */
-  def recordEquality(tpe1: Type, tpe2: Type, pos: SourcePosSpan): Unit = {
-    constrs.addEquality(tpe1, tpe2, pos)
+  def recordEquality(tpe1: Type, tpe2: Type, pos: SourcePosSpan, lhs: Option[SourcePosSpan], rhs: Option[SourcePosSpan]): Unit = {
+    constrs.addEquality(tpe1, tpe2, pos, lhs, rhs)
   }
 
   /** Fresh type variable prefixed with T.
     */
-  def freshTvar: TypeVariable =
-    freshTypeVar(prefix = "T")
+  def freshTvar(pos: Positional): TypeVariable =
+    freshTypeVar(prefix = "T").withPos(pos)
 
   /** Fresh type variable prefixed with X.
     */
-  def freshXvar: TypeVariable =
-    freshTypeVar(prefix = "X")
+  def freshXvar(pos: Positional): TypeVariable =
+    freshTypeVar(prefix = "X").withPos(pos)
 
   /** Creates a fresh class type variable for `clsDef`.
     */
@@ -103,9 +103,9 @@ class Typer {
   def forceInstantiate[X](tpd: Typed[X]): Typed[X] = {
     val instType = solvedSubst.instantiateType(tpd.tpe)
     instType match {
-      case None =>
-        throw TypeError(s"Can not instantiate type variable ${tpd.tpe} when typing ${tpd.tree}")
-      case Some(tpe) =>
+      case Left(tv) =>
+        throw TypeError(s"can not instantiate type variable $tv, which is created\n${tv.showInSourceLine("here")}").withPos(tpd)
+      case Right(tpe) =>
         tpd.tpe = tpe
         tpd
     }
@@ -114,7 +114,10 @@ class Typer {
   /** Tries to instantiate the type. Returns [[None]] if there exists uninstantiated type variable within the type.
     */
   def tryInstantiateType(tpe: Type): Option[Type] =
-    solvedSubst.instantiateType(tpe)
+    solvedSubst.instantiateType(tpe) match {
+      case Left(_) => None
+      case Right(x) => Some(x)
+    }
 
   def maybeInstantiateType(tp: Type): Type =
     tryInstantiateType(tp) getOrElse tp
@@ -124,7 +127,7 @@ class Typer {
   def forceInstantiateType(tpe: Type): Type =
     tryInstantiateType(tpe) match {
       case None =>
-        throw TypeError(s"Can not instantiate type variable $tpe")
+        throw TypeError(s"can not instantiate type variable $tpe")
       case Some(t) => t
     }
 
@@ -142,7 +145,7 @@ class Typer {
           throw TypeError(s"mismatch of class type member: $tpe1 and $tpe2")
       )
     val realTypes: Map[String, Type] =
-      (clsVar.classDef.tree.members map { x => x.tree.sym.name -> forceInstantiateType(x.tpe) }).toMap
+      (clsVar.classDef.tree.members map { x => x.tree.sym.name -> forceInstantiate(x).tpe }).toMap
 
     if !(expectTypes.keySet subsetOf realTypes.keySet) then
       throw TypeError(s"can not conform required member set ${expectTypes.keySet} with actual set ${realTypes.keySet}")
@@ -180,7 +183,7 @@ class Typer {
     scopeCtx.addSymbol(typedClsDef.tree.sym)
     
     // add constructor parameters into scope
-    clsDef.params foreach { sym => typedLambdaParam(sym.dealias) }
+    clsDef.params foreach { sym => typedLambdaParam(sym.dealias, classDef) }
     clsDef.params foreach { sym => scopeCtx.addSymbol(sym) }
 
     // --- locate a new scope ---
@@ -191,7 +194,7 @@ class Typer {
     val untypedMemDefs: List[Trees.MemberDef[Untyped]] = clsDef.members map (_.tree)
     var placeholders: Map[String, Symbol[tpd.MemberDef]] = Map.empty
     val preTypedMemberDefs: List[tpd.MemberDef] = untypedMemDefs map { memDef =>
-      val tpe: Type = tryResolveSymbolType(memDef.tpe getOrElse freshXvar)
+      val tpe: Type = tryResolveSymbolType(memDef.tpe getOrElse freshXvar(memDef.sym), memDef.sym.dealias)
       val typed: tpd.MemberDef = memDef.assignType(tpe, typedClsDef.tree.sym, null)
       scopeCtx.addSymbol(typed.tree.sym)
       placeholders = placeholders.updated(typed.tree.sym.name, typed.tree.sym)
@@ -201,16 +204,17 @@ class Typer {
 
     // typing the member definitions
     val typedMemDefs: List[tpd.MemberDef] = clsDef.members map { d =>
+      val untpdD = d
       val res = typedMemberDef(d)
       
       res match {
         case tpdDef @ Typed(d : Trees.MemberDef[Typed], actualType, _, _) =>
           placeholders get d.sym.name match {
             case None =>
-              throw TypeError(s"fatal error: member name not found in placeholders. This is caused by a bug.")
+              assert(false, s"fatal error: member name not found in placeholders. This is caused by a bug.")
             case Some(sym) =>
               val assumedType: Type = sym.dealias.tpe
-              recordEquality(assumedType, actualType, tpdDef.pos)
+              recordEquality(assumedType, actualType, untpdD.pos, Some(untpdD.tree.sym.pos), Some(untpdD.tree.body.pos))
               sym.dealias = tpdDef
               tpdDef.tree.classDef = typedClsDef.tree.sym
           }
@@ -249,7 +253,7 @@ class Typer {
     val body: tpd.Expr = typedExpr(memDef.body)
     val tpe: Type = body.tpe
 
-    memDef.assignType(tpe, null, body)
+    memDef.assignType(tpe, null, body).withPos(memberDef)
   }
 
 
@@ -264,7 +268,7 @@ class Typer {
       case x : Trees.LiteralStringExpr[_] => x.assignType(StringType)
       case x : Trees.LiteralArrayExpr[Untyped] =>
         val tpdLength = typedExpr(x.length)
-        recordEquality(tpdLength.tpe, GroundType.IntType, expr.pos)
+        recordEquality(tpdLength.tpe, GroundType.IntType, expr.pos, Some(x.length.pos), None)
         x.assignType(tpdLength)
       case x : Trees.BinOpExpr[Untyped] => typedBinOpExpr(expr.asInstanceOf)
       case x : Trees.UnaryOpExpr[Untyped] => typedUnaryOpExpr(expr.asInstanceOf)
@@ -306,7 +310,7 @@ class Typer {
     scopeCtx.locateScope()
 
     // add lambda parameters into the scope
-    lambda.params foreach { sym => typedLambdaParam(sym.dealias) }
+    lambda.params foreach { sym => typedLambdaParam(sym.dealias, expr) }
     lambda.params map { sym => scopeCtx.addSymbol(sym) }
     // typing the body
     val typedBody: tpd.Expr = typedExpr(lambda.body)
@@ -314,7 +318,7 @@ class Typer {
       case None => ()
       case Some(tpe) =>
         if tpe != typedBody.tpe then
-          throw TypeError(s"Expected lambda body type: $tpe, given: ${typedBody.tpe}")
+          throw TypeError(s"Expected lambda body type: $tpe, given: ${typedBody.tpe}").withPos(expr)
         else
           ()
     }
@@ -369,9 +373,9 @@ class Typer {
     var placeholders: Map[String, Symbol[tpd.LocalDefBind]] = Map.empty
 
     untpdDefs foreach {
-      case Trees.LocalDef.Bind(Symbol(symName, _), mutable, ascription, _) =>
+      case d @ Trees.LocalDef.Bind(Symbol(symName, _), mutable, ascription, _) =>
         // type of the binding
-        val tpe: Type = ascription getOrElse freshXvar
+        val tpe: Type = ascription getOrElse freshXvar(d.sym)
         val tpdBind: tpd.LocalDefBind = Typed(tpe = tpe, tree = Trees.LocalDef.Bind(null, mutable, null, null))
         val sym: Symbol[tpd.LocalDefBind] = Symbol(name = symName, dealias = tpdBind)
         scopeCtx.addSymbol(sym)
@@ -390,7 +394,7 @@ class Typer {
             case Some(wrapper) =>
               val assumedType = wrapper.dealias.tpe
               wrapper.dealias = res.asInstanceOf
-              recordEquality(assumedType, actualType, d.pos)
+              recordEquality(assumedType, actualType, d.pos, Some(bind.sym.pos), Some(bind.body.pos))
           }
         case _ =>
       }
@@ -422,6 +426,8 @@ class Typer {
       
       tpdAssign
     }
+
+    val untpdExpr: untpd.LocalDef = expr
     
     val localDef: Trees.LocalDef[Untyped] = expr.tree
 
@@ -430,7 +436,7 @@ class Typer {
         val typedBody = typedExpr(body)
         tpe match {
           case Some(tpe) if !recursiveMode && tpe != typedBody.tpe =>
-            throw TypeError(s"Type mismatch: expecting $tpe but found ${typedBody.tpe}")
+            throw TypeError(s"Type mismatch: expecting $tpe but found ${typedBody.tpe}").withPos(expr)
           case _ => ()
         }
         val typedBind: tpd.LocalDefBind = bind.assignTypeBind(typedBody)
@@ -447,20 +453,20 @@ class Typer {
         if !assignee.tpe.isRef then
           throw TypeError(s"can not assign to a non-reference expr: $assignee")
         val tpdExpr: tpd.Expr = typedExpr(expr)
-        recordEquality(assignee.tpe, tpdExpr.tpe, expr.pos)
+        recordEquality(assignee.tpe, tpdExpr.tpe, untpdExpr.pos, Some(ref.pos), Some(expr.pos))
         assign.assignTypeAssignRef(assignee, tpdExpr)
       case assign @ Trees.LocalDef.Assign(symRef, expr) => {
         val sym: Symbol[_] = symRef match {
           case Symbol.Ref.Resolved(sym) =>
             scopeCtx.findSym(sym.name) match {
               case None =>
-                throw TypeError(s"unknown symbol: ${sym.name}")
+                throw TypeError(s"unknown symbol: ${sym.name}").withPos(untpdExpr)
               case Some(sym) => sym
             }
           case Symbol.Ref.Unresolved(symName) =>
             scopeCtx.findSym(symName) match {
               case None =>
-                throw TypeError(s"unknown symbol: $symName")
+                throw TypeError(s"unknown symbol: $symName").withPos(untpdExpr)
               case Some(sym) => sym
             }
         }
@@ -470,11 +476,11 @@ class Typer {
             assign.assignTypeAssign(sym, tpdExpr)
           else
             if !isSymbolMutable(sym) then
-              throw TypeError(s"can not assign to an immutable $sym")
+              throw TypeError(s"can not assign to an immutable $sym").withPos(untpdExpr)
             else if !recursiveMode then
-              throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym")
+              throw TypeError(s"can not assign value of ${tpdExpr.tpe} to $sym").withPos(untpdExpr)
             else
-              recordEquality(tpdExpr.tpe, typeOfSymbol(sym), expr.pos)
+              recordEquality(tpdExpr.tpe, typeOfSymbol(sym), untpdExpr.pos, Some(expr.pos), None)
               assign.assignTypeAssign(sym, tpdExpr)
         }
       }
@@ -503,7 +509,7 @@ class Typer {
       case tped : Typed[_] => tped.tpe
       case param : Trees.LambdaParam => param.tpe
       case _ =>
-        throw TypeError(s"can not retrieve type of symbol $sym with dealias ${sym.dealias}")
+        assert(false, s"can not retrieve type of symbol $sym with dealias ${sym.dealias}")
     }
     if isSymbolMutable(sym) then
       tp.refType
@@ -512,25 +518,25 @@ class Typer {
 
   /** Typing lambda parameters. This will resolve SymbolType if exists.
     */
-  def typedLambdaParam(param: Trees.LambdaParam): Trees.LambdaParam = {
+  def typedLambdaParam(param: Trees.LambdaParam, e: Untyped[_]): Trees.LambdaParam = {
     param.tpe match {
       case symTp : SymbolType =>
-        param.tpe = resolveSymbolType(symTp)
+        param.tpe = resolveSymbolType(symTp, e)
       case _ =>
     }
     param
   }
 
-  def tryResolveSymbolType(tp: Type): Type = tp match {
-    case tp: SymbolType => resolveSymbolType(tp)
-    case LambdaType(paramTypes, valueType) => LambdaType(paramTypes map tryResolveSymbolType, tryResolveSymbolType(valueType))
-    case GroundType.ArrayType(tp) => GroundType.ArrayType(tryResolveSymbolType(tp))
+  def tryResolveSymbolType(tp: Type, e: Untyped[_]): Type = tp match {
+    case tp: SymbolType => resolveSymbolType(tp, e)
+    case LambdaType(paramTypes, valueType) => LambdaType(paramTypes map { t => tryResolveSymbolType(t, e) }, tryResolveSymbolType(valueType, e))
+    case GroundType.ArrayType(tp) => GroundType.ArrayType(tryResolveSymbolType(tp, e))
     case tp => tp
   }
 
   /** Resolves the symbol type.
     */
-  def resolveSymbolType(tpe: SymbolType): Type = {
+  def resolveSymbolType(tpe: SymbolType, e: Untyped[_]): Type = {
     val symName = tpe.refSym.name
     scopeCtx.findSym(symName) match {
       case Some(sym) => 
@@ -539,7 +545,7 @@ class Typer {
           case cls : Trees.ClassDef[Typed] => cls
         }
       case None =>
-        throw TypeError(s"unknown symbol: $symName")
+        throw TypeError(s"unknown symbol: $symName").withPos(e)
     }
   }
 
@@ -566,7 +572,7 @@ class Typer {
       case Symbol.Ref.Unresolved(symName) =>
         scopeCtx.findSym(symName) match {
           case None =>
-            throw TypeError(s"unknown symbol: $symName")
+            throw TypeError(s"unknown symbol: $symName").withPos(expr)
           case Some(sym) =>
             setFreshName(sym) {
               expr.tree.assignType(typeOfSymbol(sym), sym)
@@ -575,7 +581,7 @@ class Typer {
       case Symbol.Ref.Resolved(sym) =>
         scopeCtx.findSym(sym.name) match {
           case None =>
-            throw TypeError(s"unknown resolved symbol: ${sym.name}, this is caused by a bug in the compiler.")
+            throw TypeError(s"unknown resolved symbol: ${sym.name}, this is caused by a bug in the compiler.").withPos(expr)
           case Some(sym) =>
             setFreshName(sym) {
               expr.tree.assignType(typeOfSymbol(sym), sym)
@@ -607,33 +613,33 @@ class Typer {
           case IntType :: Nil =>
             apply.assignType(tpe = elemTp.refType, func, params)
           case t :: Nil =>
-            recordEquality(t, IntType, expr.pos)
+            recordEquality(t, IntType, expr.pos, Some(apply.args.head.pos), None)
             apply.assignType(tpe = elemTp.refType, func, params)
           case _ =>
-            throw TypeError(s"expecting one Int to index an Array")
+            throw TypeError(s"expecting one Int to index an Array").withPos(expr)
         }
       case LambdaType(expectParamTypes, vTp) =>
-        val valueType = tryResolveSymbolType(vTp)
+        val valueType = tryResolveSymbolType(vTp, apply.func)
         @annotation.tailrec def go(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
           case (Nil, Nil) => ()
           case (Nil, _) | (_, Nil) =>
-            throw TypeError(s"parameter number mismatch.")
-          case ((t1: SymbolType) :: ts1, t2 :: ts2) if resolveSymbolType(t1) == t2 =>
+            throw TypeError(s"parameter number mismatch.").withPos(expr)
+          case ((t1: SymbolType) :: ts1, t2 :: ts2) if resolveSymbolType(t1, apply.func) == t2 =>
             go(ts1, ts2)
-          case (t1 :: ts1, (t2: SymbolType) :: ts2) if t1 == resolveSymbolType(t2) =>
+          case (t1 :: ts1, (t2: SymbolType) :: ts2) if t1 == resolveSymbolType(t2, apply.func) =>
             go(ts1, ts2)
           case (t1 :: ts1, t2 :: ts2) if t1 == t2 =>
             go(ts1, ts2)
           case (t1 :: ts1, t2 :: ts2) =>
-            throw TypeError(s"arugment type mismatch: $t1 and $t2")
+            throw TypeError(s"arugment type mismatch: $t1 and $t2").withPos(expr)
         }
         // do arugment type checking
         go(expectParamTypes, paramTypes)
         apply.assignType(tpe = valueType, func, params)
       case tpe: Type =>
-        val retType = freshTvar
+        val retType = freshTvar(expr)
         val expectType = LambdaType(paramTypes, retType)
-        recordEquality(tpe, expectType, expr.pos)
+        recordEquality(tpe, expectType, expr.pos, None, None)
         apply.assignType(tpe = retType, func, params)
     }
   }
@@ -655,21 +661,21 @@ class Typer {
 
     val condType: Type = tryInstantiateType(tpdCond.tpe) match {
       case None =>
-        recordEquality(tpdCond.tpe, GroundType.BooleanType, ifExpr.cond.pos)
+        recordEquality(tpdCond.tpe, GroundType.BooleanType, ifExpr.cond.pos, None, None)
         tpdCond.tpe
       case Some(tpe) if tpe == GroundType.BooleanType =>
         tpe
       case Some(tpe) =>
-        throw TypeError(s"expect Boolean in if condition, but found $tpe")
+        throw TypeError(s"expect Boolean in if condition, but found $tpe").withPos(ifExpr.cond)
     }
 
     val (tpeT, tpeF) = (tryInstantiateType(tpdTBody.tpe), tryInstantiateType(tpdFBody.tpe)) match {
       case (Some(tpe1), Some(tpe2)) if tpe1 == tpe2 => (tpe1, tpe2)
       case (Some(tpe1), Some(tpe2)) =>
-        throw TypeError(s"body of if expressions have different types: $tpe1 and $tpe2")
+        throw TypeError(s"body of if expressions have different types: $tpe1 and $tpe2").withPos(expr)
       case (_, _) =>
         val (tpe1, tpe2) = (tpdTBody.tpe, tpdFBody.tpe)
-        recordEquality(tpe1, tpe2, expr.pos)
+        recordEquality(tpe1, tpe2, expr.pos, Some(ifExpr.trueBody.pos), Some(ifExpr.falseBody.pos))
         (tpe1, tpe2)
     }
 
@@ -688,7 +694,7 @@ class Typer {
     val clsName = newExpr.ref.name
     val clsSym = scopeCtx.findSym(clsName) match {
       case None =>
-        throw TypeError(s"unknown symbol $clsName")
+        throw TypeError(s"unknown symbol $clsName").withPos(expr)
       case Some(sym) =>
         sym
     }
@@ -696,13 +702,13 @@ class Typer {
       case clv : ClassTypeVariable => clv
       case clsDef : Trees.ClassDef[_] => clsDef
       case x =>
-        throw TypeError(s"$x is not a class")
+        throw TypeError(s"$x is not a class").withPos(expr)
     }
     val innerClsTpe: Trees.ClassDef[Typed] = clsTpe match {
       case clv : ClassTypeVariable => clv.classDef.tree
       case clsDef : Trees.ClassDef[Typed] => clsDef
       case _ =>
-        throw TypeError(s"can not retrieve inner class type of type $clsTpe. This is caused by a bug in the compiler.")
+        assert(false, s"can not retrieve inner class type of type $clsTpe. This is caused by a bug in the compiler.")
     }
     val params: List[tpd.Expr] = newExpr.params map typedExpr
 
@@ -712,9 +718,9 @@ class Typer {
     @annotation.tailrec def recur(ts1: List[Type], ts2: List[Type]): Unit = (ts1, ts2) match {
       case (Nil, Nil) => ()
       case (Nil, _) | (_, Nil) =>
-        throw TypeError(s"parameter list length mismatch: expect $expectTypes but found $realTypes")
+        throw TypeError(s"parameter list length mismatch: expect $expectTypes but found $realTypes").withPos(expr)
       case (t1 :: ts1, t2 :: ts2) =>
-        recordEquality(t1, t2, expr.pos)
+        recordEquality(t1, t2, expr.pos, None, None)
         recur(ts1, ts2)
     }
     recur(realTypes, expectTypes)
@@ -730,24 +736,24 @@ class Typer {
     
     val tpe: Type = tryInstantiateType(tpdExpr.tpe) match {
       case None =>
-        throw TypeError(s"can not infer the type of the expression being selected: ${tpdExpr} : ${tpdExpr.tpe}\n${solvedSubst.tvMap}")
+        throw TypeError(s"can not infer the type of the expression being selected").withPos(expr)
       case Some(tp) => tp match {
         case tv: ClassTypeVariable =>
           tv.classDef.tree.members.find(m => m.tree.sym.name == select.member) match {
             case None =>
-              throw TypeError(s"${tv.classDef.tree} does not have ${select.member}")
+              throw TypeError(s"${tv.classDef.tree} does not have ${select.member}").withPos(expr)
             case Some(m) =>
               m.tpe.refTypeWhen(m.tree.mutable)
           }
         case cls: Trees.ClassDef[Typed] =>
           cls.members.find(m => m.tree.sym.name == select.member) match {
             case None =>
-              throw TypeError(s"$cls does not have ${select.member}")
+              throw TypeError(s"$cls does not have ${select.member}").withPos(expr)
             case Some(m) =>
               m.tpe.refTypeWhen(m.tree.mutable)
           }
         case tp =>
-          throw TypeError(s"can not select member from type $tp")
+          throw TypeError(s"can not select member from type $tp").withPos(expr)
       }
     }
     
@@ -761,12 +767,12 @@ class Typer {
     val e1 = typedExpr(expr.tree.e1)
     val e2 = typedExpr(expr.tree.e2)
     val tpe = binOpSig get op match {
-      case None => throw TypeError(s"unknown binary operator: $op")
+      case None => throw TypeError(s"unknown binary operator: $op").withPos(expr)
       case Some(sigs) => sigs.collectFirst {
         case sig if sig.infer(e1.tpe, e2.tpe, expr).isDefined => sig.infer(e1.tpe, e2.tpe, expr).get
       }
     } match {
-      case None => throw TypeError(s"could not find override function for $op with operand type ${e1.tpe} and ${e2.tpe}")
+      case None => throw TypeError(s"could not find override function for $op with operand type ${e1.tpe} and ${e2.tpe}").withPos(expr)
       case Some(tpe) => tpe
     }
 
@@ -780,12 +786,12 @@ class Typer {
     val op = unaryExpr.op
     val e = typedExpr(unaryExpr.e)
     val tpe = unaryOpSig get op match {
-      case None => throw TypeError(s"unknown unary operator: $op")
+      case None => throw TypeError(s"unknown unary operator: $op").withPos(expr)
       case Some(sigs) => sigs collectFirst {
-        case sig if sig.infer(e.tpe).isDefined => sig.infer(e.tpe).get
+        case sig if sig.infer(e.tpe, expr).isDefined => sig.infer(e.tpe, expr).get
       }
     } match {
-      case None => throw TypeError(s"could not find signature for $op with operand type ${e.tpe}")
+      case None => throw TypeError(s"could not find signature for $op with operand type ${e.tpe}").withPos(expr)
       case Some(tpe) => tpe
     }
 
@@ -802,23 +808,23 @@ class Typer {
       * @param e2 Type for the right operand.
       * @return Inferred result type. `None` if operand type mismatch.
       */
-    def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type]
+    def infer(e1: Type, e2: Type, expr: untpd.BinOpExpr): Option[Type]
   }
 
   /** Concrete signature with fixed operand and result types.
     */
   case class ConcreteBinOpSig(e1: Type, e2: Type, res: Type) extends BinOpSig {
-    override def infer(tp1: Type, tp2: Type, expr: untpd.Expr): Option[Type] = {
+    override def infer(tp1: Type, tp2: Type, expr: untpd.BinOpExpr): Option[Type] = {
       val e1 = tryInstantiateType(tp1) getOrElse tp1
       val e2 = tryInstantiateType(tp2) getOrElse tp2
       if e1 == this.e1 && e2 == this.e2 then
         Some(res)
       else if e1 == this.e1 then {
-        recordEquality(e2, this.e2, expr.pos)
+        recordEquality(e2, this.e2, expr.pos, Some(expr.tree.e2.pos), None)
         Some(res)
       }
       else if e2 == this.e2 then {
-        recordEquality(e1, this.e1, expr.pos)
+        recordEquality(e1, this.e1, expr.pos, Some(expr.tree.e1.pos), None)
         Some(res)
       } else {
         None
@@ -829,14 +835,14 @@ class Typer {
   /** Signature for unary operators.
     */
   trait UnaryOpSig {
-    def infer(e: Type): Option[Type]
+    def infer(e: Type, expr: untpd.UnaryOpExpr): Option[Type]
   }
 
   case class ConcreteUnaryOpSig(e: Type, res: Type, ambiguous: Boolean = true) extends UnaryOpSig {
-    override def infer(e: Type): Option[Type] =
+    override def infer(e: Type, expr: untpd.UnaryOpExpr): Option[Type] =
       tryInstantiateType(e) match {
         case None if !ambiguous =>
-          recordEquality(e, this.e, null)
+          recordEquality(e, this.e, expr.pos, Some(expr.tree.e.pos), None)
           Some(res)
         case Some(tpe) if tpe == this.e =>
           Some(res)
@@ -895,22 +901,22 @@ class Typer {
     ),
     bop.== -> List(
       new BinOpSig {
-        override def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type] =
+        override def infer(e1: Type, e2: Type, expr: untpd.BinOpExpr): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
           else {
-            recordEquality(e1, e2, expr.pos)
+            recordEquality(e1, e2, expr.pos, Some(expr.tree.e1.pos), Some(expr.tree.e2.pos))
             Some(BooleanType)
           }
       }
     ),
     bop.!= -> List(
       new BinOpSig {
-        override def infer(e1: Type, e2: Type, expr: untpd.Expr): Option[Type] =
+        override def infer(e1: Type, e2: Type, expr: untpd.BinOpExpr): Option[Type] =
           if e1 == e2 then
             Some(BooleanType)
           else {
-            recordEquality(e1, e2, expr.pos)
+            recordEquality(e1, e2, expr.pos, Some(expr.tree.e1.pos), Some(expr.tree.e2.pos))
             Some(BooleanType)
           }
       }
@@ -931,8 +937,9 @@ class Typer {
 }
 
 object Typer {
-  case class TypeError(msg: String) extends Exception {
-    override def toString: String = s"type error: $msg"
+  case class TypeError(msg: String) extends Exception with Positional {
+    type PosSelf = TypeError
+    override def toString: String = s"Type error:\n${showWithContext(2, msg)}"
   }
 
   /** Shows tpd.Expr.

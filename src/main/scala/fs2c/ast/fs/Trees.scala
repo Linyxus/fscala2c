@@ -32,7 +32,7 @@ object Trees {
     */
   case class ClassDef[F[_]](sym: Symbol[F[ClassDef[F]]], params: List[Symbol[LambdaParam]], parent: Option[Symbol.Ref], var members: List[F[MemberDef[F]]]) extends Type {
     def assignType(tpe: Type, members: List[tpd.MemberDef]): tpd.ClassDef = {
-      val res = Typed(tpe = tpe, tree = Trees.ClassDef[Typed](Symbol(sym.name, null), params, parent, members))
+      val res = Typed(tpe = tpe, tree = Trees.ClassDef[Typed](sym.derivedSymbol, params, parent, members))
       res.tree.sym.dealias = res
       res
     }
@@ -52,7 +52,7 @@ object Trees {
     */
   case class MemberDef[F[_]](sym: Symbol[F[MemberDef[F]]], var classDef: Symbol[F[ClassDef[F]]], mutable: Boolean, tpe: Option[Type], body: F[Expr[F]]) extends Term {
     def assignType(tpe: Type, classDef: Symbol[tpd.ClassDef], body: tpd.Expr): tpd.MemberDef = {
-      val res = Typed(tpe = tpe, tree = Trees.MemberDef[Typed](Symbol(sym.name, null), classDef, mutable, this.tpe, body))
+      val res = Typed(tpe = tpe, tree = Trees.MemberDef[Typed](sym.derivedSymbol, classDef, mutable, this.tpe, body))
       res.tree.sym.dealias = res
       
       if body ne null then
@@ -344,7 +344,7 @@ object Trees {
         val bind: tpd.LocalDefBind =
           Typed(
             tpe = body.tpe,
-            tree = Bind[Typed](Symbol(b.sym.name, null), b.mutable, b.tpe, body),
+            tree = Bind[Typed](b.sym.derivedSymbol, b.mutable, b.tpe, body),
             freeNames = body.freeNames
           )
         bind.tree.sym.dealias = bind

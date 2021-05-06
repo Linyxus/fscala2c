@@ -80,11 +80,12 @@ class ScalaParser {
     }.optional
 
     ("class".err("expecting class keyword to start class definition") ~ identifier.err("expecting class name") ~ paramList ~ inheritance ~ body) <| {
-      case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
+      case classKw ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
         if scopeCtx.findSymHere(symName).isDefined then
           throw SyntaxError("duplicated class name: $symName").withPos(tk.pos)
         else {
-          val ret: untpd.ClassDef = Untyped(Trees.ClassDef(Symbol(symName, null), params, parent, members))
+          val sym: Symbol[untpd.ClassDef] = Symbol(symName, null).withPos(tk)
+          val ret: untpd.ClassDef = Untyped(Trees.ClassDef(sym, params, parent, members)).withPos(classKw -- tk)
           ret.tree.sym.dealias = ret
           ret.tree.members foreach { member => member.tree.classDef = ret.tree.sym }
           ret
@@ -114,28 +115,30 @@ class ScalaParser {
       }
     }
 
-    ("def" ~ identifier.err("expecting method name") ~ params ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting method body")) <| { case kwDef ~ (tk @ ScalaToken(ScalaTokenType.Identifier(name))) ~ ps ~ retTp ~ _ ~ body =>
-      if scopeCtx.findSymHere(name).isDefined then
-        throw SyntaxError(s"duplicated member name in class definition: $name").withPos(tk)
-      else
-        val params = makeParams(ps)
-        val lambda = Trees.LambdaExpr(params map (_.sym), None, body)
-        val lambdaType = retTp map { retTp => Types.LambdaType(ps map (_._2), retTp) }
-        val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, false, lambdaType, Untyped(lambda)))
-        member.tree.sym.dealias = member
+    ("def" ~ identifier.err("expecting method name") ~ params ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting method body")) <| {
+      case kwDef ~ (tk @ ScalaToken(ScalaTokenType.Identifier(name))) ~ ps ~ retTp ~ _ ~ body =>
+        if scopeCtx.findSymHere(name).isDefined then
+          throw SyntaxError(s"duplicated member name in class definition: $name").withPos(tk)
+        else
+          val params = makeParams(ps)
+          val lambda = Trees.LambdaExpr(params map (_.sym), None, body)
+          val lambdaType = retTp map { retTp => Types.LambdaType(ps map (_._2), retTp) }
+          val sym: Symbol[untpd.MemberDef] = Symbol(name, null).withPos(tk)
+          val member: untpd.MemberDef = Untyped(Trees.MemberDef(sym, null, false, lambdaType, Untyped(lambda).withPos(kwDef -- body))).withPos(kwDef -- body)
+          member.tree.sym.dealias = member
 
-        scopeCtx.addSymbol(member.tree.sym)
+          scopeCtx.addSymbol(member.tree.sym)
 
-        member
+          member
     }
   }
   
   def memberDef: Parser[untpd.MemberDef] = {
-    val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(t) => t }
+    val kw: Parser[ScalaToken] = "val" or "var"
     val ascription: Parser[Option[Type]] = (":" >> typeParser.err("expectiong type")).err("expecting a valid type ascription").optional
     (kw ~ identifier.err("expecting member name") ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting member value")) <| {
       case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
-        val mutable = bindKw match {
+        val mutable = bindKw.tokenType match {
           case ScalaTokenType.KeywordVal => false
           case ScalaTokenType.KeywordVar => true
           case _ => false
@@ -144,7 +147,8 @@ class ScalaParser {
         if scopeCtx.findSymHere(name).isDefined then
           throw SyntaxError(s"duplicated member name in class definition: $name").withPos(t.pos)
         else {
-          val member: untpd.MemberDef = Untyped(Trees.MemberDef(Symbol(name, null), null, mutable, tpe, body))
+          val sym: Symbol[untpd.MemberDef] = Symbol(name, null).withPos(t)
+          val member: untpd.MemberDef = Untyped(Trees.MemberDef(sym, null, mutable, tpe, body)).withPos(bindKw -- body)
           member.tree.sym.dealias = member
           scopeCtx.addSymbol(member.tree.sym)
           member
@@ -266,17 +270,19 @@ class ScalaParser {
 
   def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")").err("expecting valid parameter list for printf")) <| { case kw ~ params =>
     params match {
-      case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
-        Untyped(Trees.Printf(fmt, params, strValue = false)).withPos(kw)
+      case Untyped(Trees.LiteralStringExpr(fmt)) :: vParams =>
+        Untyped(Trees.Printf(fmt, vParams, strValue = false)).withPos(kw -- params.last)
       case fmt :: params =>
         throw SyntaxError(s"printf format should be a string, but found $fmt").withPos(fmt)
+      case _ =>
+        throw SyntaxError(s"printf should have a format").withPos(kw)
     }
   }
 
   def formatExpr: Parser[untpd.Printf] = (symbol("format") ~ exprParser.sepBy1(",").wrappedBy("(", ")").err("expecting valid parameter list for format")) <| { case kw ~ params =>
     params match {
-      case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
-        Untyped(Trees.Printf(fmt, params, strValue = true)).withPos(kw)
+      case Untyped(Trees.LiteralStringExpr(fmt)) :: vParams =>
+        Untyped(Trees.Printf(fmt, vParams, strValue = true)).withPos(kw -- params.last)
       case fmt :: params =>
         throw SyntaxError(s"format should be a string, but found $fmt").withPos(fmt)
     }
@@ -421,7 +427,8 @@ class ScalaParser {
         if scopeCtx.findSymHere(name).isDefined then
           throw SyntaxError(s"duplicated value name in local definition: $name").withPos(t.pos)
         else {
-          val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(Symbol(name, null), mutable, tpe, body))
+          val sym: Symbol[untpd.LocalDefBind] = Symbol(name, null).withPos(t).asInstanceOf
+          val bind: untpd.LocalDefBind = Untyped(Trees.LocalDef.Bind(sym, mutable, tpe, body))
           bind.tree.sym.dealias = bind
           scopeCtx.addSymbol(bind.tree.sym)
           bind.withPos(bindKw -- body)
