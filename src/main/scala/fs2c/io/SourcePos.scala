@@ -43,7 +43,7 @@ case class SourcePosSpan(start: SourcePos, length: Int) {
     val header = s" ${lineNum + 1} | "
     val signSpace = " ".repeat(header.length + linePos)
     val sign = "^".repeat(if length <= 0 then 1 else length)
-    s"$BOLD$RED$header$lineStr\n$BOLD$RED$signSpace$sign\n$signSpace$BOLD$RED$hint$RESET"
+    s"$BOLD$header$lineStr\n$BOLD$RED$signSpace$sign\n$signSpace$BOLD$RED$hint$RESET"
   }
 
   def < (other: SourcePosSpan): Boolean = start < other.start

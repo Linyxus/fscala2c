@@ -1,6 +1,5 @@
 class Main {
-  val x = y
-  val y = x
+  val x: Int = format("this is a integer: %d", 0)
 
   def main = {
     0
