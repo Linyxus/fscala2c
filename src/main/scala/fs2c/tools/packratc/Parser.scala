@@ -230,7 +230,7 @@ object Parser extends ParserFunctions {
     type PosSelf = ParseError[T]
 
     override def toString: String =
-      s"parse error: $errMsg at\n${showInSourceLine}"
+      s"[Parse Error] $errMsg\nat\n${showWithContext(1)}"
   }
 
   /** Result of parsing.
