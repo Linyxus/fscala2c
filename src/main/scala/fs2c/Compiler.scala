@@ -29,7 +29,7 @@ class Compiler {
     val ctx = new ScalaTokenParser.ParserContext(Nil)
     ScalaParser.runParserWithSource(parser, source)(using ctx) match {
       case Left(v) =>
-        val err = v.latest(ctx.generatedErrors)
+        val err = v.latest(ctx.generatedErrors.reverse)
         throw ParseError(err)
       case Right(v) => v._1
     }
@@ -87,7 +87,7 @@ class Compiler {
 
 object Compiler {
   case class ParseError(err: ScalaTokenParser.ParseError) extends Exception {
-    override def toString: String = err.toString
+    override def toString: String = "\n" ++ err.toString
   }
   case class CompileError(errMsg: String) extends Exception(errMsg)
 }

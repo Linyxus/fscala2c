@@ -1,5 +1,7 @@
 package fs2c.io
 
+import scala.io.AnsiColor._
+
 case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
   def prevContext(n: Int): String = {
     val start = math.max(0, line - n)
@@ -21,19 +23,19 @@ case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
 case class SourcePosSpan(start: SourcePos, length: Int) {
   def -- (other: SourcePosSpan): SourcePosSpan = {
     assert(start.source == other.start.source, "Source position should be spanned over the same source.")
-    assert(other.start.idx + length - start.idx >= 0, "Source position should be spanned from before to after.")
-    SourcePosSpan(start, other.start.idx + length - start.idx)
+    assert(other.start.idx + other.length - start.idx >= 0, "Source position should be spanned from before to after.")
+    SourcePosSpan(start, other.start.idx + other.length - start.idx)
   }
 
-  def showWithContext(n: Int): String = {
+  def showWithContext(n: Int, hint: String = ""): String = {
     val prevContext = start.prevContext(n)
     val nextContext = start.nextContext(n)
-    val thisLine = showInSourceLine
+    val thisLine = showInSourceLine(hint)
 
     prevContext ++ thisLine ++ "\n" ++ nextContext
   }
 
-  lazy val showInSourceLine: String = {
+  def showInSourceLine(hint: String = ""): String = {
     val lineNum = start.line
     val linePos = start.col
     val lineStr = start.lineStr
@@ -41,7 +43,7 @@ case class SourcePosSpan(start: SourcePos, length: Int) {
     val header = s" ${lineNum + 1} | "
     val signSpace = " ".repeat(header.length + linePos)
     val sign = "^".repeat(if length <= 0 then 1 else length)
-    s"$header$lineStr\n$signSpace$sign"
+    s"$BOLD$RED$header$lineStr\n$BOLD$RED$signSpace$sign\n$signSpace$BOLD$RED$hint$RESET"
   }
 
   def < (other: SourcePosSpan): Boolean = start < other.start
@@ -70,14 +72,14 @@ trait Positional {
     *
     * @return
     */
-  def showInSourceLine: String = myPos match {
+  def showInSourceLine(hint: String = ""): String = myPos match {
     case null => "<no position>"
-    case pos => pos.showInSourceLine
+    case pos => pos.showInSourceLine(hint)
   }
 
-  def showWithContext(n: Int): String = myPos match {
+  def showWithContext(n: Int, hint: String = ""): String = myPos match {
     case null => "<no position>"
-    case pos => pos.showWithContext(n)
+    case pos => pos.showWithContext(n, hint)
   }
 
   def -- (other: Positional): SourcePosSpan = {

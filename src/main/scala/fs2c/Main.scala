@@ -1,7 +1,9 @@
 package fs2c
 
+import fs2c.Compiler.{CompileError, ParseError}
 import scopt.OParser
-import java.io.{File, FileWriter, BufferedWriter}
+
+import java.io.{BufferedWriter, File, FileWriter}
 
 case class CompilerConfig(sourcePath: String = "<empty>", outputPath: Option[String] = None)
 
@@ -33,14 +35,19 @@ object Main {
     OParser.parse(parser1, args, CompilerConfig()) match {
       case Some(CompilerConfig(sourcePath, outputPath)) =>
         val compiler = new Compiler
-        val defs = compiler.typedFile(sourcePath)
-        val (cDefs, includes) = compiler.genClassDefs(defs)
-        val cSource = compiler.outputCode(cDefs, includes)
-        println(cSource)
+        try {
+          val defs = compiler.typedFile(sourcePath)
+          val (cDefs, includes) = compiler.genClassDefs(defs)
+          val cSource = compiler.outputCode(cDefs, includes)
+          println(cSource)
 
-        outputPath foreach { outputPath =>
-          println("writing to output file ...")
-          outputFile(outputPath, cSource)
+          outputPath foreach { outputPath =>
+            println("writing to output file ...")
+            outputFile(outputPath, cSource)
+          }
+        } catch {
+          case e =>
+            println(e)
         }
       case _ =>
     }

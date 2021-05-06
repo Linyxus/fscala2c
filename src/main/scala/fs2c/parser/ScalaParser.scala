@@ -28,7 +28,7 @@ class ScalaParser {
   case class SyntaxError(msg: String) extends Exception with Positional {
     override type PosSelf = SyntaxError
 
-    override def toString: String = showInSourceLine ++ s"\nSyntax error: $msg"
+    override def toString: String = s"\nSyntax error:\n${showWithContext(2, hint = msg)}"
   }
   
   val scopeCtx: ScopeContext = new ScopeContext
@@ -38,7 +38,7 @@ class ScalaParser {
     * A source file will consist of several [[Trees.ClassDef]]s.
     */
   def mainParser: Parser[List[untpd.ClassDef]] = 
-    classDefParser.sepBy(NL)
+    classDefParser.sepBy(NL.err("expecting a new line between class definitions"))
   
   def fileParser: Parser[List[untpd.ClassDef]] =
     mainParser << EOF
@@ -318,7 +318,7 @@ class ScalaParser {
     */
   def lambdaExpr: Parser[untpd.Expr] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ (":" ~ typeParser).err("expect parameter type")) <| { case n ~ (_ ~ t) => (n, t) }
-    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").err("expecting a valid parameter list") <| { ps =>
+    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps =>
       // create a new scope for the lambda
       scopeCtx.locateScope()
       def recur(ps: List[(ScalaToken, Type)]): List[Symbol[Trees.LambdaParam]] = ps match {
@@ -352,10 +352,11 @@ class ScalaParser {
     */
   def blockExpr: Parser[untpd.BlockExpr] = {
     val line: Parser[untpd.LocalDef] = localDef << NL
+    val singleLine: Parser[List[untpd.LocalDef]] = localDef <| { x => List(x) }
     val begin: Parser[ScalaToken] = "{" <| { t => scopeCtx.locateScope(); t }
     val end: Parser[ScalaToken] = "}".err("expecting } to close the block") <| { t => scopeCtx.relocateScope(); t }
     val block: Parser[untpd.BlockExpr] = 
-      (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
+      (begin ~ (line.many or singleLine) ~ end) <| { case beginToken ~ ls ~ endToken =>
         ls match {
           case Nil => throw SyntaxError(s"Block expression should not be empty").withPos(beginToken -- endToken)
           case ls : List[untpd.LocalDef] =>
