@@ -21,7 +21,7 @@ object Main {
       import builder._
       OParser.sequence(
         programName("fscala2c"),
-        head("fscala2c", "0.1.0"),
+        head("fscala2c", "1.0.0"),
         opt[String]('s', "source")
           .required()
           .action((x, c) => c.copy(sourcePath = x))
