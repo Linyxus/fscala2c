@@ -16,9 +16,9 @@ object Constraints {
 
     override def toString: String = this match {
       case Equality(tp1, tp2, lhs, rhs) =>
-        val desc = s"$tp1 == $tp2"
-        val lhsDesc = lhs.map(lhs => s"$BOLD$RED, where the LHS of the equality ($tp1)$RESET\n" ++ lhs.showInSourceLine(hint = s"is from here")).getOrElse("")
-        val rhsDesc = rhs.map(rhs => s"$BOLD$RED, where the RHS of the equality ($tp2)$RESET\n" ++ rhs.showInSourceLine(hint = s"is from here")).getOrElse("")
+        val desc = s"$tp1 and $tp2"
+        val lhsDesc = lhs.map(lhs => s"\n" ++ lhs.showInSourceLine(hint = s"$tp1 is the type of this stuff")).getOrElse("")
+        val rhsDesc = rhs.map(rhs => s"\n" ++ rhs.showInSourceLine(hint = s"$tp2 is the type of this stuff")).getOrElse("")
         desc ++ lhsDesc ++ rhsDesc
     }
 
@@ -185,7 +185,7 @@ object Constraints {
                 recur(equalities ++ xs, subst)
               }
             case e : Equality =>
-              throw TypeError(s"can not unify equality: $e").withPos(e)
+              throw TypeError(s"type mismatch: $e").withPos(e)
           }
         }
       }
