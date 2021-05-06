@@ -606,10 +606,15 @@ class CodeGen {
           val condBundle: bd.ValueBundle = genExpr(wh.cond)
           val bodyBundle: bd.ValueBundle = genExpr(wh.body)
 
+          val evalBlock = bodyBundle.getExpr match {
+            case e: C.CallFunc => List(C.Statement.Eval(e))
+            case _ => Nil
+          }
+
           bd.PureBlockBundle(
             block = condBundle.getBlock ++ List(C.Statement.While(
               cond = condBundle.getExpr,
-              body = bodyBundle.getBlock ++ condBundle.getBlock
+              body = (bodyBundle.getBlock ++ evalBlock) ++ condBundle.getBlock
             ))
           )
         case assign : FS.LocalDef.AssignRef[FS.Typed] =>
