@@ -5,6 +5,8 @@ import fs2c.ast.fs.Trees.{tpd, untpd}
 import fs2c.typer.Types
 import fs2c.ast.c.{Trees => C}
 import fs2c.codegen.{CodeGen, CodePrinter, CodeBundles => bd}
+import fs2c.tools.packratc.scala_token.ScalaTokenParser
+import fs2c.tools.packratc.scala_token.ScalaTokenParser.latest
 import parser.ScalaParser
 import typer.Typer
 
@@ -23,9 +25,12 @@ class Compiler {
     */
   def parseFile(path: String): List[untpd.ClassDef] = {
     val source = loadFile(path)
-    ScalaParser.parseSource((new ScalaParser).fileParser, source) match {
+    val parser = (new ScalaParser).fileParser
+    val ctx = new ScalaTokenParser.ParserContext(Nil)
+    ScalaParser.runParserWithSource(parser, source)(using ctx) match {
       case Left(v) =>
-        throw ParseError(v.toString)
+        val err = v.latest(ctx.generatedErrors)
+        throw ParseError(err)
       case Right(v) => v._1
     }
   }
@@ -81,6 +86,8 @@ class Compiler {
 }
 
 object Compiler {
-  case class ParseError(errMsg: String) extends Exception(errMsg)
+  case class ParseError(err: ScalaTokenParser.ParseError) extends Exception {
+    override def toString: String = err.toString
+  }
   case class CompileError(errMsg: String) extends Exception(errMsg)
 }

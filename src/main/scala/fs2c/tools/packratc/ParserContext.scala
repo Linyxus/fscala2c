@@ -1,3 +1,3 @@
 package fs2c.tools.packratc
 
-class ParserContext[T](val stream: TokenStream[T])
+class ParserContext[T](var generatedErrors: List[Parser.ParseError[T]])

@@ -20,7 +20,7 @@ trait CharFunctions {
 
       override def endBlock: Unit = ()
     }
-    val context = new ParserContext(stream)
+    val context = new ParserContext(Nil)
     parser.parse(stream.allTokens)(using context)
   }
 

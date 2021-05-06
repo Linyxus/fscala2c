@@ -1,6 +1,7 @@
 package fs2c.tools.packratc
 
 import fs2c.tools.packratc.Parser.{ParseError, Result}
+import fs2c.io.Positional
 
 /** A Packrat parser for PEG, parsing a stream of tokens of type T and producing a value of type X.
   * ```
@@ -54,7 +55,7 @@ abstract class Parser[T, X](val desc: Option[String]) {
     new Parser[T, X](Some(whatStr)) {
       override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X] =
         that._parse(xs) match {
-          case Left(ParseError(x :: rem, tk)) => Left(ParseError(whatStr :: rem, tk))
+          case Left(_) => Left(ParseError(whatStr))
           case x => x
         }
 
@@ -103,10 +104,10 @@ abstract class Parser[T, X](val desc: Option[String]) {
     new Parser[T, X ~ Y](desc map { s => s"$s" }) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, X ~ Y] = {
         that.parse(xs) match {
-          case Left(ParseError(stack, _)) => fail(xs, stack)
+          case Left(_) => fail
           case Right(x, rem) =>
             other.parse(rem) match {
-              case Left(ParseError(stack, _)) => fail(rem, stack)
+              case Left(_) => fail
               case Right(y, rem) => Right(new ~(x, y), rem)
             }
         }
@@ -131,7 +132,7 @@ abstract class Parser[T, X](val desc: Option[String]) {
           case Right(x, rem) => Right(x, rem)
           case Left(_) => other.parse(xs) match {
             case Right(x, rem) => Right(x, rem)
-            case Left(ParseError(stack, _)) => fail(xs, stack)
+            case Left(ParseError(_)) => fail
           }
         }
     }
@@ -202,18 +203,17 @@ abstract class Parser[T, X](val desc: Option[String]) {
       override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
         that.parse(xs) match {
           case Left(e) => Right((), xs)
-          case Right(value, rem) => fail(xs, Nil)
+          case Right(value, rem) => fail
         }
     }
   }
 
-  protected def fail[Y](input: LazyList[T], oldStack: List[String]): Result[T, Y] = Left {
+  protected def fail[Y]: Result[T, Y] = Left {
     ParseError(
-      parseStack = desc match {
-        case None => oldStack
-        case Some(s) => s :: oldStack
-      },
-      token = headToken(input)
+      desc match {
+        case None => "<unknown>"
+        case Some(s) => s
+      }
     )
   }
 }
@@ -226,9 +226,11 @@ object Parser extends ParserFunctions {
     * @param msg   Error message.
     * @tparam T Input token type of the related parser (for storing the related token).
     */
-  case class ParseError[T](parseStack: List[String], token: Option[T]) {
+  case class ParseError[T](errMsg: String) extends Positional {
+    type PosSelf = ParseError[T]
+
     override def toString: String =
-      s"${token.getOrElse("<unknown location>")}parse error when parsing ${parseStack map { x => s"<$x>" } mkString " .. "}"
+      s"parse error: $errMsg at\n${showInSourceLine}"
   }
 
   /** Result of parsing.

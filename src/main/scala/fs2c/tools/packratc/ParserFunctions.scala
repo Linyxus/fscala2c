@@ -15,8 +15,8 @@ trait ParserFunctions {
   def satisfy[T](predicate: T => Boolean, desc: Option[String] = None) = new Parser[T, T](desc) {
     override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
       case x #:: xs if predicate(x) => Right(x, xs)
-      case x #:: _ => fail(xs, Nil)
-      case _ => fail(xs, Nil)
+      case x #:: _ => fail
+      case _ => fail
     }
   }
 
@@ -25,24 +25,24 @@ trait ParserFunctions {
   def token[T](expected: T) = new Parser[T, T](Some(s"token $expected")) {
     override def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, T] = xs match {
       case x #:: xs if x == expected => Right(expected, xs)
-      case x #:: _ => fail(xs, Nil)
-      case _ => fail(xs, Nil)
+      case x #:: _ => fail
+      case _ => fail
     }
   } is s"$expected"
 
   /** Parse nothing, simply masking the start of a block and pushing the current indent level into the stack.
     */
-  def blockStart[T] = new Parser[T, Unit](None) { // should never fail
-    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
-      Right(ctx.stream.startBlock, xs)
-  }
+//  def blockStart[T] = new Parser[T, Unit](None) { // should never fail
+//    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
+//      Right(ctx.stream.startBlock, xs)
+//  }
 
   /** Parse nothing. Pop the indent level from the stack.
     */
-  def blockEnd[T] = new Parser[T, Unit](None) { // should never fail
-    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
-      Right(ctx.stream.endBlock, xs)
-  }
+//  def blockEnd[T] = new Parser[T, Unit](None) { // should never fail
+//    override protected def _parse(xs: LazyList[T])(using ctx: ParserContext[T]): Result[T, Unit] =
+//      Right(ctx.stream.endBlock, xs)
+//  }
 
   def choice[T, X](parsers: List[Parser[T, X]]): Parser[T, X] = {
     assert(parsers.nonEmpty, "can not make choice over an empty list of parsers")

@@ -47,13 +47,14 @@ class ScalaParser {
     */
   def classDefParser: Parser[untpd.ClassDef] = {
     val member: Parser[untpd.MemberDef] = (memberDef or memberDefDef) << NL
-    val bodyBegin: Parser[ScalaToken] = "{"
-    val bodyEnd: Parser[ScalaToken] = "}" <| { t => scopeCtx.relocateScope(); t }
+    val bodyBegin: Parser[ScalaToken] = "{".err("expecting { to start class member definition")
+    val bodyEnd: Parser[ScalaToken] = ("}" <| { t => scopeCtx.relocateScope(); t }).err("expecting } to end class member definition")
     val body: Parser[List[untpd.MemberDef]] =
       (bodyBegin ~ member.many ~ bodyEnd) <| { case _ ~ ls ~ _ => ls}
     val param: Parser[(ScalaToken, String, Type)] =
-      (identifier ~ ":" ~ typeParser) <| { case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ _ ~ tpe =>
-        (t, symName, tpe)
+      (identifier.err("expecting name of initialization parameter") ~ (":" ~ typeParser).err("expecting type of initialization parameter")) <| {
+        case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ (_ ~ tpe) =>
+          (t, symName, tpe)
       }
     val paramList: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
       case None => 
@@ -78,7 +79,7 @@ class ScalaParser {
       } 
     }.optional
 
-    ("class" ~ identifier ~ paramList ~ inheritance ~ body) <| {
+    ("class".err("expecting class keyword to start class definition") ~ identifier.err("expecting class name") ~ paramList ~ inheritance ~ body) <| {
       case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params ~ parent ~ members =>
         if scopeCtx.findSymHere(symName).isDefined then
           throw SyntaxError("duplicated class name: $symName").withPos(tk.pos)
@@ -92,12 +93,12 @@ class ScalaParser {
   }
 
   def memberDefDef: Parser[untpd.MemberDef] = {
-    val param: Parser[(ScalaToken, Type)] = identifier ~ ":" ~ typeParser <| { case i ~ _ ~ t => i -> t }
-    val params: Parser[List[(ScalaToken, Type)]] = param.sepBy(",").wrappedBy("(", ")").optional <| {
+    val param: Parser[(ScalaToken, Type)] = identifier.err("expecting method parameter name") ~ (":" ~ typeParser).err("expecting method parameter type") <| { case i ~ (_ ~ t) => i -> t }
+    val params: Parser[List[(ScalaToken, Type)]] = param.sepBy(",").wrappedBy("(", ")").err("expecting a valid parameter list").optional <| {
       case Some(ps) => ps
       case None => Nil
     }
-    val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
+    val ascription: Parser[Option[Type]] = (":" >> typeParser.err("expecting type ascription")).optional
 
     def makeParams(ps: List[(ScalaToken, Type)]): List[Trees.LambdaParam] = {
       var names: Set[String] = Set.empty
@@ -113,7 +114,7 @@ class ScalaParser {
       }
     }
 
-    ("def" ~ identifier ~ params ~ ascription ~ "=" ~ exprParser) <| { case kwDef ~ (tk @ ScalaToken(ScalaTokenType.Identifier(name))) ~ ps ~ retTp ~ _ ~ body =>
+    ("def" ~ identifier.err("expecting method name") ~ params ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting method body")) <| { case kwDef ~ (tk @ ScalaToken(ScalaTokenType.Identifier(name))) ~ ps ~ retTp ~ _ ~ body =>
       if scopeCtx.findSymHere(name).isDefined then
         throw SyntaxError(s"duplicated member name in class definition: $name").withPos(tk)
       else
@@ -131,8 +132,8 @@ class ScalaParser {
   
   def memberDef: Parser[untpd.MemberDef] = {
     val kw: Parser[ScalaTokenType] = ("val" | "var") <| { case ScalaToken(t) => t }
-    val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
-    (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| {
+    val ascription: Parser[Option[Type]] = (":" >> typeParser.err("expectiong type")).err("expecting a valid type ascription").optional
+    (kw ~ identifier.err("expecting member name") ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting member value")) <| {
       case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
         val mutable = bindKw match {
           case ScalaTokenType.KeywordVal => false
@@ -203,7 +204,7 @@ class ScalaParser {
         "!" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.!, e)).withPos(e) },
         "-" <* { (e) => Untyped(Trees.UnaryOpExpr(uop.-, e)).withPos(e) },
       ))
-    ), applyAndSelectExpr)
+    ), applyAndSelectExpr.err("expecting an expression term"))
   }
 
   /** Parses if expressions. Logical new line before then is valid despite within the same expression. Specifically,
@@ -217,7 +218,7 @@ class ScalaParser {
     * ```
     */
   def ifExpr: Parser[untpd.IfExpr] = {
-    ("if" ~ exprParser ~ "then" ~ exprParser ~ (NL.optional >> "else") ~ exprParser) <| {
+    ("if" ~ exprParser.err("expecting a condition expr") ~ "then".err("expecting then") ~ exprParser.err("expecting true body") ~ (NL.optional >> "else".err("expecting else")) ~ exprParser.err("expecting false body")) <| {
       case kwIf ~ cond ~ _ ~ trueBody ~ _ ~ falseBody =>
         Untyped(Trees.IfExpr(cond, trueBody, falseBody)).withPos(kwIf -- falseBody)
     }
@@ -228,7 +229,7 @@ class ScalaParser {
       case None => Nil
       case Some(xs) => xs
     }
-    ("new" ~ identifier ~ params) <| { case kwNew ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params =>
+    ("new" ~ identifier.err("expecting class name to be created") ~ params.err("expecting valid initialization parameter list")) <| { case kwNew ~ (tk @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ params =>
       Untyped(Trees.NewExpr(Symbol.Ref.Unresolved(symName), params)).withPos(kwNew -- tk)
     }
   }
@@ -244,7 +245,7 @@ class ScalaParser {
     */
   def applyAndSelectExpr: Parser[untpd.Expr] = {
     def selP: Parser[untpd.Expr => untpd.Expr] = 
-      { "." ~ identifier } <| { case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(member))) =>
+      { "." ~ identifier.err("expecting selection target") } <| { case _ ~ (tk @ ScalaToken(ScalaTokenType.Identifier(member))) =>
         e => Untyped(Trees.SelectExpr(e, member)).withPos(e -- tk)
       }
     def applyP: Parser[untpd.Expr => untpd.Expr] =
@@ -263,7 +264,7 @@ class ScalaParser {
 
   def literalUnitExpr: Parser[untpd.LiteralUnitExpr] = ("(" ~ ")") <| { _ => Trees.LiteralUnitExpr().untyped }
 
-  def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
+  def printfExpr: Parser[untpd.Printf] = (symbol("printf") ~ exprParser.sepBy1(",").wrappedBy("(", ")").err("expecting valid parameter list for printf")) <| { case kw ~ params =>
     params match {
       case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
         Untyped(Trees.Printf(fmt, params, strValue = false)).withPos(kw)
@@ -272,7 +273,7 @@ class ScalaParser {
     }
   }
 
-  def formatExpr: Parser[untpd.Printf] = (symbol("format") ~ exprParser.sepBy1(",").wrappedBy("(", ")")) <| { case kw ~ params =>
+  def formatExpr: Parser[untpd.Printf] = (symbol("format") ~ exprParser.sepBy1(",").wrappedBy("(", ")").err("expecting valid parameter list for format")) <| { case kw ~ params =>
     params match {
       case Untyped(Trees.LiteralStringExpr(fmt)) :: params =>
         Untyped(Trees.Printf(fmt, params, strValue = true)).withPos(kw)
@@ -308,7 +309,7 @@ class ScalaParser {
   }
 
   def literalArrayExpr: Parser[untpd.Expr] =
-    symbol("Array") ~ typeParser.wrappedBy("[", "]") ~ exprParser.wrappedBy("(", ")") <| {
+    symbol("Array") ~ typeParser.wrappedBy("[", "]").err("expecting Array element type") ~ exprParser.wrappedBy("(", ")").err("expecting Array length") <| {
       case arrayTk ~ elemTp ~ len =>
         Untyped(Trees.LiteralArrayExpr(elemTp, len)).withPos(arrayTk -- len)
     }
@@ -316,8 +317,8 @@ class ScalaParser {
   /** Parser for lambda expressions.
     */
   def lambdaExpr: Parser[untpd.Expr] = {
-    val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
-    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")") <| { ps =>
+    val param: Parser[(ScalaToken, Type)] = (identifier ~ (":" ~ typeParser).err("expect parameter type")) <| { case n ~ (_ ~ t) => (n, t) }
+    val params: Parser[List[Symbol[Trees.LambdaParam]]] = param.sepBy(",").wrappedBy("(", ")").err("expecting a valid parameter list") <| { ps =>
       // create a new scope for the lambda
       scopeCtx.locateScope()
       def recur(ps: List[(ScalaToken, Type)]): List[Symbol[Trees.LambdaParam]] = ps match {
@@ -341,7 +342,7 @@ class ScalaParser {
       Untyped(x.tree).withPos(x)
     }
 
-    (params ~ "=>" ~ body) <| { case params ~ arrow ~ body =>
+    (params ~ "=>".err("expecting => to start lambda body") ~ body.err("expecting lambda body")) <| { case params ~ arrow ~ body =>
       val theBody = body
       Untyped(Trees.LambdaExpr(params, None, body)).withPos(arrow -- body)
     }
@@ -352,7 +353,7 @@ class ScalaParser {
   def blockExpr: Parser[untpd.BlockExpr] = {
     val line: Parser[untpd.LocalDef] = localDef << NL
     val begin: Parser[ScalaToken] = "{" <| { t => scopeCtx.locateScope(); t }
-    val end: Parser[ScalaToken] = "}" <| { t => scopeCtx.relocateScope(); t }
+    val end: Parser[ScalaToken] = "}".err("expecting } to close the block") <| { t => scopeCtx.relocateScope(); t }
     val block: Parser[untpd.BlockExpr] = 
       (begin ~ line.many ~ end) <| { case beginToken ~ ls ~ endToken => 
         ls match {
@@ -376,7 +377,8 @@ class ScalaParser {
 
   def localDefDef: Parser[untpd.LocalDef] = {
     val param: Parser[(ScalaToken, Type)] = (identifier ~ ":" ~ typeParser) <| { case n ~ _ ~ t => (n, t) }
-    ("def" ~ identifier ~ param.sepBy(",").wrappedBy("(", ")") ~ "=" ~ exprParser) <| { case kwDef ~ name ~ params ~ _ ~ body =>
+    val paramsP: Parser[List[(ScalaToken, Type)]] = param.sepBy(",").wrappedBy("(", ")").optional map { x => x getOrElse Nil }
+    ("def" ~ identifier.err("expecting local method name") ~ paramsP.err("expecting parameter list") ~ "=".err("expecting = to start lambda body") ~ exprParser.err("expecting a valid lambda body")) <| { case kwDef ~ name ~ params ~ _ ~ body =>
       val funcName = name match {
         case ScalaToken(ScalaTokenType.Identifier(name)) => name
       }
@@ -407,7 +409,7 @@ class ScalaParser {
   def localDefBind: Parser[untpd.LocalDef] = {
     val kw: Parser[ScalaToken] = ("val" | "var")
     val ascription: Parser[Option[Type]] = (":" >> typeParser).optional
-    (kw ~ identifier ~ ascription ~ "=" ~ exprParser) <| { 
+    (kw ~ identifier.err("expecting local binding name") ~ ascription ~ "=".err("expecting =") ~ exprParser.err("expecting bound expression")) <| {
       case bindKw ~ (t @ ScalaToken(ScalaTokenType.Identifier(name))) ~ tpe ~ _ ~ body =>
         val mutable = bindKw.tokenType match {
           case ScalaTokenType.KeywordVal => false
@@ -427,19 +429,19 @@ class ScalaParser {
   }
   
   def localDefAssign: Parser[untpd.LocalDef] = {
-    (identifier ~ "=" ~ exprParser) <| { case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ _ ~ expr =>
+    (identifier ~ "=" ~ exprParser.err("expecting an expression to assign")) <| { case (t @ ScalaToken(ScalaTokenType.Identifier(symName))) ~ _ ~ expr =>
       Untyped(Trees.LocalDef.Assign(tryResolveSymbol(symName), expr)).withPos(t -- expr)
     }
   }
 
   def localDefAssignRef: Parser[untpd.LocalDef] =
-    (exprParser ~ "=" ~ exprParser) <| { case p ~ _ ~ e => Untyped(Trees.LocalDef.AssignRef(p, e)).withPos(p -- e) }
+    (exprParser ~ "=" ~ exprParser.err("expecting an expression to assign")) <| { case p ~ _ ~ e => Untyped(Trees.LocalDef.AssignRef(p, e)).withPos(p -- e) }
 
   def localDefEval: Parser[untpd.LocalDef] = exprParser <| { (expr: untpd.Expr) =>
     Untyped(Trees.LocalDef.Eval(expr)).withPos(expr)
   }
 
-  def localDefWhile: Parser[untpd.LocalDef] = ("while" ~ exprParser ~ "do" ~ exprParser) <| { case kwWhile ~ cond ~ _ ~ body =>
+  def localDefWhile: Parser[untpd.LocalDef] = ("while" ~ exprParser.err("expecting while condition") ~ "do".err("expecting do") ~ exprParser.err("expecting while body")) <| { case kwWhile ~ cond ~ _ ~ body =>
     Untyped(Trees.LocalDef.While(cond, body)).withPos(kwWhile -- body)
   }
   
@@ -483,7 +485,7 @@ class ScalaParser {
     val l: Parser[List[Type]] = typeParser.sepBy(",").wrappedBy("(", ")")
     val t: Parser[List[Type]] = (typeTerm <| { x => x :: Nil }) | l
 
-    (t ~ "=>" ~ lambdaType) <| { case argTpe ~ _ ~ bodyTpe => LambdaType(argTpe, bodyTpe) }
+    (t ~ "=>" ~ lambdaType.err("expecting lambda return type")) <| { case argTpe ~ _ ~ bodyTpe => LambdaType(argTpe, bodyTpe) }
   }
   
   def typeTerm: Parser[Type] = groundType or { typeParser.wrappedBy("(", ")") } or symbolType
@@ -496,7 +498,7 @@ class ScalaParser {
       arrayType
   
   def arrayType: Parser[GroundType.ArrayType] =
-    (symbol("Array") seq "[" seq typeParser seq "]") <| {
+    (symbol("Array") seq "[".err("expecting [") seq typeParser.err("expecting element type") seq "]".err("expecting ]")) <| {
       case _ ~ _ ~ tpe ~ _ => GroundType.ArrayType(tpe)
     }
   
@@ -511,11 +513,15 @@ object ScalaParser {
     val tokenizer = new Tokenizer(source)
     parseWithTokenizer(p, tokenizer)
   }
-  
+
+  def runParserWithSource[X](p: Parser[X], source: ScalaSource)(using ScalaTokenParser.ParserContext): Result[X] = {
+    given Tokenizer = new Tokenizer(source)
+    p.runParser
+  }
+
   /** --- debug --- */
   def parseString[X](p: Parser[X], str: String): Result[X] = {
     val tokenizer = new Tokenizer(ScalaSource.testSource(str))
     parseWithTokenizer(p, tokenizer)
   }
-  
 }

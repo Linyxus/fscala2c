@@ -3,6 +3,7 @@ package fs2c.tools.packratc.scala_token
 import fs2c.tools.packratc.{ParserFunctions => general}
 import fs2c.tokenizer.{ScalaToken, ScalaTokenType, Tokenizer}
 import ScalaTokenParser._
+import fs2c.tools.packratc
 import fs2c.tools.packratc.Parser.~
 
 /** Tool functions for ScalaToken parser.
@@ -18,10 +19,10 @@ trait ScalaTokenFunctions {
 
       override def endBlock: Unit = tokenizer.endBlock()
     }
-    val ctx = new ParserContext(stream)
+    val ctx = new ParserContext(Nil)
     parser.parse(stream.allTokens)(using ctx)
   }
-  
+
   def pure[X](value: X): Parser[X] = general.pure(value)
 
   /** Parse a token satisfying the predicate.
@@ -76,6 +77,16 @@ trait ScalaTokenFunctions {
     desc = Some(s"$expected")
   ) is s"token of type $expected"
 
+  extension (err: ParseError) {
+    def latest(errs: List[ParseError]): ParseError = {
+      @annotation.tailrec def recur(current: ParseError, es: List[ParseError]): ParseError = es match {
+        case Nil => current
+        case e :: es => recur(current || e, es)
+      }
+      recur(err, errs)
+    }
+  }
+
   extension[X] (p: Parser[X]) {
     /** Parse a list of `p` seperated by `sep`.
       */
@@ -96,5 +107,33 @@ trait ScalaTokenFunctions {
     }
     
     def wrappedBy[S](l: Parser[S], r: Parser[S]): Parser[X] = l >> p << r
+
+    def err(msg: String): Parser[X] = new Parser[X](None) {
+      override def _parse(xs: LazyList[ScalaToken])(using ctx: packratc.ParserContext[ScalaToken]): Result[X] = xs match {
+        case t #:: ts => p.parse(xs) match {
+          case Left(_) =>
+            val err: packratc.Parser.ParseError[ScalaToken] = packratc.Parser.ParseError(msg).withPos(t)
+            ctx.generatedErrors = err :: ctx.generatedErrors
+            Left(err)
+          case res => res
+        }
+        case _ => p.parse(xs) match {
+          case Left(_) =>
+            val err: packratc.Parser.ParseError[ScalaToken] = packratc.Parser.ParseError(msg)
+            ctx.generatedErrors = err :: ctx.generatedErrors
+            Left(err)
+          case res => res
+        }
+      }
+    }
+
+    def runParser(using tokenizer: Tokenizer)(using ParserContext): Result[X] = {
+      val stream = new Stream {
+        override val allTokens: LazyList[ScalaToken] = tokenizer.allTokensLazy
+        override def startBlock: Unit = tokenizer.prepareStartBlock()
+        override def endBlock: Unit = tokenizer.endBlock()
+      }
+      p.parse(stream.allTokens)
+    }
   }
 }

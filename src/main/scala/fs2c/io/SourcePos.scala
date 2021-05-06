@@ -3,6 +3,7 @@ package fs2c.io
 case class SourcePos(source: ScalaSource, line: Int, col: Int, idx: Int) {
   def lineStr: String = source.lines(line)
 
+  def < (other: SourcePos): Boolean = idx < other.idx
 }
 
 case class SourcePosSpan(start: SourcePos, length: Int) {
@@ -22,10 +23,15 @@ case class SourcePosSpan(start: SourcePos, length: Int) {
     val sign = "^".repeat(if length <= 0 then 1 else length)
     s"$header$lineStr\n$signSpace$sign"
   }
+
+  def < (other: SourcePosSpan): Boolean = start < other.start
+
+  def || (other: SourcePosSpan): SourcePosSpan =
+    if start < other.start then other else this
 }
 
 trait Positional {
-  type PosSelf >: this.type
+  type PosSelf >: this.type <: Positional
 
   private var myPos: SourcePosSpan = null
 
@@ -55,4 +61,12 @@ trait Positional {
 
     myPos -- other.myPos
   }
+
+  def || (other: PosSelf): PosSelf =
+    (myPos, other.myPos) match {
+      case (null, _) => other
+      case (_, null) => this
+      case (p1, p2) if p1 < p2 => other
+      case _ => this
+    }
 }

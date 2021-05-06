@@ -6,6 +6,7 @@ import fs2c.tools.packratc.scala_token.syntax.ParserSyntax
 
 trait ScalaTokenParser {
   type Parser[X] = packratc.Parser[ScalaToken, X]
+  type ParseError = packratc.Parser.ParseError[ScalaToken]
   type Result[X] = packratc.Parser.Result[ScalaToken, X]
   type Stream = packratc.TokenStream[ScalaToken]
   type ParserContext = packratc.ParserContext[ScalaToken]
