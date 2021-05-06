@@ -19,11 +19,11 @@
 
  ## Roadmap
  
- - [X] Tokenizer (:construction: being refactored)
+ - [X] Tokenizer
  
- - [X] packratc: Packrat Parser Combinator library (:construction: being refactored)
+ - [X] packratc: Packrat Parser Combinator library
  
- - [X] Parser: tokens --> Featherweight Scala raw AST (:construction: being refactored)
+ - [X] Parser: tokens --> Featherweight Scala raw AST
  
  - [X] Typer: Raw AST --> Typed AST (Scala Core IR)
    - [X] Local type inference for expressions
