@@ -4,7 +4,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "fscala2c",
-    version := "0.1.0",
+    version := "1.0.0",
 
     scalaVersion := scala3Version,
 
