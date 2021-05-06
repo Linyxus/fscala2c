@@ -13,3 +13,5 @@ lazy val root = project
       "com.github.scopt" %% "scopt" % "4.0.1",
     )
   )
+
+enablePlugins(JavaAppPackaging)
