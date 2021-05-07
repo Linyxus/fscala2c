@@ -631,7 +631,8 @@ class Typer {
           case (t1 :: ts1, t2 :: ts2) if t1 == t2 =>
             go(ts1, ts2)
           case (t1 :: ts1, t2 :: ts2) =>
-            throw TypeError(s"arugment type mismatch: $t1 and $t2").withPos(expr)
+            recordEquality(t1, t2, expr.pos, None, None)
+//            throw TypeError(s"arugment type mismatch: $t1 and $t2").withPos(expr)
         }
         // do arugment type checking
         go(expectParamTypes, paramTypes)
