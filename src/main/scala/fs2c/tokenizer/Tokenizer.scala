@@ -249,6 +249,14 @@ class Tokenizer(val source: ScalaSource) {
 
   def identifier(str: String): ScalaTokenType = Identifier(str)
 
+  def comment: Unit = {
+    def recur: Unit = peek match {
+      case '*' if look('/') => ()
+      case _ => forward; recur
+    }
+    recur
+  }
+
   /** Skip spaces and get next token.
     * Will produce special token NewLine for a logical (indented) newline.
     * For example:
@@ -294,6 +302,9 @@ class Tokenizer(val source: ScalaSource) {
           case '+' => Plus
           case '-' => Minus
           case '*' => Asterisk
+          case '/' if look('*') =>
+            comment
+            return nextToken
           case '/' => Slash
           case '^' => Caret
           case '%' => Percent
