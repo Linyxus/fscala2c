@@ -168,12 +168,12 @@ class ScalaParser {
     * ```
     * expr   -> logic
     * logic  -> rel ( ( '&&' | '||' ) rel )*
-    * rel    -> item ( ( '>' | '<' | '>=' | '<=' | '==' ) item )*
+    * rel    -> item ( ( '>' | '<' | '>=' | '<=' | '==' | '!=' ) item )*
     * item   -> factor ( ( '+' | '-' ) factor )*
     * factor -> exp ( ( '*' | '/' ) exp )*
     * exp    -> unary ( '^' unary )*
     * unary  -> [( '!' | '-' )] app
-    * app    -> term ( '(' [ expr, ( ',' expr )* ] ')' )*
+    * app    -> term ( '(' [ expr, ( ',' expr )* ] ')' | '.' identifier )*
     * term   -> identifier | lambda | block | '(' expr ')'
     * ```
     *
