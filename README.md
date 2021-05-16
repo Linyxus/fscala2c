@@ -85,9 +85,13 @@
  
  Scala 3 is used as the developing language, with the `sbt` building tools.
  
- Either Intellij and any editor supporting LSP protocol can be used as an IDE.
+ Either Intellij or any editor supporting LSP protocol can be used as an IDE.
  
- For Intellij, simply open the project directory in it, and import the project.
+ ### Intellij
+ 
+ For Intellij, simply open the project directory and import. Everything will be set up in the IDE automatically.
+ 
+ ### Editors Supporting LSP
  
  For any LSP-compatible editor, say Emacs, configure the editor's support for the `metals` client, and import the build.
  If it complains about the missing of `bloop` project, run `sbt` in the directory first, and a `.bloop/` directory will be
