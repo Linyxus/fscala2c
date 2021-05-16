@@ -80,6 +80,23 @@
  ```
  
  Voila! The Scala code is compiled to C and runs smoothly in machine code!
+ 
+ ## Development
+ 
+ Scala 3 is used as the developing language, with the `sbt` building tools.
+ 
+ Either Intellij and any editor supporting LSP protocol can be used as an IDE.
+ 
+ For Intellij, simply open the project directory in it, and import the project.
+ 
+ For any LSP-compatible editor, say Emacs, configure the editor's support for the `metals` client, and import the build.
+ If it complains about the missing of `bloop` project, run `sbt` in the directory first, and a `.bloop/` directory will be
+ generated automatically.
+ 
+ Typically, install the `metals` server manually will be a good idea. You can install it with `coursier` by
+ ```shell
+ cs install metals
+ ```
 
  ## References
 
