@@ -10,11 +10,12 @@ import fs2c.tools.packratc.scala_token.ScalaTokenParser.latest
 import parser.ScalaParser
 import typer.Typer
 
+/** Driver class of fscala2c compiler.
+  */
 class Compiler {
   import Compiler.ParseError
 
   protected var typer = new Typer
-  
 
   /** Creates a [[ScalaSource]] instance from given file path.
     */
@@ -34,13 +35,22 @@ class Compiler {
       case Right(v) => v._1
     }
   }
-  
+
+  /** Type a list of untyped class definitions.
+    */
   def typedClassDefs(clsDefs: List[untpd.ClassDef]): List[tpd.ClassDef] =
     clsDefs map typer.typedClassDef
-  
+
+  /** Return a list of typed class definitions from the source file.
+    */
   def typedFile(path: String): List[tpd.ClassDef] =
     typedClassDefs(parseFile(path))
 
+  /** Generate C code from a list of typed class definitions.
+    *
+    * Will try to find Main#main as an entry point of the C program.
+    * Note that the `main` method should receive no parameters.
+    */
   def genClassDefs(defs: List[tpd.ClassDef]): (List[C.Definition], List[String]) = {
     val foundMain = defs.find { d =>
       val clsDef = d.tree
@@ -79,6 +89,8 @@ class Compiler {
     }
   }
 
+  /** Output a list of C definitions and a list of include files into C source code string.
+    */
   def outputCode(ds: List[C.Definition], included: List[String]): String = {
     val printer = new CodePrinter(ds, included)
     printer.sourceContent
