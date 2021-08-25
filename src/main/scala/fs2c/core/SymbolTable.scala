@@ -5,19 +5,19 @@ import collection.mutable
 
 class SymbolTable {
   import SymbolTable._
-  
+
   var current = TableNode(mutable.Map.empty, null)
-  
+
   def locate(): Unit = current = TableNode(mutable.Map.empty, current)
-  
+
   def relocate(): Unit = {
     assert(current.previous ne null, "can not relocate from the root scope")
     current = current.previous
   }
-  
+
   def addSymbol(sym: Symbol[_]): Unit =
     current.current.update(sym.name, sym)
-    
+
   private def lookupIn(node: TableNode, name: String): Option[Symbol[_]] =
     node.current.get(name)
 
@@ -32,10 +32,10 @@ class SymbolTable {
           case v => v
         }
     }
-    
+
     recur(current)
   }
-  
+
   def lookupCurrent(name: String): Option[Symbol[_]] = lookupIn(current, name)
 }
 

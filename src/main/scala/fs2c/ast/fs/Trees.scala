@@ -39,11 +39,11 @@ object Trees {
 
     override def toString: String = s"class ${sym.name}"
   }
-  
+
   extension (cls : tpd.ClassDef) {
     def showTyped: String = {
       val clsDef = cls.tree
-      
+
       s"$clsDef(${clsDef.params}) : { ${clsDef.members map { m => s"${m.tree} : ${m.tpe}" } }"
     }
   }
@@ -54,10 +54,10 @@ object Trees {
     def assignType(tpe: Type, classDef: Symbol[tpd.ClassDef], body: tpd.Expr): tpd.MemberDef = {
       val res = Typed(tpe = tpe, tree = Trees.MemberDef[Typed](sym.derivedSymbol, classDef, mutable, this.tpe, body))
       res.tree.sym.dealias = res
-      
+
       if body ne null then
         res.freeNames = body.freeNames
-      
+
       res
     }
 
@@ -111,7 +111,7 @@ object Trees {
     def untyped: UntypedTree[LiteralUnitExpr] = Untyped(LiteralUnitExpr())
     def typed: TypedTree[LiteralUnitExpr] = Typed(LiteralUnitExpr(), tpe = GroundType.UnitType)
   }
-  
+
   case class LiteralIntExpr[F[_]](value: Int) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralIntExpr =
       Typed(tree = LiteralIntExpr(value), tpe = tpe)
@@ -121,7 +121,7 @@ object Trees {
     def assignType(tpe: Type): tpd.LiteralFloatExpr =
       Typed(tree = LiteralFloatExpr(value), tpe = tpe)
   }
-  
+
   case class LiteralBooleanExpr[F[_]](value: Boolean) extends Expr[F] {
     def assignType(tpe: Type): tpd.LiteralBooleanExpr =
       Typed(tree = LiteralBooleanExpr(value), tpe = tpe)
@@ -152,7 +152,7 @@ object Trees {
     def assignType(tpe: Type, expr: tpd.Expr): tpd.SelectExpr =
       Typed(tpe = tpe, tree = Trees.SelectExpr(expr, member), freeNames = expr.freeNames)
   }
-  
+
   case class IfExpr[F[_]](cond: F[Expr[F]], trueBody: F[Expr[F]], falseBody: F[Expr[F]]) extends Expr[F] {
     def assignType(tpe: Type, cond: tpd.Expr, trueBody: tpd.Expr, falseBody: tpd.Expr): tpd.IfExpr =
       Typed(
@@ -161,7 +161,7 @@ object Trees {
         freeNames = cond.freeNames ++ trueBody.freeNames ++ falseBody.freeNames
       )
   }
-  
+
   case class NewExpr[F[_]](ref: Symbol.Ref, params: List[F[Expr[F]]]) extends Expr[F] {
     def assignType(tpe: Type, sym: Symbol[tpd.ClassDef], params: List[tpd.Expr]): tpd.NewExpr =
       Typed(tpe = tpe, tree = NewExpr(Symbol.Ref.Resolved(sym), params), freeNames = params flatMap (_.freeNames))
@@ -332,7 +332,7 @@ object Trees {
       * Any expression in the block will be parsed as [[LocalDef.Eval]].
       */
     case Eval[F[_]](expr: F[Expr[F]]) extends LocalDef[F]
-    
+
     case Assign[F[_]](ref: Symbol.Ref, expr: F[Expr[F]]) extends LocalDef[F]
 
     case AssignRef[F[_]](ref: F[Expr[F]], expr: F[Expr[F]]) extends LocalDef[F]
@@ -425,7 +425,7 @@ object Trees {
     case >
     case <
   }
-  
+
   enum ExprUnaryOpType {
     case !
     case -
@@ -438,20 +438,20 @@ object Trees {
   }
 
   /** Wrapper for typed trees.
-    * 
+    *
     * @param tree Wrapped tree.
     * @param tpe Type of the tree.
     * @param code Generated code bundle for the tree.
     * @param freeNames Free names of the tree.
     */
-  final case class Typed[+X](tree: X, var tpe: Type, 
-                             var code: bd.CodeBundle = bd.NoCode, 
+  final case class Typed[+X](tree: X, var tpe: Type,
+                             var code: bd.CodeBundle = bd.NoCode,
                              var freeNames: List[Symbol[_]] = Nil) extends Positional {
     type PosSelf = this.type
 
     def type_=(tpe: Type) =
       this.tpe = tpe
-      
+
     def assignCode[T <: bd.CodeBundle](assignCode: X => T): T = {
       val gen = assignCode(tree)
       code = gen
@@ -472,7 +472,7 @@ object Trees {
   object untpd {
     type ClassDef = UntypedTree[Trees.ClassDef]
     type MemberDef = UntypedTree[Trees.MemberDef]
-    
+
     type Expr = UntypedTree[Trees.Expr]
 
     type LiteralUnitExpr = UntypedTree[Trees.LiteralUnitExpr]
@@ -483,13 +483,13 @@ object Trees {
     type LiteralArrayExpr = UntypedTree[Trees.LiteralArrayExpr]
 
     type LambdaExpr = UntypedTree[Trees.LambdaExpr]
-    
+
     type BlockExpr = UntypedTree[Trees.BlockExpr]
     type LocalDef = UntypedTree[Trees.LocalDef]
     type LocalDefBind = UntypedTree[Trees.LocalDef.Bind]
     type LocalDefEval = UntypedTree[Trees.LocalDef.Eval]
     type LocalDefWhile = UntypedTree[Trees.LocalDef.While]
-    
+
     type ApplyExpr = UntypedTree[Trees.ApplyExpr]
     type SelectExpr = UntypedTree[Trees.SelectExpr]
 
@@ -510,7 +510,7 @@ object Trees {
   object tpd {
     type ClassDef = TypedTree[Trees.ClassDef]
     type MemberDef = TypedTree[Trees.MemberDef]
-    
+
     type Expr = TypedTree[Trees.Expr]
 
     type LiteralUnitExpr = TypedTree[Trees.LiteralUnitExpr]
@@ -521,7 +521,7 @@ object Trees {
     type LiteralArrayExpr = TypedTree[Trees.LiteralArrayExpr]
 
     type LambdaExpr = TypedTree[Trees.LambdaExpr]
-    
+
     type BlockExpr = TypedTree[Trees.BlockExpr]
     type LocalDef = TypedTree[Trees.LocalDef]
     type LocalDefBind = TypedTree[Trees.LocalDef.Bind]
@@ -535,9 +535,9 @@ object Trees {
 
     type ApplyExpr = TypedTree[Trees.ApplyExpr]
     type SelectExpr = TypedTree[Trees.SelectExpr]
-    
+
     type IfExpr = TypedTree[Trees.IfExpr]
-    
+
     type NewExpr = TypedTree[Trees.NewExpr]
 
     type IdentifierExpr = TypedTree[Trees.IdentifierExpr]
@@ -554,11 +554,11 @@ object Trees {
 
   trait TreeTraverse[F[+_], G[+_]] {
     type TreeType = [X[_[_]]] =>> F[X[F]]
-    
+
     def unwrapExpr(expr: TreeType[Expr]): Expr[F]
-    
+
     def unwrapLocalDef(localDef: TreeType[LocalDef]): LocalDef[F]
-    
+
     def traverseExpr(expr: TreeType[Expr]): G[TreeType[Expr]] = unwrapExpr(expr) match {
       case LambdaExpr(params, tpe, body) =>
         traverseLambdaExpr(params, tpe, traverseExpr(body))
@@ -581,7 +581,7 @@ object Trees {
       case UnaryOpExpr(op, e) =>
         traverseUnaryOpExpr(op, traverseExpr(e))
     }
-    
+
     def traverseLocalDef(localDef: TreeType[LocalDef]): G[TreeType[LocalDef]] = unwrapLocalDef(localDef) match {
       case LocalDef.Assign(ref, body) =>
         traverseLocalDefAssign(ref, traverseExpr(body))
@@ -590,31 +590,31 @@ object Trees {
       case LocalDef.Eval(expr) =>
         traverseLocalDefEval(traverseExpr(expr))
     }
-    
+
     def traverseLambdaExpr(params: List[Symbol[LambdaParam]], tpe: Option[Type], body: G[TreeType[Expr]]): G[TreeType[LambdaExpr]]
-    
+
     def traverseBlockExpr(defs: List[G[TreeType[LocalDef]]], expr: G[TreeType[Expr]]): G[TreeType[BlockExpr]]
-    
+
     def traverseIdentifierExpr(symRef: Symbol.Ref): G[TreeType[IdentifierExpr]]
-    
+
     def traverseLiteralIntExpr(value: Int): G[TreeType[LiteralIntExpr]]
-    
+
     def traverseLiteralFloatExpr(value: Double): G[TreeType[LiteralFloatExpr]]
-    
+
     def traverseLiteralBooleanExpr(value: Boolean): G[TreeType[LiteralBooleanExpr]]
-    
+
     def traverseApplyExpr(func: G[TreeType[Expr]], args: List[G[TreeType[Expr]]]): G[TreeType[ApplyExpr]]
 
     def traverseSelectExpr(expr: G[TreeType[Expr]], member: String): G[TreeType[SelectExpr]]
-    
+
     def traverseBinOpExpr(op: ExprBinOpType, e1: G[TreeType[Expr]], e2: G[TreeType[Expr]]): G[TreeType[BinOpExpr]]
-    
+
     def traverseUnaryOpExpr(op: ExprUnaryOpType, e: G[TreeType[Expr]]): G[TreeType[UnaryOpExpr]]
 
     def traverseLocalDefBind(sym: Symbol[TreeType[LocalDef.Bind]], mutable: Boolean, tpe: Option[Type], body: G[TreeType[Expr]]): G[TreeType[LocalDef.Bind]]
-    
+
     def traverseLocalDefEval(expr: G[TreeType[Expr]]): G[TreeType[LocalDef.Eval]]
-    
+
     def traverseLocalDefAssign(ref: Symbol.Ref, expr: G[TreeType[Expr]]): G[TreeType[LocalDef.Assign]]
   }
 }

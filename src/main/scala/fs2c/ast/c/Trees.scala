@@ -85,7 +85,7 @@ object Trees {
     * @param funcSym Symbol of the function to be called.
     */
   case class CallFunc(func: Expr, params: List[Expr]) extends Expr
-  
+
   case class SizeOf(tp: Type) extends Expr
 
   /** Functions in C language.
@@ -159,7 +159,7 @@ object Trees {
   case class AddressExpr[T](e: IdentifierExpr[T]) extends Expr
 
   /** Select expression that selects a member from a C struct.
-    * 
+    *
     * @param expr The expression to be selected.
     * @param designator The symbol of the member to select.
     */
@@ -176,14 +176,14 @@ object Trees {
   sealed trait Definition
 
   /** Function definition in C.
-    * 
+    *
     * @param sym The bound symbol of the function.
     * @param _retType
     * @param params
     * @param block
     */
   case class FuncDef(sym: Symbol[FuncDef], _retType: Type, params: List[FuncParam], block: Block) extends Definition, Func
-  
+
   object FuncDef {
     def makeFuncDef(name: String, retType: Type, params: List[FuncParam], body: Block): FuncDef = {
       val res = FuncDef(Symbol(name, null), retType, params, body)
@@ -192,7 +192,7 @@ object Trees {
       res
     }
   }
-  
+
   sealed trait Binding {
     type ThisType <: Binding
     def getSym: Symbol[ThisType]
@@ -203,15 +203,15 @@ object Trees {
     override type ThisType = FuncParam
 
     override def getSym = sym
-    
+
     override def getType = tp
   }
-  
+
   object FuncParam {
     def makeFuncParam(name: String, tp: Type): FuncParam = {
       val res = FuncParam(Symbol(name, null), tp)
       res.sym.dealias = res
-      
+
       res
     }
   }
@@ -232,7 +232,7 @@ object Trees {
   }
 
   case class TypeAliasDef(sym: Symbol[TypeAliasDef], dealias: Type) extends Definition
-  
+
   object TypeAliasDef {
     def makeTypeAliasDef(name: String, dealias: Type): TypeAliasDef = {
       val d: TypeAliasDef = TypeAliasDef(Symbol(name, null), dealias)
@@ -243,7 +243,7 @@ object Trees {
 
   case class StructDef(sym: Symbol[StructDef], members: List[StructMember]) extends Definition {
     def tp: StructType = StructType(sym)
-    
+
     def ensureFind(name: String): StructMember = members find { m => m.sym.name == name } match {
       case None =>
         assert(false, s"can not find $name")
@@ -265,7 +265,7 @@ object Trees {
   }
 
   case class StructMember(sym: Symbol[StructMember], tp: Type, var struct: Symbol[StructDef])
-  
+
   object StructMember {
     def makeStructMember(name: String, tp: Type, structSym: Symbol[StructDef]) = {
       val m = StructMember(Symbol[StructMember](name, null), tp, structSym)

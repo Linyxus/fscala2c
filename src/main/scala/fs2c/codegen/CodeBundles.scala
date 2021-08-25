@@ -5,25 +5,25 @@ import fs2c.ast.c.{ Trees => C }
 import fs2c.ast.Symbol
 
 object CodeBundles {
-  
+
   /** Bundle of C code generated when translating a Featherweight Scala definition or expression.
     */
   trait CodeBundle
-  
+
   trait HasBlock {
     def extractBlock: C.Block
   }
-  
+
   trait ValueBundle extends CodeBundle, HasBlock {
     def getExpr: C.Expr
     def getBlock: C.Block
     override def extractBlock = getBlock
   }
-  
+
   trait LambdaBundle extends ValueBundle
-  
+
   case object NoCode extends CodeBundle
-  
+
   case class RecBundle[T](sym: Symbol[T]) extends ValueBundle {
     override def getExpr = C.IdentifierExpr(sym)
     override def getBlock = Nil
@@ -32,7 +32,7 @@ object CodeBundles {
   case class ClassRecBundle(structSym: Symbol[C.StructDef], initSym: Symbol[C.FuncDef]) extends CodeBundle
 
   /** Bundle of code consisting purely of a expression.
-    * 
+    *
     * Translating simple arithmetic and logical expression, function application and selection
     * may result in [[PureExprBundle]].
     */
@@ -42,7 +42,7 @@ object CodeBundles {
   }
 
   /** Bundle of code consisting of a block of C statements and results a C expression.
-    * 
+    *
     * For example, the following If expression in Scala will result in a [[BlockBundle]].
     * Scala code:
     * ```scala
@@ -75,23 +75,23 @@ object CodeBundles {
   }
 
   /** Bundle of code consisting of a lambda closure.
-    * 
+    *
     * For example, for a local lambda with free variables:
     * ```scala
     * val adder = (i : Int) => n + i
     * ```
     * where `n : Int` is a free variable.
-    * 
+    *
     * It will be translated into a group of C definitions:
     * ```c
     * struct adder_env {
     *   int n;
     * }
-    * 
+    *
     * int adder(struct adder_env *env, int i) {
     *   return env->n + i;
     * }
-    * 
+    *
     * typedef int (*adder_t)(struct adder_env *, int)
     * ```
     * and a block of statements:
@@ -100,14 +100,14 @@ object CodeBundles {
     *   struct func_closure *adder_closure = init_func_closure(adder, env);
     * ```
     * and finally the expression `adder_closure`.
-    * 
+    *
     * To better illustrate the idea of function closures, at call sites of `adder` (maybe outside the scope where
     * `adder` is defined), the generated C code will become:
     * ```c
     * (adder_t*)(adder_closure->func)((struct adder_env *)(adder_closure->env), i)
     * ```
     */
-  case class ClosureBundle(expr: C.Expr, 
+  case class ClosureBundle(expr: C.Expr,
                            block: C.Block,
                            envStructDef: C.StructDef,
                            funcDef: C.FuncDef,
@@ -117,7 +117,7 @@ object CodeBundles {
   }
 
   /** Code bundle consisting of the C structure definition, related method function definition of a Scala class.
-    * 
+    *
     * A simple example:
     * ```scala
     * class Point(x0 : Int, y0 : Int) {
@@ -138,12 +138,12 @@ object CodeBundles {
     *   int x;
     *   int y;
     * }
-    * 
+    *
     * // init function
     * struct Point *init_Point(int x0, int y0) {
     *   // ...
     * }
-    * 
+    *
     * // lifted local lambda
     * // no env provided, no closure is created, since this lambda have no free variables
     * int Point_distTo_abs(int n) {
@@ -155,7 +155,7 @@ object CodeBundles {
     *   }
     *   return t;
     * }
-    * 
+    *
     * // class method
     * int Point_distTo(struct Point *this, struct Point *that) {
     *   int dx = Point_distTo_abs(that->x - this->x);
@@ -170,12 +170,12 @@ object CodeBundles {
     */
   trait TypeBundle extends CodeBundle {
     def getTp: C.Type
-    
+
     def getDef: Option[C.Definition]
   }
 
   /** A simple type bundle from one-to-one correspondance between Scala and C types.
-    * 
+    *
     * @param tpe Corresponding C type.
     */
   case class SimpleTypeBundle(tpe: C.Type) extends TypeBundle {
@@ -184,7 +184,7 @@ object CodeBundles {
   }
 
   /** A aliased type bundle with C alias type definition to simplify code representation.
-    * 
+    *
     * @param tpe Alias type.
     * @param aliasDef Associated C type alias definition.
     */
@@ -192,7 +192,13 @@ object CodeBundles {
     override def getTp = tpe
     override def getDef = Some(aliasDef)
   }
-  
+
+  /** A bundle for Scala variable definition. It includes the corresponding C variable
+    * definition and a block for initializing the variable.
+    *
+    * @param varDef C variable definition.
+    * @param block C statement block for initializing the variable.
+    */
   case class VariableBundle(varDef: C.VariableDef, block: C.Block) extends CodeBundle, HasBlock {
     override def extractBlock = block
   }
